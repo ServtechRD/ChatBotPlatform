@@ -128,13 +128,10 @@ const LoginPage = ({ onLogin }) => {
             type="submit"
             fullWidth
             variant="contained"
+            color="primary" // 使用 primary color
             sx={{
               mt: 3,
               mb: 2,
-              bgcolor: '#00a86b',
-              '&:hover': {
-                bgcolor: '#008f5b',
-              },
             }}
           >
             登入
