@@ -11,7 +11,10 @@ import {
   ListItemText,
   Box,
   Dialog,
-  IconButton
+  IconButton,
+  Menu,
+  MenuItem as MuiMenuItem,
+  Select
 } from '@mui/material';
 import { 
   Menu as MenuIcon, 
@@ -21,7 +24,6 @@ import {
   Help as HelpIcon,
   Person as UserIcon,
   Close as CloseIcon,
-  Group as GroupIcon,
   Dataset as DatasetIcon,
 } from '@mui/icons-material';
 
@@ -36,7 +38,9 @@ const AppLayout = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(true);
   const [selectedMenuItem, setSelectedMenuItem] = useState('chat');
   const [isChatDialogOpen, setIsChatDialogOpen] = useState(false);
-  const [agentName, setAgentName] = useState('TestAgent'); // 假设这是一个可变的名称
+  const [agentName, setAgentName] = useState('TestAgent');
+  const [workspace, setWorkspace] = useState('Kao'); // 新增: 可變的工作區名稱
+  const [agents, setAgents] = useState(['TestAgent', 'Agent2', 'Agent3']); // 新增: 假設的 AI 助理列表
 
   const MenuItem = ({ icon, label, value }) => (
     <ListItem 
@@ -55,8 +59,6 @@ const AppLayout = () => {
         return <ChatInterface />;
       case 'templateChat':
         return <Typography>模板對話內容</Typography>;
-      case 'aiAssistantMgr':
-        return <AIAssistantManagement />
       case 'aiAssistant':
         return <AIAssistantSettings />;
       case 'knowledgeBase':
@@ -81,12 +83,39 @@ const AppLayout = () => {
             <MenuIcon />
           </IconButton>
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            kao's Workspace
+            {workspace}'s Workspace
           </Typography>
-          <Button color="inherit">
-            {agentName}
+          <Select
+            value={agentName}
+            onChange={(e) => setAgentName(e.target.value)}
+            sx={{ color: 'white', mr: 2 }}
+          >
+            {agents.map((agent) => (
+              <MuiMenuItem key={agent} value={agent}>{agent}</MuiMenuItem>
+            ))}
+          </Select>
+          <Button 
+            color="inherit" 
+            onClick={() => setIsChatDialogOpen(true)}
+            sx={{ 
+              bgcolor: 'secondary.main', 
+              '&:hover': { bgcolor: 'secondary.dark' } 
+            }}
+          >
+            測試AI助理
           </Button>
-          <Button color="inherit" onClick={() => setIsChatDialogOpen(true)} >測試AI助理</Button>
+          <Button 
+            color="inherit" 
+            onClick={() => setSelectedMenuItem('aiAssistantMgr')}
+            sx={{ 
+              ml: 2, 
+              bgcolor: 'warning.main', 
+              color: 'warning.contrastText',
+              '&:hover': { bgcolor: 'warning.dark' } 
+            }}
+          >
+            AI助理管理
+          </Button>
           <IconButton color="inherit">
             <HelpIcon />
           </IconButton>
@@ -114,7 +143,6 @@ const AppLayout = () => {
             <MenuItem icon={<DescriptionIcon />} label="模板對話" value="templateChat" />
             <MenuItem icon={<SettingsIcon />} label="AI引擎設置" value="aiAssistant" />
             <MenuItem icon={<DatasetIcon />} label="知識庫" value="knowledgeBase" />
-            <MenuItem icon={<GroupIcon />} label="AI助理管理" value="aiAssistantMgr" />
           </List>
         </Drawer>
         <Box component="main" sx={{ flexGrow: 1, p: 3, overflow: 'auto' }}>
