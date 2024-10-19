@@ -60,7 +60,7 @@ const AppLayout = () => {
     switch (selectedMenuItem) {
       case 'chat':
         return <ChatInterface />;
-      case 'converConversations':
+      case 'conversations':
         return <ConversationManagement />;
       case 'templateChat':
         return <Typography>模板對話內容</Typography>;
