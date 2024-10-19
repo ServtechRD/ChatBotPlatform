@@ -1,23 +1,23 @@
 import React, { useState } from 'react';
-import { 
-  Button, 
-  AppBar, 
-  Toolbar, 
-  Typography, 
-  Drawer, 
-  List, 
-  ListItem, 
-  ListItemIcon, 
+import {
+  Button,
+  AppBar,
+  Toolbar,
+  Typography,
+  Drawer,
+  List,
+  ListItem,
+  ListItemIcon,
   ListItemText,
   Box,
   Dialog,
   IconButton,
   Menu,
   MenuItem as MuiMenuItem,
-  Select
+  Select,
 } from '@mui/material';
-import { 
-  Menu as MenuIcon, 
+import {
+  Menu as MenuIcon,
   Chat as ChatIcon,
   Description as DescriptionIcon,
   Settings as SettingsIcon,
@@ -33,19 +33,21 @@ import KnowledgeBaseUI from './KnowledgeBaseUI';
 import AIAssistantSettings from './AIAssistantSettings';
 import AIAssistantManagement from './AIAssistantManagement';
 import AccountProfile from './AccountProfile';
+import ConversationManagement from './ConversationManagement';
 
 const AppLayout = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(true);
   const [selectedMenuItem, setSelectedMenuItem] = useState('chat');
   const [isChatDialogOpen, setIsChatDialogOpen] = useState(false);
-  const [isAIManagementDialogOpen, setIsAIManagementDialogOpen] = useState(false);
+  const [isAIManagementDialogOpen, setIsAIManagementDialogOpen] =
+    useState(false);
   const [agentName, setAgentName] = useState('TestAgent');
   const [workspace, setWorkspace] = useState('Kao');
   const [agents, setAgents] = useState(['TestAgent', 'Agent2', 'Agent3']);
 
   const MenuItem = ({ icon, label, value }) => (
-    <ListItem 
-      button 
+    <ListItem
+      button
       selected={selectedMenuItem === value}
       onClick={() => setSelectedMenuItem(value)}
     >
@@ -57,7 +59,9 @@ const AppLayout = () => {
   const renderContent = () => {
     switch (selectedMenuItem) {
       case 'chat':
-        return <ChatInterface />;
+        return <Conver />;
+      case 'conversations':
+        return <ConversationManagement />;
       case 'templateChat':
         return <Typography>模板對話內容</Typography>;
       case 'aiAssistant':
@@ -75,8 +79,8 @@ const AppLayout = () => {
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <AppBar position="static">
         <Toolbar>
-          <IconButton 
-            color="inherit" 
+          <IconButton
+            color="inherit"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
             edge="start"
             sx={{ mr: 2 }}
@@ -86,33 +90,35 @@ const AppLayout = () => {
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
             {workspace}'s Workspace
           </Typography>
-          <Button 
-            color="inherit" 
+          <Button
+            color="inherit"
             onClick={() => setIsAIManagementDialogOpen(true)}
-            sx={{ 
+            sx={{
               mr: 2,
-              bgcolor: 'warning.main', 
+              bgcolor: 'warning.main',
               color: 'warning.contrastText',
-              '&:hover': { bgcolor: 'warning.dark' } 
+              '&:hover': { bgcolor: 'warning.dark' },
             }}
           >
             AI助理管理
           </Button>
           <Select
             value={agentName}
-            onChange={(e) => setAgentName(e.target.value)}
+            onChange={e => setAgentName(e.target.value)}
             sx={{ color: 'white', mr: 2 }}
           >
-            {agents.map((agent) => (
-              <MuiMenuItem key={agent} value={agent}>{agent}</MuiMenuItem>
+            {agents.map(agent => (
+              <MuiMenuItem key={agent} value={agent}>
+                {agent}
+              </MuiMenuItem>
             ))}
           </Select>
-          <Button 
-            color="inherit" 
+          <Button
+            color="inherit"
             onClick={() => setIsChatDialogOpen(true)}
-            sx={{ 
-              bgcolor: 'secondary.main', 
-              '&:hover': { bgcolor: 'secondary.dark' } 
+            sx={{
+              bgcolor: 'secondary.main',
+              '&:hover': { bgcolor: 'secondary.dark' },
             }}
           >
             測試AI助理
@@ -120,17 +126,20 @@ const AppLayout = () => {
           <IconButton color="inherit">
             <HelpIcon />
           </IconButton>
-          <IconButton color="inherit" onClick={() => setSelectedMenuItem('account')}>
+          <IconButton
+            color="inherit"
+            onClick={() => setSelectedMenuItem('account')}
+          >
             <UserIcon />
           </IconButton>
         </Toolbar>
       </AppBar>
       <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
-        <Drawer 
-          variant="persistent" 
-          open={isMenuOpen} 
-          sx={{ 
-            width: 240, 
+        <Drawer
+          variant="persistent"
+          open={isMenuOpen}
+          sx={{
+            width: 240,
             flexShrink: 0,
             '& .MuiDrawer-paper': {
               width: 240,
@@ -140,18 +149,25 @@ const AppLayout = () => {
           }}
         >
           <List>
-            <MenuItem icon={<ChatIcon />} label="對話" value="chat" />
-            <MenuItem icon={<DescriptionIcon />} label="模板對話" value="templateChat" />
-            <MenuItem icon={<SettingsIcon />} label="AI引擎設置" value="aiAssistant" />
-            <MenuItem icon={<DatasetIcon />} label="知識庫" value="knowledgeBase" />
+            <MenuItem icon={<ChatIcon />} label="對話" value="conversations" />
+            <MenuItem
+              icon={<SettingsIcon />}
+              label="AI助理設定"
+              value="aiAssistant"
+            />
+            <MenuItem
+              icon={<DatasetIcon />}
+              label="知識庫"
+              value="knowledgeBase"
+            />
           </List>
         </Drawer>
         <Box component="main" sx={{ flexGrow: 1, p: 3, overflow: 'auto' }}>
           {renderContent()}
         </Box>
       </Box>
-      <Dialog 
-        open={isChatDialogOpen} 
+      <Dialog
+        open={isChatDialogOpen}
         onClose={() => setIsChatDialogOpen(false)}
         fullWidth
         maxWidth="md"
@@ -173,8 +189,8 @@ const AppLayout = () => {
         </AppBar>
         <ChatInterface />
       </Dialog>
-      <Dialog 
-        open={isAIManagementDialogOpen} 
+      <Dialog
+        open={isAIManagementDialogOpen}
         onClose={() => setIsAIManagementDialogOpen(false)}
         fullWidth
         maxWidth="md"
