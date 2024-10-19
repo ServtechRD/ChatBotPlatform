@@ -44,7 +44,7 @@ const Logo = styled('img')({
   marginBottom: 20,
 });
 
-const LoginPage = () => {
+const LoginPage = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);

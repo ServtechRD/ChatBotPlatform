@@ -76,12 +76,6 @@ const AppLayout = ({ token, onLogout, children }) => {
     }
   };
 
-  // 新增 onLogout 函數
-  const onLogout = () => {
-    localStorage.removeItem('token'); // 清除本地存儲的 token
-    navigate('/login'); // 重定向到登錄頁面
-  };
-
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <AppBar position="static">
