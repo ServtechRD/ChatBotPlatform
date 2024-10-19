@@ -25,6 +25,7 @@ import {
   Person as UserIcon,
   Close as CloseIcon,
   Dataset as DatasetIcon,
+  ExitToApp as ExitToAppIcon, //
 } from '@mui/icons-material';
 
 // 导入其他组件
@@ -35,7 +36,7 @@ import AIAssistantManagement from './AIAssistantManagement';
 import AccountProfile from './AccountProfile';
 import ConversationManagement from './ConversationManagement';
 
-const AppLayout = () => {
+const AppLayout = ({ token, onLogout, children }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(true);
   const [selectedMenuItem, setSelectedMenuItem] = useState('chat');
   const [isChatDialogOpen, setIsChatDialogOpen] = useState(false);
@@ -73,6 +74,12 @@ const AppLayout = () => {
       default:
         return <Typography>請選擇一個選項</Typography>;
     }
+  };
+
+  // 新增 onLogout 函數
+  const onLogout = () => {
+    localStorage.removeItem('token'); // 清除本地存儲的 token
+    navigate('/login'); // 重定向到登錄頁面
   };
 
   return (
@@ -131,6 +138,9 @@ const AppLayout = () => {
             onClick={() => setSelectedMenuItem('account')}
           >
             <UserIcon />
+          </IconButton>
+          <IconButton color="inherit" onClick={onLogout}>
+            <ExitToAppIcon />
           </IconButton>
         </Toolbar>
       </AppBar>
