@@ -59,8 +59,8 @@ const AppLayout = () => {
   const renderContent = () => {
     switch (selectedMenuItem) {
       case 'chat':
-        return <Conver />;
-      case 'conversations':
+        return <ChatInterface />;
+      case 'converConversations':
         return <ConversationManagement />;
       case 'templateChat':
         return <Typography>模板對話內容</Typography>;
