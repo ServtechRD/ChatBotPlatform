@@ -38,9 +38,10 @@ const AppLayout = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(true);
   const [selectedMenuItem, setSelectedMenuItem] = useState('chat');
   const [isChatDialogOpen, setIsChatDialogOpen] = useState(false);
+  const [isAIManagementDialogOpen, setIsAIManagementDialogOpen] = useState(false);
   const [agentName, setAgentName] = useState('TestAgent');
-  const [workspace, setWorkspace] = useState('Kao'); // 新增: 可變的工作區名稱
-  const [agents, setAgents] = useState(['TestAgent', 'Agent2', 'Agent3']); // 新增: 假設的 AI 助理列表
+  const [workspace, setWorkspace] = useState('Kao');
+  const [agents, setAgents] = useState(['TestAgent', 'Agent2', 'Agent3']);
 
   const MenuItem = ({ icon, label, value }) => (
     <ListItem 
@@ -85,6 +86,18 @@ const AppLayout = () => {
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
             {workspace}'s Workspace
           </Typography>
+          <Button 
+            color="inherit" 
+            onClick={() => setIsAIManagementDialogOpen(true)}
+            sx={{ 
+              mr: 2,
+              bgcolor: 'warning.main', 
+              color: 'warning.contrastText',
+              '&:hover': { bgcolor: 'warning.dark' } 
+            }}
+          >
+            AI助理管理
+          </Button>
           <Select
             value={agentName}
             onChange={(e) => setAgentName(e.target.value)}
@@ -103,18 +116,6 @@ const AppLayout = () => {
             }}
           >
             測試AI助理
-          </Button>
-          <Button 
-            color="inherit" 
-            onClick={() => setSelectedMenuItem('aiAssistantMgr')}
-            sx={{ 
-              ml: 2, 
-              bgcolor: 'warning.main', 
-              color: 'warning.contrastText',
-              '&:hover': { bgcolor: 'warning.dark' } 
-            }}
-          >
-            AI助理管理
           </Button>
           <IconButton color="inherit">
             <HelpIcon />
@@ -171,6 +172,29 @@ const AppLayout = () => {
           </Toolbar>
         </AppBar>
         <ChatInterface />
+      </Dialog>
+      <Dialog 
+        open={isAIManagementDialogOpen} 
+        onClose={() => setIsAIManagementDialogOpen(false)}
+        fullWidth
+        maxWidth="md"
+      >
+        <AppBar sx={{ position: 'relative' }}>
+          <Toolbar>
+            <IconButton
+              edge="start"
+              color="inherit"
+              onClick={() => setIsAIManagementDialogOpen(false)}
+              aria-label="close"
+            >
+              <CloseIcon />
+            </IconButton>
+            <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
+              AI助理管理
+            </Typography>
+          </Toolbar>
+        </AppBar>
+        <AIAssistantManagement />
       </Dialog>
     </Box>
   );
