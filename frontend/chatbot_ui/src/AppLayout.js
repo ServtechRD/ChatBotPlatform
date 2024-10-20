@@ -108,8 +108,8 @@ const AppLayout = () => {
     };
 
     fetchUserData();
-    setWorkspace(getUserEmail());
-    setAgents(getAssistatns());
+    setWorkspace(ApiService.getUserEmail());
+    setAgents(ApiService.getAssistatns());
   }, [navigate]);
 
   const handleLogout = () => {
