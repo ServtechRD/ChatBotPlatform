@@ -177,6 +177,35 @@ class ApiService {
     }
   }
 
+  async uploadFile(assistantId, formData) {
+    try {
+      const response = await this.axiosInstance.post(
+        `/assistant/${assistantId}/upload`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async uploadUrl(assistantId, url) {
+    try {
+      const response = await this.axiosInstance.post(
+        `/assistant/${assistantId}/upload`,
+        { url }
+      );
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
   // 創建新的知識庫
   async createKnowledgeBase(knowledgeBaseData) {
     try {
