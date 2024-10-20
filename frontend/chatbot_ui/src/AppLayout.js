@@ -52,6 +52,7 @@ const AppLayout = () => {
     useState(false);
   const [agentName, setAgentName] = useState('TestAgent');
   const [currentAgent, setCurrentAgent] = useState(null);
+  const [currentAgentIndex, setCurrentAgentIndex] = userState(0);
 
   const [workspace, setWorkspace] = useState('Kao');
   const [agents, setAgents] = useState([
@@ -108,8 +109,8 @@ const AppLayout = () => {
     };
 
     fetchUserData();
-    setWorkspace(ApiService.getUserEmail() | 'default');
-    // setAgents(ApiService.getAssistatns() | []);
+    setWorkspace(ApiService.getUserEmail() || 'default');
+    setAgents(ApiService.getAssistatns() || []);
   }, [navigate]);
 
   const handleLogout = () => {
@@ -118,6 +119,7 @@ const AppLayout = () => {
   };
 
   const handleSelectAgent = index => {
+    setCurrentAgentIndex(index);
     const agent = agents[index];
     setCurrentAgent(agent);
   };
@@ -165,7 +167,7 @@ const AppLayout = () => {
             AI助理管理
           </Button>
           <Select
-            value={agentName}
+            value={currentAgentIndex}
             onChange={e => handleSelectAgent(e.target.value)}
             sx={{ color: 'white', mr: 2 }}
           >
