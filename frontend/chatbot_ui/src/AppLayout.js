@@ -111,6 +111,9 @@ const AppLayout = () => {
     fetchUserData();
     setWorkspace(ApiService.getUserEmail() || 'default');
     setAgents(ApiService.getAssistatns() || []);
+    if (agents.length > 0) {
+      setCurrentAgent(agent[0]);
+    }
   }, [navigate]);
 
   const handleLogout = () => {
