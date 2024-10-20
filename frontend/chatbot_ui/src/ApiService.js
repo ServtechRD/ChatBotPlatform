@@ -61,9 +61,9 @@ class ApiService {
   }
 
   getUserId() {
-    const userInfo = localStorage.getItem('userInfo');
-    if (userInfo) {
-      return JSON.parse(userInfo).user_id;
+    const userData = localStorage.getItem('userData');
+    if (userData) {
+      return JSON.parse(userData).user_id;
     }
     return null;
   }
