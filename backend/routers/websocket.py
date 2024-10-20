@@ -57,6 +57,8 @@ async def websocket_endpoint(
             # 接收客户的消息
             data = await websocket.receive_text()
 
+            print("recv :"+data)
+
             # 将收到的消息保存为对话记录
             new_message = Message(
                 conversation_id=conversation.conversation_id,
@@ -67,7 +69,7 @@ async def websocket_endpoint(
             db.commit()
 
             # 使用 LLM 处理消息，生成智能回复
-            response = await process_message_through_llm(websocket, assistant_uuid, customer_id)
+            response = await process_message_through_llm(data, assistant_uuid, customer_id)
 
             # 保存助理的回复消息
             assistant_reply = Message(
