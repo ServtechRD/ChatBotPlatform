@@ -1,20 +1,26 @@
 from typing import List
-
+from jose import JWTError, jwt
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
 from sqlalchemy.orm import Session
 from models.database import get_db
 from models.models import AIAssistant, User
 from services.vector_service import process_and_store_file
+from services.auth_service import verify_token
 from models.schemas import AssistantCreate, Assistant
 
 router = APIRouter()
 
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+
 
 # 创建助理
 @router.post("/assistant/create")
-def create_assistant(assistant_data: AssistantCreate, db: Session = Depends(get_db)):
+def create_assistant(assistant_data: AssistantCreate, token: str = Depends(oauth2_scheme),
+                     db: Session = Depends(get_db)):
+
+    user_id = verify_token(token)
     # 验证用户是否存在
-    user = db.query(User).filter(User.user_id == assistant_data.owner_id).first()
+    user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -22,7 +28,7 @@ def create_assistant(assistant_data: AssistantCreate, db: Session = Depends(get_
     new_assistant = AIAssistant(
         name=assistant_data.name,
         description=assistant_data.description,
-        owner_id=user.user_id
+        owner_id=user_id
     )
     db.add(new_assistant)
     db.commit()
