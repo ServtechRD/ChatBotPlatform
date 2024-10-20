@@ -1,6 +1,6 @@
 from langchain.chains import RetrievalQA
 from langchain.llms import OpenAI
-from app.services.vector_service import get_vector_store
+from services.vector_service import get_vector_store
 from langchain.schema import Document
 
 
