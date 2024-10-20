@@ -3,6 +3,7 @@ from langchain.vectorstores import FAISS
 from langchain.document_loaders import TextLoader, PyPDFLoader, UnstructuredWordDocumentLoader
 import os
 import faiss
+import pickle
 from sqlalchemy.orm import Session
 from fastapi import UploadFile
 from dotenv import load_dotenv
@@ -23,16 +24,42 @@ def save_vector_store(assistant_id: int, vector_store):
         os.makedirs("./vector_stores")
     faiss.write_index(vector_store.index, save_path)
 
+    # 保存 docstore 和 index_to_docstore_id
+    metadata_path = f"./vector_stores/assistant_{assistant_id}_metadata.pkl"
+    with open(metadata_path, "wb") as f:
+        metadata = {
+            "docstore": vector_store.docstore,
+            "index_to_docstore_id": vector_store.index_to_docstore_id
+        }
+        pickle.dump(metadata, f)
+
 def load_vector_store(assistant_id: int):
     load_path = f"./vector_stores/assistant_{assistant_id}.index"
-    if os.path.exists(load_path):
+    metadata_path = f"./vector_stores/assistant_{assistant_id}_metadata.pkl"
+
+    if os.path.exists(load_path) and os.path.exists(metadata_path):
         # 从磁盘加载 FAISS 索引
         index = faiss.read_index(load_path)
-        embeddings = OpenAIEmbeddings(openai_api_key=api_key)  # 重新初始化 OpenAIEmbeddings
-        vector_store[assistant_id] = FAISS(embeddings.embed_query, index)
+        embeddings = OpenAIEmbeddings()  # 重新初始化 OpenAIEmbeddings
+
+        # 加载 docstore 和 index_to_docstore_id
+        with open(metadata_path, "rb") as f:
+            metadata = pickle.load(f)
+            docstore = metadata["docstore"]
+            index_to_docstore_id = metadata["index_to_docstore_id"]
+
+        # 使用 from_index 方法来加载已存在的 FAISS 索引
+        vector_store[assistant_id] = FAISS(
+            index=index,
+            docstore=docstore,
+            index_to_docstore_id=index_to_docstore_id,
+            embedding_function=embeddings.embed_query
+        )
+
         return vector_store[assistant_id]
     else:
         raise ValueError(f"Vector store for assistant {assistant_id} is not initialized.")
+
 
 # 根据文件类型选择加载器
 def get_loader(file_path: str, file_type: str):
