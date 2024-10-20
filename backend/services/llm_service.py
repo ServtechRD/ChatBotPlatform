@@ -1,5 +1,5 @@
 from langchain.chains import RetrievalQA
-from langchain.llms import OpenAI
+from langchain.chat_models import ChatOpenAI
 from services.vector_service import get_vector_store
 from langchain.schema import Document
 #from langchain.chains.combine_documents import StuffDocumentsChain
@@ -39,7 +39,7 @@ async def process_message_through_llm(data, assistant_uuid, customer_unique_id):
 
     print("create llm")
     # 利用 OpenAI GPT 生成基于检索结果的回复
-    llm = OpenAI(openai_api_key=api_key, model="gpt-3.5-turbo-16k")
+    llm = ChatOpenAI(openai_api_key=api_key, model="gpt-3.5-turbo-16k")
 
     # 使用 StuffDocumentsChain 作为文档组合链
     #combine_documents_chain = StuffDocumentsChain(llm=llm)
