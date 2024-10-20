@@ -110,9 +110,10 @@ const AppLayout = () => {
 
     fetchUserData();
     setWorkspace(ApiService.getUserEmail() || 'default');
-    setAgents(ApiService.getAssistatns() || []);
-    if (agents.length > 0) {
-      setCurrentAgent(agents[0]);
+    let alreadyAgents = ApiService.getAssistatns() || [];
+    setAgents(alreadyAgents);
+    if (alreadyAgents.length > 0) {
+      setCurrentAgent(alreadyAgents[0]);
     }
   }, [navigate]);
 
