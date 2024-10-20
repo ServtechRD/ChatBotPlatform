@@ -29,6 +29,7 @@ const ChatInterface = ({ assistantid, assistantname }) => {
   const customerIdRef = useRef(uuidv4()); // 生成随机的 customer_id
 
   useEffect(() => {
+    console.log('name  = ' + assistantname);
     // 建立 WebSocket 连接
     socketRef.current = new WebSocket(
       `ws://192.168.1.234:36100/ws/assistant/${assistantid}/${customerIdRef.current}`
@@ -69,7 +70,7 @@ const ChatInterface = ({ assistantid, assistantname }) => {
         socketRef.current.close();
       }
     };
-  }, [assistantid]);
+  }, [assistantid, assistantname]);
 
   const handleSendMessage = () => {
     if (inputMessage.trim() && isConnected) {
