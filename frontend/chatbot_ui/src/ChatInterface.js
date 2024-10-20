@@ -23,6 +23,8 @@ const ChatInterface = ({ assistantid, assistantname }) => {
   ]);
   const [inputMessage, setInputMessage] = useState('');
   const [isConnected, setIsConnected] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
+
   const socketRef = useRef(null);
   const customerIdRef = useRef(uuidv4()); // 生成随机的 customer_id
 
