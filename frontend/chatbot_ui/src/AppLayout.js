@@ -52,7 +52,7 @@ const AppLayout = () => {
     useState(false);
   const [agentName, setAgentName] = useState('TestAgent');
   const [currentAgent, setCurrentAgent] = useState(null);
-  const [currentAgentIndex, setCurrentAgentIndex] = userState(0);
+  const [currentAgentIndex, setCurrentAgentIndex] = useState(0);
 
   const [workspace, setWorkspace] = useState('Kao');
   const [agents, setAgents] = useState([
