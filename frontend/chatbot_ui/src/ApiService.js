@@ -77,19 +77,20 @@ class ApiService {
     return null;
   }
 
-  // 獲取用assistants
-  getAssistatns() {
+  // 獲取用戶的assistants
+  getUserAssistants() {
     const userData = localStorage.getItem('userData');
     if (userData) {
-      return JSON.parse(userData).email;
+      return JSON.parse(userData).assistants;
     }
     return null;
   }
-  // 獲取用戶的assistants
-  getUserAssistants() {
+
+  // 獲取用assistants
+  getAssistatns() {
     const assistantsData = localStorage.getItem('assistantsData');
     if (assistantsData) {
-      return JSON.parse(assistantsData).assistants;
+      return JSON.parse(assistantsData);
     }
     return null;
   }
