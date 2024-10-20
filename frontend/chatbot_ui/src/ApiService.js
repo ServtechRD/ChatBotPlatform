@@ -43,10 +43,10 @@ class ApiService {
   async login(email, password) {
     console.log('call login');
     try {
-      const response = await this.axiosInstance.post('/auth/login', {
-        email,
-        password,
-      });
+      const formData = new URLSearchParams();
+      formData.append('username', email); // 替换为用户输入的邮箱
+      formData.append('password', password); // 替换为用户输入的密码
+      const response = await this.axiosInstance.post('/auth/login', formData);
       if (response.data.token) {
         localStorage.setItem('token', response.data.token);
       }
