@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Button,
   AppBar,
@@ -38,7 +38,7 @@ import AccountProfile from './AccountProfile';
 import ConversationManagement from './ConversationManagement';
 
 // 导入 ApiService
-import ApiService from './path/to/ApiService';
+import ApiService from './ApiService';
 
 const AppLayout = ({ token, onLogout, children }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(true);

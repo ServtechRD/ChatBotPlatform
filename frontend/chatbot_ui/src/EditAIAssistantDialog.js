@@ -21,6 +21,8 @@ import {
   ContentCopy as ContentCopyIcon,
 } from '@mui/icons-material';
 
+import ApiService from './ApiService';
+
 const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
   const [description, setDescription] = useState(
     aiAssistant?.description || ''
