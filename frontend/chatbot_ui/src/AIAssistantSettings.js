@@ -12,6 +12,17 @@ import {
   Box,
 } from '@mui/material';
 
+import ApiService from './ApiService';
+
+// 獲取用戶ID
+const userId = ApiService.getUserId();
+
+// 獲取用戶郵箱
+const userEmail = ApiService.getUserEmail();
+
+// 獲取用戶的assistants
+const userAssistants = ApiService.getUserAssistants();
+
 const AIAssistantSettings = () => {
   return (
     <Box sx={{ p: 6, maxWidth: '4xl', mx: 'auto' }}>
@@ -21,8 +32,6 @@ const AIAssistantSettings = () => {
 
       <Box sx={{ display: 'flex', gap: 2, mb: 6 }}>
         <Button variant="contained">基本設定</Button>
-        <Button variant="outlined">設計風格</Button>
-        <Button variant="outlined">進階設定</Button>
       </Box>
 
       <Card>
@@ -60,6 +69,7 @@ const AIAssistantSettings = () => {
               </Typography>
               <Select fullWidth defaultValue="gpt3.5">
                 <MenuItem value="gpt3.5">GPT-3.5 Turbo</MenuItem>
+                <MenuItem value="gpt3.5">GPT-4o</MenuItem>
               </Select>
               <Typography variant="caption" color="text.secondary" mt={1}>
                 *GPT4.0 以上的售更高效能的 LLM 需額外向營運申請購買

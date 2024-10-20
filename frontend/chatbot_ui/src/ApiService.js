@@ -77,11 +77,19 @@ class ApiService {
     return null;
   }
 
-  // 獲取用戶的assistants
-  getUserAssistants() {
+  // 獲取用assistants
+  getAssistatns() {
     const userData = localStorage.getItem('userData');
     if (userData) {
-      return JSON.parse(userData).assistants;
+      return JSON.parse(userData).email;
+    }
+    return null;
+  }
+  // 獲取用戶的assistants
+  getUserAssistants() {
+    const assistantsData = localStorage.getItem('assistantsData');
+    if (assistantsData) {
+      return JSON.parse(assistantsData).assistants;
     }
     return null;
   }
@@ -150,7 +158,7 @@ class ApiService {
         `/user/${user_id}/assistants`
       );
       const assistants = response.data;
-
+      localStorage.setItem('assistantsData', JSON.stringify(assistants));
       return assistants;
     } catch (error) {
       console.error('Failed to fetch user data:', error);

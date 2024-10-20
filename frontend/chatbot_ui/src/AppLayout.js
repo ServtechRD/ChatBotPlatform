@@ -16,6 +16,7 @@ import {
   MenuItem as MuiMenuItem,
   Select,
   CircularProgress,
+  getListItemAvatarUtilityClass,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -50,8 +51,14 @@ const AppLayout = () => {
   const [isAIManagementDialogOpen, setIsAIManagementDialogOpen] =
     useState(false);
   const [agentName, setAgentName] = useState('TestAgent');
+  const [currentAgent, setCurrentAgent] = useState(null);
+
   const [workspace, setWorkspace] = useState('Kao');
-  const [agents, setAgents] = useState(['TestAgent', 'Agent2', 'Agent3']);
+  const [agents, setAgents] = useState([
+    { name: 'TestAgent' },
+    { name: 'Agent2' },
+    { name: 'Agent3' },
+  ]);
 
   const [userData, setUserData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -101,11 +108,18 @@ const AppLayout = () => {
     };
 
     fetchUserData();
+    setWorkspace(getUserEmail());
+    setAgents(getAssistatns());
   }, [navigate]);
 
   const handleLogout = () => {
     ApiService.logout();
     navigate('/login');
+  };
+
+  const handleSelectAgent = index => {
+    const agent = agents[index];
+    setCurrentAgent(agent);
   };
 
   if (isLoading) {
@@ -152,12 +166,12 @@ const AppLayout = () => {
           </Button>
           <Select
             value={agentName}
-            onChange={e => setAgentName(e.target.value)}
+            onChange={e => handleSelectAgent(e.target.value)}
             sx={{ color: 'white', mr: 2 }}
           >
-            {agents.map(agent => (
-              <MuiMenuItem key={agent} value={agent}>
-                {agent}
+            {agents.map((agent, index) => (
+              <MuiMenuItem key={agent.name} value={index}>
+                {agent.name}
               </MuiMenuItem>
             ))}
           </Select>
