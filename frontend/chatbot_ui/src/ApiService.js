@@ -46,7 +46,11 @@ class ApiService {
       const formData = new URLSearchParams();
       formData.append('username', email); // 替换为用户输入的邮箱
       formData.append('password', password); // 替换为用户输入的密码
-      const response = await this.axiosInstance.post('/auth/login', formData);
+      const response = await this.axiosInstance.post('/auth/login', formData, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
       if (response.data.token) {
         localStorage.setItem('token', response.data.token);
       }
