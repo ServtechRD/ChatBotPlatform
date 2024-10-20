@@ -2,6 +2,7 @@ from langchain.chains import RetrievalQA
 from langchain.llms import OpenAI
 from services.vector_service import get_vector_store
 from langchain.schema import Document
+from langchain.chains.combine_documents import StuffDocumentsChain
 
 from dotenv import load_dotenv
 import os
@@ -19,8 +20,11 @@ async def process_message_through_llm(websocket, assistant_uuid, customer_unique
         data = await websocket.receive_text()
 
         # 利用客户输入生成嵌入向量进行检索
-        retriever = vector_store.as_retriever()
+        retriever = vector_store[assistant_uuid].as_retriever()
+
         relevant_docs = retriever.get_relevant_documents(data)
+
+
 
         # 打印检索到的文档内容
         for doc in relevant_docs:
@@ -28,7 +32,17 @@ async def process_message_through_llm(websocket, assistant_uuid, customer_unique
 
         # 利用 OpenAI GPT 生成基于检索结果的回复
         llm = OpenAI(openai_api_key=api_key)
-        qa_chain = RetrievalQA(llm=llm, retriever=retriever)
+
+        # 使用 StuffDocumentsChain 作为文档组合链
+        combine_documents_chain = StuffDocumentsChain(llm=llm)
+
+        #qa_chain = RetrievalQA(llm=llm, retriever=retriever)
+
+        # 初始化 RetrievalQA
+        qa_chain = RetrievalQA(
+            combine_documents_chain=combine_documents_chain,
+            retriever=retriever
+        )
 
         # 通过 LLM 处理客户消息，生成回复
         response = qa_chain.run(data)
