@@ -39,7 +39,7 @@ async def process_message_through_llm(data, assistant_uuid, customer_unique_id):
 
     print("create llm")
     # 利用 OpenAI GPT 生成基于检索结果的回复
-    llm = OpenAI(openai_api_key=api_key)
+    llm = OpenAI(openai_api_key=api_key, max_tokens=3000)
 
     # 使用 StuffDocumentsChain 作为文档组合链
     #combine_documents_chain = StuffDocumentsChain(llm=llm)
@@ -53,7 +53,7 @@ async def process_message_through_llm(data, assistant_uuid, customer_unique_id):
         llm=llm,
         chain_type="stuff",  # 这是最简单的文档组合方式
         retriever=retriever,
-        max_tokens_limit=3000  # 限制文档和生成回复的最大 tokens 数
+
     )
 
     print("ask llm with data and qachain")
