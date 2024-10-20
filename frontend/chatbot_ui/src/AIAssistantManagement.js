@@ -49,7 +49,7 @@ const AIAssistantManagement = () => {
     };
 
     fetchAssistants();
-  }, [assistants]);
+  }, []);
 
   const handleStatusChange = id => {
     setAssistants(
@@ -125,7 +125,6 @@ const AIAssistantManagement = () => {
             <TableRow>
               <TableCell>AI助理名稱</TableCell>
               <TableCell align="center">狀態</TableCell>
-              <TableCell align="center">未讀</TableCell>
               <TableCell align="right">操作</TableCell>
             </TableRow>
           </TableHead>
@@ -145,7 +144,6 @@ const AIAssistantManagement = () => {
                     color="primary"
                   />
                 </TableCell>
-                <TableCell align="center">{assistant.unread}</TableCell>
                 <TableCell align="right">
                   <IconButton size="small">
                     <LinkIcon />
@@ -155,9 +153,6 @@ const AIAssistantManagement = () => {
                     onClick={() => handleOpenDialog(assistant)}
                   >
                     <EditIcon />
-                  </IconButton>
-                  <IconButton size="small">
-                    <MoreVertIcon />
                   </IconButton>
                 </TableCell>
               </TableRow>
