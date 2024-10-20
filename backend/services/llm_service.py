@@ -24,6 +24,7 @@ async def process_message_through_llm(websocket, assistant_uuid, customer_unique
     while True:
         # 从 WebSocket 接收客户的消息
         data = await websocket.receive_text()
+        print("recv " + data)
 
         # 利用客户输入生成嵌入向量进行检索
         retriever = vector_store.as_retriever()  # 调用 .as_retriever() 来获取检索器
