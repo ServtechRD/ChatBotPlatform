@@ -20,7 +20,8 @@ async def process_message_through_llm(websocket, assistant_uuid, customer_unique
         data = await websocket.receive_text()
 
         # 利用客户输入生成嵌入向量进行检索
-        retriever = vector_store[assistant_uuid].as_retriever()
+        faiss_store = vector_store[assistant_uuid]  # 获取对应的 FAISS 向量存储
+        retriever = faiss_store.as_retriever()  # 调用 .as_retriever() 来获取检索器
 
         relevant_docs = retriever.get_relevant_documents(data)
 
