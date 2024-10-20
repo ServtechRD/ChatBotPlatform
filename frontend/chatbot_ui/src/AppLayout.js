@@ -259,7 +259,7 @@ const AppLayout = () => {
           </Toolbar>
         </AppBar>
         {currentAgent && (
-          <ChatInterface assistantUuid={currentAgent.assistant_id} />
+          <ChatInterface assistantid={currentAgent.assistant_id} />
         )}
       </Dialog>
       <Dialog
