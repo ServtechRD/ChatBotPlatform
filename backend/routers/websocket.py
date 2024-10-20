@@ -67,7 +67,8 @@ async def websocket_endpoint(
             )
             db.add(new_message)
             db.commit()
-
+            # 開始思考
+            await manager.send_message("@@@", assistant_uuid, customer_id)
             # 使用 LLM 处理消息，生成智能回复
             response = await process_message_through_llm(data, assistant_uuid, customer_id)
 
@@ -79,7 +80,8 @@ async def websocket_endpoint(
             )
             db.add(assistant_reply)
             db.commit()
-
+            # 停止思考
+            await manager.send_message("###", assistant_uuid, customer_id)
             # 将助理回复发送给客户
             await manager.send_message(response, assistant_uuid, customer_id)
 

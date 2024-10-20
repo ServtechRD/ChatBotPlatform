@@ -9,6 +9,7 @@ import {
   Button,
   Paper,
   Container,
+  CircularProgress,
 } from '@mui/material';
 import {
   MoreVert as MoreVertIcon,
@@ -16,7 +17,7 @@ import {
 } from '@mui/icons-material';
 import { v4 as uuidv4 } from 'uuid'; // 请确保安装了 uuid 库
 
-const ChatInterface = ({ assistantid }) => {
+const ChatInterface = ({ assistantid, assistantname }) => {
   const [messages, setMessages] = useState([
     { id: 1, text: 'Welcome!', isBot: true },
   ]);
@@ -37,11 +38,22 @@ const ChatInterface = ({ assistantid }) => {
     };
 
     socketRef.current.onmessage = event => {
-      const assistantReply = event.data;
+      /*const assistantReply = event.data;
       setMessages(prevMessages => [
         ...prevMessages,
         { id: Date.now(), text: assistantReply, isBot: true },
-      ]);
+      ]);*/
+      const message = event.data;
+      if (message === '@@@') {
+        setIsThinking(true);
+      } else if (message === '###') {
+        setIsThinking(false);
+      } else {
+        setMessages(prevMessages => [
+          ...prevMessages,
+          { id: Date.now(), text: message, isBot: true },
+        ]);
+      }
     };
 
     socketRef.current.onclose = () => {
@@ -97,7 +109,7 @@ const ChatInterface = ({ assistantid }) => {
               }}
             />
             <Typography variant="h6" component="div">
-              TestAgent
+              {assistantname}
             </Typography>
           </Box>
           <IconButton color="inherit">
@@ -129,6 +141,17 @@ const ChatInterface = ({ assistantid }) => {
             </Paper>
           </Box>
         ))}
+
+        {isThinking && (
+          <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 2 }}>
+            <Paper elevation={1} sx={{ p: 1, bgcolor: 'white' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <CircularProgress size={20} sx={{ mr: 1 }} />
+                <Typography variant="body1">思考中...</Typography>
+              </Box>
+            </Paper>
+          </Box>
+        )}
       </Box>
 
       {/* Input Area */}
