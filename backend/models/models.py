@@ -9,8 +9,8 @@ class User(Base):
     __tablename__ = "users"
 
     user_id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True, nullable=False)
-    password = Column(String, nullable=False)
+    email = Column(String(255), unique=True, index=True, nullable=False)
+    password = Column(String(100), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # 一个用户可以拥有多个助理
@@ -21,7 +21,7 @@ class AIAssistant(Base):
     __tablename__ = "assistants"
 
     assistant_id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)
+    name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     status = Column(Boolean, default=True)  # 用于表示助理是否启用
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -39,9 +39,9 @@ class Conversation(Base):
 
     conversation_id = Column(Integer, primary_key=True, index=True)
     assistant_id = Column(Integer, ForeignKey("assistants.assistant_id"), nullable=False)
-    customer_id = Column(String, nullable=False)  # 存储客户唯一ID
-    customer_name = Column(String, nullable=True)
-    customer_email = Column(String, nullable=True)
+    customer_id = Column(String(255), nullable=False)  # 存储客户唯一ID
+    customer_name = Column(String(255), nullable=True)
+    customer_email = Column(String(255), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # 关联到助理
@@ -56,7 +56,7 @@ class Message(Base):
 
     message_id = Column(Integer, primary_key=True, index=True)
     conversation_id = Column(Integer, ForeignKey("conversations.conversation_id"), nullable=False)
-    sender = Column(String, nullable=False)  # 记录是谁发送的，可能是“客户”或“助理”
+    sender = Column(String(255), nullable=False)  # 记录是谁发送的，可能是“客户”或“助理”
     content = Column(Text, nullable=False)
     timestamp = Column(DateTime, default=datetime.utcnow)
 
