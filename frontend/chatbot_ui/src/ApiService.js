@@ -145,10 +145,13 @@ class ApiService {
   // 獲取用戶資料
   async fetchAssistants() {
     try {
-      const response = await this.axiosInstance.get('/users/me');
-      const userData = response.data;
-      localStorage.setItem('userData', JSON.stringify(userData));
-      return userData;
+      const user_id = this.getUserId();
+      const response = await this.axiosInstance.get(
+        `/user/${user_id}/assistants`
+      );
+      const assistants = response.data;
+
+      return assistants;
     } catch (error) {
       console.error('Failed to fetch user data:', error);
       throw error;

@@ -4,7 +4,6 @@ from langchain.document_loaders import TextLoader, PyPDFLoader, UnstructuredWord
 import os
 from sqlalchemy.orm import Session
 from fastapi import UploadFile
-from models.models import AIAssistant
 
 # 用于获取向量存储
 vector_store = {}
