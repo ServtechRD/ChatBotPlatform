@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -28,6 +29,7 @@ const Logo = styled('img')({
 });
 
 const LoginPage = ({ onLogin }) => {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -40,6 +42,7 @@ const LoginPage = ({ onLogin }) => {
     try {
       const response = await ApiService.login(email, password);
       onLogin(response.access_token);
+      navigate('/');
     } catch (error) {
       alert('登入失敗，請檢查您的輸入。');
     }

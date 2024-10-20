@@ -1,39 +1,66 @@
 import React, { useState, useEffect } from 'react';
+import {
+  BrowserRouter as Router,
+  Route,
+  Routes,
+  Navigate,
+} from 'react-router-dom';
 import AppLayout from './AppLayout';
 import LoginPage from './LoginPage';
 import ConversationManagement from './ConversationManagement';
 
 function App() {
   const [token, setToken] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // 在組件掛載時檢查本地存儲中是否有 token
-    const storedToken = localStorage.getItem('token');
-    if (storedToken) {
-      setToken(storedToken);
-    }
-  }, []);
+    const checkToken = async () => {
+      if (token) {
+        try {
+          await ApiService.fetchUserData(); // 验证 token 是否有效
+          setIsLoading(false);
+        } catch (error) {
+          console.error('Token invalid:', error);
+          setToken(null);
+          localStorage.removeItem('token');
+          setIsLoading(false);
+        }
+      } else {
+        setIsLoading(false);
+      }
+    };
+
+    checkToken();
+  }, [token]);
 
   const handleLogin = newToken => {
-    // 登入成功後設置 token
     localStorage.setItem('token', newToken);
     setToken(newToken);
   };
 
-  const handleLogout = () => {
-    // 登出時清除 token
-    localStorage.removeItem('token');
-    setToken(null);
-  };
-
-  if (!token) {
-    return <LoginPage onLogin={handleLogin} />;
+  if (isLoading) {
+    return <div>Loading...</div>; // 或者使用一个加载指示器组件
   }
 
   return (
-    <AppLayout token={token} onLogout={handleLogout}>
-      <ConversationManagement />
-    </AppLayout>
+    <Router>
+      <Routes>
+        <Route
+          path="/login"
+          element={
+            !token ? (
+              <LoginPage onLogin={handleLogin} />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+        <Route
+          path="/*"
+          element={token ? <AppLayout /> : <Navigate to="/login" replace />}
+        />
+      </Routes>
+    </Router>
   );
 }
 

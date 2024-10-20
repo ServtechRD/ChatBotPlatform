@@ -41,7 +41,7 @@ import ConversationManagement from './ConversationManagement';
 // 导入 ApiService
 import ApiService from './ApiService';
 
-const AppLayout = ({ token, onLogout, children }) => {
+const AppLayout = () => {
   const navigate = useNavigate();
 
   const [isMenuOpen, setIsMenuOpen] = useState(true);
@@ -102,6 +102,11 @@ const AppLayout = ({ token, onLogout, children }) => {
 
     fetchUserData();
   }, [navigate]);
+
+  const handleLogout = () => {
+    ApiService.logout();
+    navigate('/login');
+  };
 
   if (isLoading) {
     return (
@@ -175,7 +180,7 @@ const AppLayout = ({ token, onLogout, children }) => {
           >
             <UserIcon />
           </IconButton>
-          <IconButton color="inherit" onClick={onLogout}>
+          <IconButton color="inherit" onClick={handleLogout}>
             <ExitToAppIcon />
           </IconButton>
         </Toolbar>
