@@ -2,7 +2,7 @@ from langchain.chains import RetrievalQA
 from langchain.llms import OpenAI
 from services.vector_service import get_vector_store
 from langchain.schema import Document
-from langchain.chains.combine_documents import StuffDocumentsChain
+#from langchain.chains.combine_documents import StuffDocumentsChain
 
 from dotenv import load_dotenv
 import os
@@ -34,13 +34,14 @@ async def process_message_through_llm(websocket, assistant_uuid, customer_unique
         llm = OpenAI(openai_api_key=api_key)
 
         # 使用 StuffDocumentsChain 作为文档组合链
-        combine_documents_chain = StuffDocumentsChain(llm=llm)
+        #combine_documents_chain = StuffDocumentsChain(llm=llm)
 
         #qa_chain = RetrievalQA(llm=llm, retriever=retriever)
 
-        # 初始化 RetrievalQA
-        qa_chain = RetrievalQA(
-            combine_documents_chain=combine_documents_chain,
+        # 通过 `RetrievalQA.from_chain_type` 方法初始化
+        qa_chain = RetrievalQA.from_chain_type(
+            llm=llm,
+            chain_type="stuff",  # 这是最简单的文档组合方式
             retriever=retriever
         )
 
