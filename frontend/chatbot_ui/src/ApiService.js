@@ -43,7 +43,7 @@ class ApiService {
   async login(email, password) {
     console.log('call login');
     try {
-      const response = await this.axiosInstance.post('/login', {
+      const response = await this.axiosInstance.post('/auth/login', {
         email,
         password,
       });
@@ -59,7 +59,7 @@ class ApiService {
   // 註冊方法
   async register(email, password) {
     try {
-      const response = await this.axiosInstance.post('/register', {
+      const response = await this.axiosInstance.post('/auth/register', {
         email,
         password,
       });
