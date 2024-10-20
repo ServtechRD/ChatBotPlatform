@@ -21,6 +21,7 @@ import {
   ViewList as ListViewIcon,
 } from '@mui/icons-material';
 import EditAIAssistantDialog from './EditAIAssistantDialog'; // 确保导入这个组件
+import ApiService from './ApiService';
 
 const AIAssistantManagement = () => {
   const [assistants, setAssistants] = useState([

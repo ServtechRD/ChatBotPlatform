@@ -41,6 +41,8 @@ import ConversationManagement from './ConversationManagement';
 import ApiService from './ApiService';
 
 const AppLayout = ({ token, onLogout, children }) => {
+  const navigate = useNavigate();
+
   const [isMenuOpen, setIsMenuOpen] = useState(true);
   const [selectedMenuItem, setSelectedMenuItem] = useState('chat');
   const [isChatDialogOpen, setIsChatDialogOpen] = useState(false);
