@@ -28,8 +28,8 @@ def load_vector_store(assistant_id: int):
     if os.path.exists(load_path):
         # 从磁盘加载 FAISS 索引
         index = faiss.read_index(load_path)
-        embeddings = OpenAIEmbeddings()  # 重新初始化 OpenAIEmbeddings
-        vector_store[assistant_id] = FAISS(embedding=embeddings, index=index)
+        embeddings = OpenAIEmbeddings(openai_api_key=api_key)  # 重新初始化 OpenAIEmbeddings
+        vector_store[assistant_id] = FAISS(embeddings.embed_query, index)
         return vector_store[assistant_id]
     else:
         raise ValueError(f"Vector store for assistant {assistant_id} is not initialized.")
