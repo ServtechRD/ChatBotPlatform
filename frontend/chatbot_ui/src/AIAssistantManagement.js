@@ -11,14 +11,14 @@ import {
   IconButton,
   Typography,
   Switch,
-  Box
+  Box,
 } from '@mui/material';
 import {
   Edit as EditIcon,
   Link as LinkIcon,
   MoreVert as MoreVertIcon,
   ViewModule as GridViewIcon,
-  ViewList as ListViewIcon
+  ViewList as ListViewIcon,
 } from '@mui/icons-material';
 import EditAIAssistantDialog from './EditAIAssistantDialog'; // 确保导入这个组件
 
@@ -27,19 +27,37 @@ const AIAssistantManagement = () => {
     {
       id: 1,
       name: 'TestAgent',
-      description: 'DO:Be friendly and proactive in helping users resolve their issues. Use casual language and avoid repeating the same sentences. DON\'T: Provide generic, unhelpf...',
+      description:
+        "DO:Be friendly and proactive in helping users resolve their issues. Use casual language and avoid repeating the same sentences. DON'T: Provide generic, unhelpf...",
       status: true,
-      unread: 0
-    }
+      unread: 0,
+    },
   ]);
   const [viewMode, setViewMode] = useState('list');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingAssistant, setEditingAssistant] = useState(null);
 
-  const handleStatusChange = (id) => {
-    setAssistants(assistants.map(assistant =>
-      assistant.id === id ? { ...assistant, status: !assistant.status } : assistant
-    ));
+  useEffect(() => {
+    const fetchAssistants = async () => {
+      try {
+        const data = await ApiService.fetchAssistants();
+        setAssistants(data);
+      } catch (error) {
+        console.error('Failed to fetch assistants data:', error);
+      }
+    };
+
+    fetchAssistants();
+  }, [assistants]);
+
+  const handleStatusChange = id => {
+    setAssistants(
+      assistants.map(assistant =>
+        assistant.id === id
+          ? { ...assistant, status: !assistant.status }
+          : assistant
+      )
+    );
   };
 
   const handleOpenDialog = (assistant = null) => {
@@ -52,11 +70,13 @@ const AIAssistantManagement = () => {
     setEditingAssistant(null);
   };
 
-  const handleSaveAssistant = (updatedAssistant) => {
+  const handleSaveAssistant = updatedAssistant => {
     if (editingAssistant) {
-      setAssistants(assistants.map(assistant =>
-        assistant.id === editingAssistant.id ? updatedAssistant : assistant
-      ));
+      setAssistants(
+        assistants.map(assistant =>
+          assistant.id === editingAssistant.id ? updatedAssistant : assistant
+        )
+      );
     } else {
       setAssistants([...assistants, { ...updatedAssistant, id: Date.now() }]);
     }
@@ -65,16 +85,34 @@ const AIAssistantManagement = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          mb: 2,
+        }}
+      >
         <Typography variant="h4">AI助理</Typography>
         <Box>
-          <IconButton onClick={() => setViewMode('list')} color={viewMode === 'list' ? 'primary' : 'default'}>
+          <IconButton
+            onClick={() => setViewMode('list')}
+            color={viewMode === 'list' ? 'primary' : 'default'}
+          >
             <ListViewIcon />
           </IconButton>
-          <IconButton onClick={() => setViewMode('grid')} color={viewMode === 'grid' ? 'primary' : 'default'}>
+          <IconButton
+            onClick={() => setViewMode('grid')}
+            color={viewMode === 'grid' ? 'primary' : 'default'}
+          >
             <GridViewIcon />
           </IconButton>
-          <Button variant="contained" color="primary" sx={{ ml: 2 }} onClick={() => handleOpenDialog()}>
+          <Button
+            variant="contained"
+            color="primary"
+            sx={{ ml: 2 }}
+            onClick={() => handleOpenDialog()}
+          >
             + 新增AI助理
           </Button>
         </Box>
@@ -91,7 +129,7 @@ const AIAssistantManagement = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {assistants.map((assistant) => (
+            {assistants.map(assistant => (
               <TableRow key={assistant.id}>
                 <TableCell>
                   <Typography variant="subtitle1">{assistant.name}</Typography>
@@ -111,7 +149,10 @@ const AIAssistantManagement = () => {
                   <IconButton size="small">
                     <LinkIcon />
                   </IconButton>
-                  <IconButton size="small" onClick={() => handleOpenDialog(assistant)}>
+                  <IconButton
+                    size="small"
+                    onClick={() => handleOpenDialog(assistant)}
+                  >
                     <EditIcon />
                   </IconButton>
                   <IconButton size="small">

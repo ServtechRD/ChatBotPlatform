@@ -60,6 +60,32 @@ class ApiService {
     }
   }
 
+  getUserId() {
+    const userInfo = localStorage.getItem('userInfo');
+    if (userInfo) {
+      return JSON.parse(userInfo).user_id;
+    }
+    return null;
+  }
+
+  // 獲取用戶郵箱
+  getUserEmail() {
+    const userData = localStorage.getItem('userData');
+    if (userData) {
+      return JSON.parse(userData).email;
+    }
+    return null;
+  }
+
+  // 獲取用戶的assistants
+  getUserAssistants() {
+    const userData = localStorage.getItem('userData');
+    if (userData) {
+      return JSON.parse(userData).assistants;
+    }
+    return null;
+  }
+
   // 註冊方法
   async register(email, password) {
     try {
@@ -76,15 +102,19 @@ class ApiService {
   // 登出方法
   logout() {
     localStorage.removeItem('token');
+    localStorage.removeItem('userData');
     // 可以在這裡添加其他清理操作
   }
 
   // 獲取用戶資料
-  async getUserProfile() {
+  async fetchUserData() {
     try {
-      const response = await this.axiosInstance.get('/user/profile');
-      return response.data;
+      const response = await this.axiosInstance.get('/users/me');
+      const userData = response.data;
+      localStorage.setItem('userData', JSON.stringify(userData));
+      return userData;
     } catch (error) {
+      console.error('Failed to fetch user data:', error);
       throw error;
     }
   }
@@ -95,6 +125,32 @@ class ApiService {
       const response = await this.axiosInstance.put('/user/profile', userData);
       return response.data;
     } catch (error) {
+      throw error;
+    }
+  }
+
+  // 註冊方法
+  async createAssistant(name, description) {
+    try {
+      const response = await this.axiosInstance.post('/assistant/create', {
+        name,
+        description,
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // 獲取用戶資料
+  async fetchAssistants() {
+    try {
+      const response = await this.axiosInstance.get('/users/me');
+      const userData = response.data;
+      localStorage.setItem('userData', JSON.stringify(userData));
+      return userData;
+    } catch (error) {
+      console.error('Failed to fetch user data:', error);
       throw error;
     }
   }

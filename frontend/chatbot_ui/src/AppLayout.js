@@ -15,6 +15,7 @@ import {
   Menu,
   MenuItem as MuiMenuItem,
   Select,
+  CircularProgress,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -36,6 +37,9 @@ import AIAssistantManagement from './AIAssistantManagement';
 import AccountProfile from './AccountProfile';
 import ConversationManagement from './ConversationManagement';
 
+// 导入 ApiService
+import ApiService from './path/to/ApiService';
+
 const AppLayout = ({ token, onLogout, children }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(true);
   const [selectedMenuItem, setSelectedMenuItem] = useState('chat');
@@ -45,6 +49,9 @@ const AppLayout = ({ token, onLogout, children }) => {
   const [agentName, setAgentName] = useState('TestAgent');
   const [workspace, setWorkspace] = useState('Kao');
   const [agents, setAgents] = useState(['TestAgent', 'Agent2', 'Agent3']);
+
+  const [userData, setUserData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const MenuItem = ({ icon, label, value }) => (
     <ListItem
@@ -75,6 +82,38 @@ const AppLayout = ({ token, onLogout, children }) => {
         return <Typography>請選擇一個選項</Typography>;
     }
   };
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const data = await ApiService.fetchUserData();
+        setUserData(data);
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Failed to fetch user data:', error);
+        setIsLoading(false);
+        // 如果获取用户数据失败，可能需要重定向到登录页面
+        navigate('/login');
+      }
+    };
+
+    fetchUserData();
+  }, [navigate]);
+
+  if (isLoading) {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100vh',
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>

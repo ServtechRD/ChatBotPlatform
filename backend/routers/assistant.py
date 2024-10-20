@@ -1,9 +1,11 @@
+from typing import List
+
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
 from sqlalchemy.orm import Session
 from models.database import get_db
 from models.models import AIAssistant, User
 from services.vector_service import process_and_store_file
-from models.schemas import AssistantCreate
+from models.schemas import AssistantCreate, Assistant
 
 router = APIRouter()
 
@@ -81,3 +83,17 @@ def toggle_assistant_status(assistant_id: int, db: Session = Depends(get_db)):
         "new_status": assistant.status,
         "message": "Assistant status updated."
     }
+
+
+# 获取用户的所有助理
+@router.get("/user/{user_id}/assistants", response_model=List[Assistant])
+def get_user_assistants(user_id: int, db: Session = Depends(get_db)):
+    # 查询用户是否存在
+    user = db.query(User).filter(User.user_id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # 查询用户所有的助理
+    assistants = db.query(AIAssistant).filter(AIAssistant.owner_id == user_id).all()
+
+    return assistants
