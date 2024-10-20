@@ -112,7 +112,7 @@ const AppLayout = () => {
     setWorkspace(ApiService.getUserEmail() || 'default');
     setAgents(ApiService.getAssistatns() || []);
     if (agents.length > 0) {
-      setCurrentAgent(agent[0]);
+      setCurrentAgent(agents[0]);
     }
   }, [navigate]);
 
