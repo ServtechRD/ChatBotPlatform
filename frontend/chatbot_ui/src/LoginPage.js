@@ -39,7 +39,7 @@ const LoginPage = ({ onLogin }) => {
     e.preventDefault();
     try {
       const response = await ApiService.login(email, password);
-      onLogin(response.token);
+      onLogin(response.access_token);
     } catch (error) {
       alert('登入失敗，請檢查您的輸入。');
     }
