@@ -13,8 +13,15 @@ import {
   Typography,
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import ApiService from './ApiService';
 
-const FileUploadDialog = ({ isOpen, onClose }) => {
+const FileUploadDialog = ({
+  isOpen,
+  onClose,
+  onUploadComplete,
+  uploadType,
+  assistantId,
+}) => {
   const [isDragging, setIsDragging] = useState(false);
   const [url, setUrl] = useState('');
   const [importText, setImportText] = useState(true);
