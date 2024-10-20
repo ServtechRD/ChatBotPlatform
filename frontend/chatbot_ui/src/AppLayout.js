@@ -169,7 +169,7 @@ const AppLayout = () => {
             onChange={e => handleSelectAgent(e.target.value)}
             sx={{ color: 'white', mr: 2 }}
           >
-            {agents.map((agent, index) => (
+            {agents?.map((agent, index) => (
               <MuiMenuItem key={agent.name} value={index}>
                 {agent.name}
               </MuiMenuItem>
