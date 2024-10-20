@@ -13,15 +13,20 @@ api_key = os.getenv("OPENAI_API_KEY")
 async def process_message_through_llm(websocket, assistant_uuid, customer_unique_id):
     # 从 Redis 或数据库中获取对话历史记录（省略）
     # 从向量数据库中检索相关文档
+
+    print("assistant uudi = "+assistant_uuid)
+
     vector_store = get_vector_store(assistant_uuid)
+
+    print(vector_store)
+
 
     while True:
         # 从 WebSocket 接收客户的消息
         data = await websocket.receive_text()
 
         # 利用客户输入生成嵌入向量进行检索
-        faiss_store = vector_store[assistant_uuid]  # 获取对应的 FAISS 向量存储
-        retriever = faiss_store.as_retriever()  # 调用 .as_retriever() 来获取检索器
+        retriever = vector_store.as_retriever()  # 调用 .as_retriever() 来获取检索器
 
         relevant_docs = retriever.get_relevant_documents(data)
 
