@@ -258,7 +258,9 @@ const AppLayout = () => {
             </Typography>
           </Toolbar>
         </AppBar>
-        <ChatInterface />
+        {currentAgent && (
+          <ChatInterface assistantUuid={currentAgent.assistant_id} />
+        )}
       </Dialog>
       <Dialog
         open={isAIManagementDialogOpen}
