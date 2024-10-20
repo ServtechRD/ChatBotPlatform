@@ -19,24 +19,7 @@ import {
   Close as CloseIcon,
 } from '@mui/icons-material';
 
-// 假設的 API 函數
-const loginAPI = async (email, password) => {
-  // 模擬 API 調用
-  return new Promise(resolve => {
-    setTimeout(() => {
-      resolve({ token: 'mock_jwt_token' });
-    }, 1000);
-  });
-};
-
-const registerAPI = async (email, password) => {
-  // 模擬 API 調用
-  return new Promise(resolve => {
-    setTimeout(() => {
-      resolve({ success: true });
-    }, 1000);
-  });
-};
+import ApiService from './path/to/ApiService';
 
 const Logo = styled('img')({
   width: 150,
@@ -55,7 +38,7 @@ const LoginPage = ({ onLogin }) => {
   const handleLogin = async e => {
     e.preventDefault();
     try {
-      const response = await loginAPI(email, password);
+      const response = await ApiService.login(email, password);
       onLogin(response.token);
     } catch (error) {
       alert('登入失敗，請檢查您的輸入。');
@@ -64,7 +47,7 @@ const LoginPage = ({ onLogin }) => {
 
   const handleRegister = async () => {
     try {
-      await registerAPI(registerEmail, registerPassword);
+      await ApiService.register(registerEmail, registerPassword);
       alert('註冊成功！請使用新帳號登入。');
       setOpenRegister(false);
     } catch (error) {
