@@ -34,6 +34,8 @@ import {
   MoreVert as MoreVertIcon,
 } from '@mui/icons-material';
 
+import FileUploadDialog from './FileUploadDialog';
+
 // 保留原有的 IconWrapper 和 KnowledgeBaseItem 組件
 const IconWrapper = ({ children }) => (
   <Box
@@ -51,52 +53,14 @@ const IconWrapper = ({ children }) => (
   </Box>
 );
 
-const KnowledgeBaseItem = ({ icon, title, description }) => (
-  <Card sx={{ height: '100%' }}>
-    <CardContent>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-        <IconWrapper>{icon}</IconWrapper>
-        <Typography variant="h6" sx={{ ml: 2 }}>
-          {title}
-        </Typography>
-      </Box>
-      <Typography variant="body2" color="text.secondary">
-        {description}
-      </Typography>
-    </CardContent>
-  </Card>
-);
-
-// Mock API function
-const fetchKnowledgeItems = () => {
-  return new Promise(resolve => {
-    setTimeout(() => {
-      resolve([
-        {
-          id: 1,
-          title: 'https://www.musesai.com',
-          type: 'link',
-          tokens: '1.08K Tokens',
-          content: ['產品應用', '購物中心', '其他內容...'],
-        },
-        {
-          id: 2,
-          title: '人工智能簡介',
-          type: 'document',
-          tokens: '2.5K Tokens',
-          content: ['AI 定義', '機器學習', '深度學習'],
-        },
-        // Add more mock items as needed
-      ]);
-    }, 1000);
-  });
-};
-
-const KnowledgeBaseUI = () => {
+const KnowledgeBaseUI = ({ currentAssistant }) => {
   const [activeTab, setActiveTab] = useState('new');
   const [selectedItem, setSelectedItem] = useState(null);
   const [knowledgeItems, setKnowledgeItems] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
+  const [uploadType, setUploadType] = useState(null);
 
   useEffect(() => {
     fetchKnowledgeItems().then(items => {
@@ -104,6 +68,61 @@ const KnowledgeBaseUI = () => {
       setIsLoading(false);
     });
   }, []);
+
+  const handleKnowledgeItemClick = type => {
+    setUploadType(type);
+    setIsUploadDialogOpen(true);
+  };
+
+  const handleUploadComplete = file => {
+    // 這裡可以處理上傳完成後的邏輯
+    console.log('File uploaded:', file);
+    setIsUploadDialogOpen(false);
+  };
+
+  const KnowledgeBaseItem = ({ icon, title, description, type }) => (
+    <Card
+      sx={{ height: '100%', cursor: 'pointer' }}
+      onClick={() => handleKnowledgeItemClick(type)}
+    >
+      <CardContent>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <IconWrapper>{icon}</IconWrapper>
+          <Typography variant="h6" sx={{ ml: 2 }}>
+            {title}
+          </Typography>
+        </Box>
+        <Typography variant="body2" color="text.secondary">
+          {description}
+        </Typography>
+      </CardContent>
+    </Card>
+  );
+
+  // Mock API function
+  const fetchKnowledgeItems = () => {
+    return new Promise(resolve => {
+      setTimeout(() => {
+        resolve([
+          {
+            id: 1,
+            title: 'https://www.musesai.com',
+            type: 'link',
+            tokens: '1.08K Tokens',
+            content: ['產品應用', '購物中心', '其他內容...'],
+          },
+          {
+            id: 2,
+            title: '人工智能簡介',
+            type: 'document',
+            tokens: '2.5K Tokens',
+            content: ['AI 定義', '機器學習', '深度學習'],
+          },
+          // Add more mock items as needed
+        ]);
+      }, 1000);
+    });
+  };
 
   const handleTabChange = newValue => {
     setActiveTab(newValue);
@@ -120,42 +139,12 @@ const KnowledgeBaseUI = () => {
 
   const sections = [
     {
-      title: '從網路匯入',
+      title: '上傳',
       items: [
-        {
-          icon: <LinkIcon />,
-          title: '匯入網址',
-          description: '從網頁上的文字和連結回答',
-        },
-        {
-          icon: <MapIcon />,
-          title: '匯入站點地圖',
-          description: '站點地圖 URL 通常是 .xml 文件',
-        },
-      ],
-    },
-    {
-      title: '上傳檔案',
-      items: [
-        {
-          icon: <FileSpreadsheetIcon />,
-          title: '上傳試算表',
-          description: '支援 .csv、.xls、.xlsx、.xlsm、.xlsb...',
-        },
         {
           icon: <FileTextIcon />,
-          title: '上傳文件',
-          description: '支援 20 多種文件格式',
-        },
-        {
-          icon: <FileJsonIcon />,
-          title: '從模板文件上傳',
-          description: '.csv 和 .json 格式',
-        },
-        {
-          icon: <VideoIcon />,
-          title: '轉錄音訊/視訊',
-          description: '長度最多 15 分鐘',
+          title: '上傳文件或網址',
+          description: '支援pdf / docx / txt',
         },
       ],
     },
@@ -327,18 +316,17 @@ const KnowledgeBaseUI = () => {
         >
           現有知識
         </Button>
-        <Button
-          variant={activeTab === 'quota' ? 'contained' : 'outlined'}
-          onClick={() => handleTabChange('quota')}
-          startIcon={<GridOnIcon />}
-        >
-          配額
-        </Button>
       </Box>
       <Divider sx={{ mb: 4 }} />
       {activeTab === 'new' && renderNewKnowledge()}
       {activeTab === 'existing' && renderExistingKnowledge()}
-      {activeTab === 'quota' && <Typography>配額信息將在這裡顯示</Typography>}
+      <FileUploadDialog
+        isOpen={isUploadDialogOpen}
+        onClose={() => setIsUploadDialogOpen(false)}
+        onUploadComplete={handleUploadComplete}
+        uploadType={uploadType}
+        assistantId={currentAssistant?.id}
+      />
     </Box>
   );
 };

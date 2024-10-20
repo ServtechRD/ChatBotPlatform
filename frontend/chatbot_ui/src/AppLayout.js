@@ -86,7 +86,7 @@ const AppLayout = () => {
       case 'aiAssistant':
         return <AIAssistantSettings />;
       case 'knowledgeBase':
-        return <KnowledgeBaseUI />;
+        return <KnowledgeBaseUI currentAssistant={currentAgent} />;
       case 'account':
         return <AccountProfile />;
       default:
