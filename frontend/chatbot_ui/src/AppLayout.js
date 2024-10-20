@@ -109,7 +109,7 @@ const AppLayout = () => {
 
     fetchUserData();
     setWorkspace(ApiService.getUserEmail() | 'default');
-    setAgents(ApiService.getAssistatns() | []);
+    // setAgents(ApiService.getAssistatns() | []);
   }, [navigate]);
 
   const handleLogout = () => {
