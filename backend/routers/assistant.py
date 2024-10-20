@@ -1,4 +1,6 @@
 from typing import List
+
+from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
 from sqlalchemy.orm import Session
