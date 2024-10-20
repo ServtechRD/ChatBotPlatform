@@ -254,7 +254,7 @@ const AppLayout = () => {
               <CloseIcon />
             </IconButton>
             <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
-              {currentAgent?.name}
+              AI 助理對話測試
             </Typography>
           </Toolbar>
         </AppBar>

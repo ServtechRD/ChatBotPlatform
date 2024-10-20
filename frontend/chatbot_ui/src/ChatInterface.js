@@ -47,9 +47,12 @@ const ChatInterface = ({ assistantid, assistantname }) => {
         { id: Date.now(), text: assistantReply, isBot: true },
       ]);*/
       const message = event.data;
+      console.log('recv ' + message);
       if (message === '@@@') {
+        console.log('is think');
         setIsThinking(true);
       } else if (message === '###') {
+        console.log('stop thinking');
         setIsThinking(false);
       } else {
         setMessages(prevMessages => [
