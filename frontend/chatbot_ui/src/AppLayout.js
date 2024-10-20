@@ -254,12 +254,15 @@ const AppLayout = () => {
               <CloseIcon />
             </IconButton>
             <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
-              {agentName}
+              {currentAgent?.name}
             </Typography>
           </Toolbar>
         </AppBar>
         {currentAgent && (
-          <ChatInterface assistantid={currentAgent.assistant_id} />
+          <ChatInterface
+            assistantid={currentAgent.assistant_id}
+            assistantname={currentAgent.name}
+          />
         )}
       </Dialog>
       <Dialog
