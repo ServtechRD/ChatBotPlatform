@@ -325,7 +325,7 @@ const KnowledgeBaseUI = ({ currentAssistant }) => {
         onClose={() => setIsUploadDialogOpen(false)}
         onUploadComplete={handleUploadComplete}
         uploadType={uploadType}
-        assistantId={currentAssistant?.id}
+        assistantId={currentAssistant?.assistant_id}
       />
     </Box>
   );
