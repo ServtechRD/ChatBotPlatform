@@ -32,8 +32,8 @@ async def process_message_through_llm(data, assistant_uuid, customer_unique_id):
 
     print("start to find docs")
     # 打印检索到的文档内容
-    for doc in relevant_docs:
-        print(f"Retrieved document: {doc.page_content}")
+    #for doc in relevant_docs:
+    #    print(f"Retrieved document: {doc.page_content}")
 
     print("end find docs")
 
@@ -52,7 +52,8 @@ async def process_message_through_llm(data, assistant_uuid, customer_unique_id):
     qa_chain = RetrievalQA.from_chain_type(
         llm=llm,
         chain_type="stuff",  # 这是最简单的文档组合方式
-        retriever=retriever
+        retriever=retriever,
+        max_tokens_limit=3000  # 限制文档和生成回复的最大 tokens 数
     )
 
     print("ask llm with data and qachain")
