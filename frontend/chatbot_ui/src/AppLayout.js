@@ -46,7 +46,7 @@ const AppLayout = () => {
   const navigate = useNavigate();
 
   const [isMenuOpen, setIsMenuOpen] = useState(true);
-  const [selectedMenuItem, setSelectedMenuItem] = useState('chat');
+  const [selectedMenuItem, setSelectedMenuItem] = useState('conversations');
   const [isChatDialogOpen, setIsChatDialogOpen] = useState(false);
   const [isAIManagementDialogOpen, setIsAIManagementDialogOpen] =
     useState(false);
