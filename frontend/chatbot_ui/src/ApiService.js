@@ -41,6 +41,7 @@ class ApiService {
 
   // 登錄方法
   async login(email, password) {
+    console.log('call login');
     try {
       const response = await this.axiosInstance.post('/login', {
         email,
