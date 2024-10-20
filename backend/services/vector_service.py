@@ -4,7 +4,13 @@ from langchain.document_loaders import TextLoader, PyPDFLoader, UnstructuredWord
 import os
 from sqlalchemy.orm import Session
 from fastapi import UploadFile
+from dotenv import load_dotenv
+import os
 
+load_dotenv()  # 加载 .env 文件中的环境变量
+
+api_key = os.getenv("OPENAI_API_KEY")
+embeddings = OpenAIEmbeddings(openai_api_key=api_key)
 # 用于获取向量存储
 vector_store = {}
 
