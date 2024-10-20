@@ -19,7 +19,7 @@ import {
   Close as CloseIcon,
 } from '@mui/icons-material';
 
-import ApiService from './path/to/ApiService';
+import ApiService from './ApiService';
 
 const Logo = styled('img')({
   width: 150,
