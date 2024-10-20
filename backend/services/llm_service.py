@@ -3,7 +3,12 @@ from langchain.llms import OpenAI
 from services.vector_service import get_vector_store
 from langchain.schema import Document
 
+from dotenv import load_dotenv
+import os
 
+load_dotenv()  # 加载 .env 文件中的环境变量
+
+api_key = os.getenv("OPENAI_API_KEY")
 async def process_message_through_llm(websocket, assistant_uuid, customer_unique_id):
     # 从 Redis 或数据库中获取对话历史记录（省略）
     # 从向量数据库中检索相关文档
@@ -22,7 +27,7 @@ async def process_message_through_llm(websocket, assistant_uuid, customer_unique
             print(f"Retrieved document: {doc.page_content}")
 
         # 利用 OpenAI GPT 生成基于检索结果的回复
-        llm = OpenAI()
+        llm = OpenAI(openai_api_key=api_key)
         qa_chain = RetrievalQA(llm=llm, retriever=retriever)
 
         # 通过 LLM 处理客户消息，生成回复

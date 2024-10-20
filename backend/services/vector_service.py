@@ -10,7 +10,7 @@ import os
 load_dotenv()  # 加载 .env 文件中的环境变量
 
 api_key = os.getenv("OPENAI_API_KEY")
-embeddings = OpenAIEmbeddings(openai_api_key=api_key)
+
 # 用于获取向量存储
 vector_store = {}
 
@@ -46,7 +46,7 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
 
     # 加载文档并生成嵌入
     documents = loader.load()
-    embeddings = OpenAIEmbeddings()
+    embeddings = OpenAIEmbeddings(openai_api_key=api_key)
 
     # 生成向量存储并缓存
     vector_store[assistant_id] = FAISS.from_documents(documents, embeddings)
