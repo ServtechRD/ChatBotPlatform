@@ -111,10 +111,10 @@ const KnowledgeBaseUI = ({ currentAssistant }) => {
   );
 
   // Mock API function
-  const fetchKnowledgeItems = () => {
+  const fetchKnowledgeItems = async () => {
     try {
       const assistantId = currentAssistant?.assistant_id;
-      const data = ApiService.getKnowledgeBases(assistantId);
+      const data = await ApiService.getKnowledgeBases(assistantId);
 
       setKnowledgeItems(data);
 
