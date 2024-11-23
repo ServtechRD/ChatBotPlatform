@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from routers import assistant, conversation, websocket,auth
 from models.database import Base, engine
@@ -19,6 +20,8 @@ app.add_middleware(
     expose_headers=["Content-Disposition"]
 )
 
+# 配置静态文件路由
+app.mount("/public", StaticFiles(directory="public"), name="public")
 
 # 包含助理、对话、WebSocket路由
 app.include_router(assistant.router)

@@ -17,7 +17,7 @@ router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 # 定义文件保存路径
-UPLOAD_DIR = "../../uploads/assets"
+UPLOAD_DIR = "./public"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
@@ -44,7 +44,7 @@ def save_file(file: UploadFile, sub_dir: str) -> str:
     with open(file_path, "wb") as f:
         f.write(file.file.read())
 
-    return file_path
+    return f"/public/{sub_dir}/{file_name}"
 
 
 # 创建助理
