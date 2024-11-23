@@ -34,6 +34,15 @@ class AIAssistant(Base):
 
     knowledges = relationship("KnowledgeBase", back_populates="assistant")
 
+    # 新增字段
+    image_assistant = Column(String(255), nullable=True)  # 助理图路径
+    image_crop = Column(String(255), nullable=True)  # 裁剪图路径
+    video_1 = Column(String(255), nullable=True)  # 第一个视频路径
+    video_2 = Column(String(255), nullable=True)  # 第二个视频路径
+    language = Column(String(50), nullable=False)  # 预设语言
+    link = Column(String(255), nullable=True)  # 外部链接
+    note = Column(Text, nullable=True)  # 备注
+
 
 class Conversation(Base):
     __tablename__ = "conversations"

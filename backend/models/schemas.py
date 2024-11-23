@@ -17,6 +17,8 @@ class Token(BaseModel):
 class AssistantCreate(BaseModel):
     name: str
     description: Optional[str] = None
+    language: str
+    note: Optional[str] = None
 
 
 # 助理的完整响应模型

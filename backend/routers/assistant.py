@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
@@ -9,15 +9,52 @@ from models.models import AIAssistant, User
 from services.vector_service import process_and_store_file, list_knowledge
 from services.auth_service import verify_token
 from models.schemas import AssistantCreate, Assistant
+import os
+import uuid
 
 router = APIRouter()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
+# 定义文件保存路径
+UPLOAD_DIR = "../../uploads/assets"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+
+def save_file(file: UploadFile, sub_dir: str) -> str:
+    """
+    保存上传文件并返回文件路径
+    :param file: 上传的文件
+    :param sub_dir: 文件子目录（图片或视频）
+    :return: 文件保存路径
+    """
+    if not file:
+        return None
+
+    # 创建子目录
+    dir_path = os.path.join(UPLOAD_DIR, sub_dir)
+    os.makedirs(dir_path, exist_ok=True)
+
+    # 生成唯一文件名
+    file_ext = file.filename.split(".")[-1]
+    file_name = f"{uuid.uuid4().hex}.{file_ext}"
+    file_path = os.path.join(dir_path, file_name)
+
+    # 保存文件
+    with open(file_path, "wb") as f:
+        f.write(file.file.read())
+
+    return file_path
+
 
 # 创建助理
 @router.post("/assistant/create")
-def create_assistant(assistant_data: AssistantCreate, token: str = Depends(oauth2_scheme),
+def create_assistant(assistant_data: AssistantCreate,
+                     assistant_image: Optional[UploadFile] = File(None),
+                     crop_image: Optional[UploadFile] = File(None),
+                     video_1: Optional[UploadFile] = File(None),
+                     video_2: Optional[UploadFile] = File(None),
+                     token: str = Depends(oauth2_scheme),
                      db: Session = Depends(get_db)):
     user_id = verify_token(token)
     # 验证用户是否存在
@@ -25,11 +62,28 @@ def create_assistant(assistant_data: AssistantCreate, token: str = Depends(oauth
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+        # 保存上传的文件
+    assistant_image_path = save_file(assistant_image, "images")
+    crop_image_path = save_file(crop_image, "images")
+    video_1_path = save_file(video_1, "videos")
+    video_2_path = save_file(video_2, "videos")
+
+    # 生成唯一 link
+    unique_link = f"assistant-{uuid.uuid4().hex[:8]}"
+
     # 创建新的助理
     new_assistant = AIAssistant(
         name=assistant_data.name,
         description=assistant_data.description,
-        owner_id=user_id
+        owner_id=user_id,
+
+        image_assistant=assistant_image_path,
+        image_crop=crop_image_path,
+        video_1=video_1_path,
+        video_2=video_2_path,
+        language=assistant_data.default_language,
+        link=unique_link,
+        note=assistant_data.note
     )
     db.add(new_assistant)
     db.commit()
@@ -38,7 +92,13 @@ def create_assistant(assistant_data: AssistantCreate, token: str = Depends(oauth
     return {
         "status": "success",
         "assistant_id": new_assistant.assistant_id,
-        "message": "Assistant created successfully"
+        "message": "Assistant created successfully",
+        "file_paths": {
+            "assistant_image": assistant_image_path,
+            "crop_image": crop_image_path,
+            "video_1": video_1_path,
+            "video_2": video_2_path
+        }
     }
 
 
