@@ -32,6 +32,8 @@ class AIAssistant(Base):
     # 一个助理可以有多个对话记录
     conversations = relationship("Conversation", back_populates="assistant")
 
+    knowledges = relationship("KnowledgeBase", back_populates="assistant")
+
 
 class Conversation(Base):
     __tablename__ = "conversations"
@@ -79,4 +81,4 @@ class KnowledgeBase(Base):
     upload_date = Column(DateTime, default=datetime.utcnow)
 
     # 关联到助理
-    assistant = relationship("AIAssistant", back_populates="knowledgebase")
+    assistant = relationship("AIAssistant", back_populates="knowledges")
