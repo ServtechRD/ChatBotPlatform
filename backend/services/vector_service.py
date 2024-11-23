@@ -70,6 +70,7 @@ def generate_summary_and_keywords(text, max_summary_words=150, max_keywords=10):
         "de": "German",
         "zh-cn": "Chinese",
         "zh-tw": "Traditional Chinese",
+        "zh": "Traditional Chinese",
         # 添加其他语言映射
     }
     lang_code, _ = langid.classify(text)
@@ -78,7 +79,7 @@ def generate_summary_and_keywords(text, max_summary_words=150, max_keywords=10):
 
     prompt = (
         f"Summarize the following text in {language}, ensuring the summary is less than {max_summary_words} words. "
-        f"Also, provide up to {max_keywords} keywords in {language}. Separate the summary and keywords with '---'. "
+        f"Also, provide up to {max_keywords} keywords in {language}. "
         f"The keywords should be comma-separated.\n\n"
         f"Text:\n{text}"
     )
@@ -93,10 +94,15 @@ def generate_summary_and_keywords(text, max_summary_words=150, max_keywords=10):
     print(f"summary and keywords :{result}")
     # 分隔 summary 和 keywords
     try:
-        result = result.replace("Keywords:", "---")
-        summary, keywords = result.split("---")
-        keywords_list = [kw.strip() for kw in keywords.split(",")]
-        return {"summary": summary.strip(), "keywords": ", ".join(keywords_list)}
+        lines = result.strip().split("\n")
+
+        if len(lines) > 1:
+            summary = "\n".join(lines[:-1])  # 除最后一行外，其他行作为摘要
+            keywords_line = lines[-1]  # 最后一行为关键词
+        else:
+            summary = result.strip()
+            keywords_line = ""
+        return {"summary": summary.strip(), "keywords": keywords_line}
     except ValueError:
         raise ValueError("The response format is incorrect. Ensure the delimiter '---' is present.")
 
