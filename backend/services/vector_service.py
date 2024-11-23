@@ -94,15 +94,30 @@ def generate_summary_and_keywords(text, max_summary_words=150, max_keywords=10):
     print(f"summary and keywords :{result}")
     # 分隔 summary 和 keywords
     try:
-        lines = result.strip().split("\n")
 
-        if len(lines) > 1:
-            summary = "\n".join(lines[:-1])  # 除最后一行外，其他行作为摘要
-            keywords_line = lines[-1]  # 最后一行为关键词
+        keyword_marker = "Keywords"
+        if lang_code == "zh-cn":
+            keyword_marker = "关键词"
+        elif lang_code.startswith("zh"):
+            keyword_marker = "關鍵詞"
+
+        # 查找关键词标志的位置
+        marker_index = result.find(keyword_marker)
+
+        if marker_index != -1:
+            # 提取摘要和关键词部分
+            summary = result[:marker_index].strip()
+            keywords_line = result[marker_index + len(keyword_marker):].strip()
         else:
-            summary = result.strip()
-            keywords_line = ""
-        return {"summary": summary.strip(), "keywords": keywords_line}
+            lines = result.strip().split("\n")
+
+            if len(lines) > 1:
+                summary = "\n".join(lines[:-1])  # 除最后一行外，其他行作为摘要
+                keywords_line = lines[-1]  # 最后一行为关键词
+            else:
+                summary = result.strip()
+                keywords_line = ""
+        return {"summary": summary, "keywords": keywords_line}
     except ValueError:
         raise ValueError("The response format is incorrect. Ensure the delimiter '---' is present.")
 
@@ -216,6 +231,7 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
     # 用逗号拼接
     doc_ids_string = ", ".join(doc_ids)
 
+    print("save to database")
     # 保存元信息到数据库
     new_entry = KnowledgeBase(
         assistant_id=assistant_id,
