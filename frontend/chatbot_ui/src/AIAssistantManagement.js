@@ -62,6 +62,9 @@ const AIAssistantManagement = () => {
   };
 
   const handleOpenDialog = (assistant = null) => {
+    console.log('open dialog');
+    console.log(assistant);
+
     setEditingAssistant(assistant);
     setIsDialogOpen(true);
   };
