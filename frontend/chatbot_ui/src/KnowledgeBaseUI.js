@@ -399,14 +399,6 @@ const KnowledgeBaseUI = ({ currentAssistant }) => {
               ))
             )}
           </List>
-
-          <FileUploadDialog
-            isOpen={isUploadDialogOpen}
-            onClose={() => setIsUploadDialogOpen(false)}
-            onUploadComplete={handleUploadComplete}
-            uploadType={uploadType}
-            assistantId={currentAssistant?.assistant_id}
-          />
         </>
       )}
     </>
@@ -438,6 +430,13 @@ const KnowledgeBaseUI = ({ currentAssistant }) => {
       <Divider sx={{ mb: 4 }} />
       {activeTab === 'new' && renderNewKnowledge()}
       {activeTab === 'existing' && renderExistingKnowledge()}
+      <FileUploadDialog
+        isOpen={isUploadDialogOpen}
+        onClose={() => setIsUploadDialogOpen(false)}
+        onUploadComplete={handleUploadComplete}
+        uploadType={uploadType}
+        assistantId={currentAssistant?.assistant_id}
+      />
     </Box>
   );
 };
