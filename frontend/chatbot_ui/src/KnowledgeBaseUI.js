@@ -114,9 +114,9 @@ const KnowledgeBaseUI = ({ currentAssistant }) => {
   const fetchKnowledgeItems = async () => {
     try {
       const assistantId = currentAssistant?.assistant_id;
-      const data = await ApiService.getKnowledgeBases(assistantId);
+      const response = await ApiService.getKnowledgeBases(assistantId);
 
-      setKnowledgeItems(data);
+      setKnowledgeItems(response.data);
 
       setIsLoading(false);
     } catch (error) {
