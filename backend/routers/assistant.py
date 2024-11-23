@@ -52,6 +52,7 @@ async def upload_file(assistant_id: int, file: UploadFile = File(...), db: Sessi
 
     # 处理上传的文件，生成嵌入并存储到向量数据库
     result = await process_and_store_file(assistant_id, file, db)
+    print(type(result), result)
 
     return {"message": "File uploaded and embeddings stored in vector database.", "data": result}
 
