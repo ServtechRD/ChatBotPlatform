@@ -23,6 +23,8 @@ import os
 import tiktoken  # 用于计算 token 数量
 import uuid
 
+import langid
+
 load_dotenv()  # 加载 .env 文件中的环境变量
 
 api_key = os.getenv("OPENAI_API_KEY")
@@ -50,29 +52,37 @@ def process_documents_with_id(documents):
     return documents
 
 
-def extract_keywords_as_string(text, max_keywords=10, separator=", "):
-    """
-    提取关键词并返回一个字符串
-    :param text: 输入的文本
-    :param max_keywords: 最大关键词数量
-    :param separator: 关键词之间的分隔符
-    :return: 拼接好的关键词字符串
-    """
-    rake = Rake()
-    rake.extract_keywords_from_text(text)
-    keywords = rake.get_ranked_phrases()[:max_keywords]  # 提取关键词列表
-    return separator.join(keywords)  # 拼接成一个字符串
 
 
-def generate_summary(text, max_length=150, min_length=30):
+
+def generate_summary_and_keywords(text, max_summary_words=150, max_keywords=10):
     """
-    使用 OpenAI GPT 模型生成摘要
+    使用 ChatOpenAI 一次生成摘要和关键词
+    :param llm: ChatOpenAI 模型实例
     :param text: 输入文本
-    :param max_length: 摘要的最大长度
-    :return: 摘要字符串
+    :param max_summary_words: 摘要的最大字数限制
+    :param max_keywords: 关键词的最大数量
+    :return: 包含摘要和关键词的字典
     """
+
+    # 语言代码与名称映射
+    LANGUAGE_MAP = {
+        "en": "English",
+        "fr": "French",
+        "es": "Spanish",
+        "de": "German",
+        "zh-cn": "Chinese",
+        "zh-tw": "Traditional Chinese",
+        # 添加其他语言映射
+    }
+    lang_code, _ = langid.classify(text)
+    language = LANGUAGE_MAP.get(lang_code, "English")
+
     prompt = (
-        f"Please summarize the following text into a concise summary of less than {max_length} words:\n\n{text}"
+        f"Summarize the following text in {language}, ensuring the summary is less than {max_summary_words} words. "
+        f"Also, provide up to {max_keywords} keywords in {language}. Separate the summary and keywords with '---'. "
+        f"The keywords should be comma-separated.\n\n"
+        f"Text:\n{text}"
     )
 
     # 初始化 ChatOpenAI 模型
@@ -81,7 +91,14 @@ def generate_summary(text, max_length=150, min_length=30):
         model="gpt-3.5-turbo-16k"  # 使用支持更大上下文的模型
     )
     response = llm([HumanMessage(content=prompt)])
-    return response.content.strip()
+    result = response.content.strip()
+    # 分隔 summary 和 keywords
+    try:
+        summary, keywords = result.split("---")
+        keywords_list = [kw.strip() for kw in keywords.split(",")]
+        return {"summary": summary.strip(), "keywords": ", ".join(keywords_list)}
+    except ValueError:
+        raise ValueError("The response format is incorrect. Ensure the delimiter '---' is present.")
 
 
 # 计算文档的 token 数量
@@ -185,11 +202,9 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
     # 提取所有文本内容
     full_text = " ".join([doc.page_content for doc in documents])
 
-    # 生成摘要
-    summary = generate_summary(full_text)
+    # 生成摘要和關鍵詞
+    summary_keywords = generate_summary_and_keywords(full_text)
 
-    # 生成关键词字符串
-    keywords_string = extract_keywords_as_string(full_text)
 
     # 获取 doc_id 列表
     doc_ids = [doc.metadata["doc_id"] for doc in documents]
@@ -201,8 +216,8 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
         assistant_id=assistant_id,
         file_name=file.filename,
         file_type=f"{file_extension.upper()}",
-        summary=summary,
-        keywords=keywords_string,
+        summary=summary_keywords["summary"],
+        keywords=summary_keywords["keywords"],
         doc_ids=doc_ids_string,
         description=f"Uploaded file {file.filename} by assistant {assistant_id}",
         token_count=token_count,
