@@ -71,9 +71,7 @@ const AIAssistantSettings = () => {
                 <MenuItem value="gpt3.5">GPT-3.5 Turbo</MenuItem>
                 <MenuItem value="gpt3.5">GPT-4o</MenuItem>
               </Select>
-              <Typography variant="caption" color="text.secondary" mt={1}>
-                *GPT4.0 以上的售更高效能的 LLM 需額外向營運申請購買
-              </Typography>
+             
             </Box>
 
             <Box>

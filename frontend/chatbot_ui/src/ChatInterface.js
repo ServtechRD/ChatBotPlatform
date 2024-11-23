@@ -118,9 +118,6 @@ const ChatInterface = ({ assistantid, assistantname }) => {
               {assistantname}
             </Typography>
           </Box>
-          <IconButton color="inherit">
-            <MoreVertIcon />
-          </IconButton>
         </Toolbar>
       </AppBar>
 

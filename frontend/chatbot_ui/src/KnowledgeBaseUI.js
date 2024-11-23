@@ -35,6 +35,7 @@ import {
 } from '@mui/icons-material';
 
 import FileUploadDialog from './FileUploadDialog';
+import ApiService from './ApiService';
 
 // 保留原有的 IconWrapper 和 KnowledgeBaseItem 組件
 const IconWrapper = ({ children }) => (
@@ -101,6 +102,18 @@ const KnowledgeBaseUI = ({ currentAssistant }) => {
 
   // Mock API function
   const fetchKnowledgeItems = () => {
+    try {
+      const data = ApiService.getKnowledgeBases(assistantId);
+
+      setKnowledgeItems(data);
+
+      setIsLoading(false);
+    } catch (error) {
+      console.error('Error fetch knowledge items:', error);
+      setIsLoading(false);
+    }
+
+    /*
     return new Promise(resolve => {
       setTimeout(() => {
         resolve([
@@ -121,16 +134,25 @@ const KnowledgeBaseUI = ({ currentAssistant }) => {
           // Add more mock items as needed
         ]);
       }, 1000);
-    });
+    });*/
   };
+
+  const handleItemClick = itemId => {
+    setExpandedItem(expandedItem === itemId ? null : itemId);
+  };
+
+  const filteredItems = knowledgeItems.filter(
+    item =>
+      item.file_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (item.summary &&
+        item.summary.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (item.keywords &&
+        item.keywords.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
 
   const handleTabChange = newValue => {
     setActiveTab(newValue);
     setSelectedItem(null);
-  };
-
-  const handleItemClick = item => {
-    setSelectedItem(item);
   };
 
   const handleBackClick = () => {
@@ -274,16 +296,88 @@ const KnowledgeBaseUI = ({ currentAssistant }) => {
             {isLoading ? (
               <Typography>載入中...</Typography>
             ) : (
-              knowledgeItems.map(item => (
-                <Paper key={item.id} elevation={1} sx={{ mb: 2 }}>
-                  <ListItem button onClick={() => handleItemClick(item)}>
-                    <ListItemIcon>
-                      {item.type === 'link' ? <LinkIcon /> : <EditIcon />}
-                    </ListItemIcon>
-                    <ListItemText primary={item.title} />
-                    <Typography variant="body2" color="text.secondary">
-                      {item.tokens}
-                    </Typography>
+              filteredItems.map((item, index) => (
+                <Paper key={index} elevation={1} sx={{ mb: 2 }}>
+                  <ListItem
+                    button
+                    onClick={() => handleItemClick(index)}
+                    sx={{ flexDirection: 'column', alignItems: 'stretch' }}
+                  >
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        width: '100%',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        mb: expandedItem === index ? 2 : 0,
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <ListItemIcon>
+                          <FileTextIcon />
+                        </ListItemIcon>
+                        <ListItemText
+                          primary={item.file_name}
+                          secondary={`${item.token_count} Tokens`}
+                        />
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <IconButton
+                          onClick={e => {
+                            e.stopPropagation();
+                            handleItemClick(index);
+                          }}
+                          sx={{ mr: 1 }}
+                        >
+                          {expandedItem === index ? (
+                            <ExpandLessIcon />
+                          ) : (
+                            <ExpandMoreIcon />
+                          )}
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={e => {
+                            e.stopPropagation();
+                            // 處理更多選項
+                          }}
+                        >
+                          <MoreVertIcon />
+                        </IconButton>
+                      </Box>
+                    </Box>
+                    <Collapse
+                      in={expandedItem === index}
+                      timeout="auto"
+                      unmountOnExit
+                    >
+                      <Box sx={{ px: 2, pb: 2 }}>
+                        <Typography
+                          variant="subtitle2"
+                          color="primary"
+                          gutterBottom
+                        >
+                          摘要
+                        </Typography>
+                        <Typography variant="body2" paragraph>
+                          {item.summary}
+                        </Typography>
+                        {item.keywords && (
+                          <>
+                            <Typography
+                              variant="subtitle2"
+                              color="primary"
+                              gutterBottom
+                            >
+                              關鍵字
+                            </Typography>
+                            <Typography variant="body2">
+                              {item.keywords}
+                            </Typography>
+                          </>
+                        )}
+                      </Box>
+                    </Collapse>
                   </ListItem>
                 </Paper>
               ))
