@@ -85,10 +85,11 @@ const KnowledgeBaseUI = ({ currentAssistant }) => {
     setIsUploadDialogOpen(true);
   };
 
-  const handleUploadComplete = file => {
+  const handleUploadComplete = async data => {
     // 這裡可以處理上傳完成後的邏輯
-    console.log('File uploaded:', file);
-    setIsUploadDialogOpen(false);
+    // console.log('File uploaded:', file);
+    //setIsUploadDialogOpen(false);
+    await fetchKnowledgeItems();
   };
 
   const KnowledgeBaseItem = ({ icon, title, description, type }) => (
@@ -113,14 +114,16 @@ const KnowledgeBaseUI = ({ currentAssistant }) => {
   // Mock API function
   const fetchKnowledgeItems = async () => {
     try {
+      setIsLoading(true);
+
       const assistantId = currentAssistant?.assistant_id;
       const response = await ApiService.getKnowledgeBases(assistantId);
 
       setKnowledgeItems(response.data);
-
-      setIsLoading(false);
     } catch (error) {
       console.error('Error fetch knowledge items:', error);
+      setIsLoading(false);
+    } finally {
       setIsLoading(false);
     }
 
@@ -234,8 +237,6 @@ const KnowledgeBaseUI = ({ currentAssistant }) => {
             fullWidth
             variant="outlined"
             placeholder="使用關鍵字搜尋"
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -296,6 +297,8 @@ const KnowledgeBaseUI = ({ currentAssistant }) => {
             fullWidth
             variant="outlined"
             placeholder="使用關鍵字搜尋"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -396,6 +399,14 @@ const KnowledgeBaseUI = ({ currentAssistant }) => {
               ))
             )}
           </List>
+
+          <FileUploadDialog
+            isOpen={isUploadDialogOpen}
+            onClose={() => setIsUploadDialogOpen(false)}
+            onUploadComplete={handleUploadComplete}
+            uploadType={uploadType}
+            assistantId={currentAssistant?.assistant_id}
+          />
         </>
       )}
     </>
@@ -427,13 +438,6 @@ const KnowledgeBaseUI = ({ currentAssistant }) => {
       <Divider sx={{ mb: 4 }} />
       {activeTab === 'new' && renderNewKnowledge()}
       {activeTab === 'existing' && renderExistingKnowledge()}
-      <FileUploadDialog
-        isOpen={isUploadDialogOpen}
-        onClose={() => setIsUploadDialogOpen(false)}
-        onUploadComplete={handleUploadComplete}
-        uploadType={uploadType}
-        assistantId={currentAssistant?.assistant_id}
-      />
     </Box>
   );
 };
