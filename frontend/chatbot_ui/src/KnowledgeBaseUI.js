@@ -14,7 +14,7 @@ import {
   ListItemIcon,
   ListItemText,
   Paper,
-  Checkbox,
+  Collapse,
   IconButton,
 } from '@mui/material';
 import {
@@ -32,6 +32,8 @@ import {
   GridOn as GridOnIcon,
   ArrowBack as ArrowBackIcon,
   MoreVert as MoreVertIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
 } from '@mui/icons-material';
 
 import FileUploadDialog from './FileUploadDialog';
@@ -63,11 +65,18 @@ const KnowledgeBaseUI = ({ currentAssistant }) => {
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [uploadType, setUploadType] = useState(null);
 
-  useEffect(() => {
+  const [expandedItem, setExpandedItem] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  /*useEffect(() => {
     fetchKnowledgeItems().then(items => {
       setKnowledgeItems(items);
       setIsLoading(false);
     });
+  }, []);*/
+
+  useEffect(() => {
+    fetchKnowledgeItems();
   }, []);
 
   const handleKnowledgeItemClick = type => {
@@ -103,6 +112,7 @@ const KnowledgeBaseUI = ({ currentAssistant }) => {
   // Mock API function
   const fetchKnowledgeItems = () => {
     try {
+      const assistantId = currentAssistant?.assistant_id;
       const data = ApiService.getKnowledgeBases(assistantId);
 
       setKnowledgeItems(data);
