@@ -107,7 +107,7 @@ def generate_summary_and_keywords(text, max_summary_words=150, max_keywords=10):
         if marker_index != -1:
             # 提取摘要和关键词部分
             summary = result[:marker_index].strip()
-            keywords_line = result[marker_index + len(keyword_marker):].strip()
+            keywords_line = result[marker_index + len(keyword_marker):].strip().replace(keyword_marker, "").strip()
         else:
             lines = result.strip().split("\n")
 
@@ -255,14 +255,16 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
 
     return {
         "vector_store": vector_store[assistant_id],
-        "file_name": new_entry.file_name,
-        "description": new_entry.description,
-        "token_count": new_entry.token_count,
-        "file_type": new_entry.file_type,
-        "summary": new_entry.summary,
-        "keywords": new_entry.keywords,
-        "doc_ids": new_entry.doc_ids,
-        "upload_date": new_entry.upload_date
+        "km": {
+            "file_name": new_entry.file_name,
+            "description": new_entry.description,
+            "token_count": new_entry.token_count,
+            "file_type": new_entry.file_type,
+            "summary": new_entry.summary,
+            "keywords": new_entry.keywords,
+            "doc_ids": new_entry.doc_ids,
+            "upload_date": new_entry.upload_date
+        }
     }
 
 

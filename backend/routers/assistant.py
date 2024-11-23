@@ -54,7 +54,7 @@ async def upload_file(assistant_id: int, file: UploadFile = File(...), db: Sessi
     result = await process_and_store_file(assistant_id, file, db)
     print(type(result), result)
 
-    return {"message": "File uploaded and embeddings stored in vector database.", "data": result}
+    return {"message": "File uploaded and embeddings stored in vector database.", "data": result["km"]}
 
 
 @router.get("/assistant/{assistant_id}/knowledge")
