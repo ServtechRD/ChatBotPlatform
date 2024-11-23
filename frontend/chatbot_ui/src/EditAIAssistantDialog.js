@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -24,13 +24,27 @@ import {
 import ApiService from './ApiService';
 
 const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
-  const [description, setDescription] = useState(
-    aiAssistant?.description || ''
-  );
+  const [description, setDescription] = useState('');
   const [language, setLanguage] = useState('繁體中文');
   const [allowLiveChat, setAllowLiveChat] = useState(false);
-  const [aiAssistantUrl, setAiAssistantUrl] = useState(aiAssistant?.url || '');
-  const [name, setName] = useState(aiAssistant?.name || '');
+  const [aiAssistantUrl, setAiAssistantUrl] = useState('');
+  const [name, setName] = useState('');
+
+  useEffect(() => {
+    if (aiAssistant) {
+      setName(aiAssistant.name || '');
+      setDescription(aiAssistant.description || '');
+      setAiAssistantUrl(aiAssistant.url || '');
+      // 如果 aiAssistant 有 language 屬性，也可以設置
+      if (aiAssistant.language) {
+        setLanguage(aiAssistant.language);
+      }
+      // 如果有 allowLiveChat 屬性，也可以設置
+      if (aiAssistant.allowLiveChat !== undefined) {
+        setAllowLiveChat(aiAssistant.allowLiveChat);
+      }
+    }
+  }, [aiAssistant]);
 
   const handleSave = async () => {
     // 处理保存逻辑
