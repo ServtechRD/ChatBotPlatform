@@ -255,18 +255,15 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
 
     return {
         "vector_store": vector_store[assistant_id],
-        "knowledge_info": {
-            "file_name": new_entry.file_name,
-            "description": new_entry.description,
-            "token_count": new_entry.token_count,
-            "file_type": new_entry.file_type,
-            "summary": new_entry.summary,
-            "keywords": new_entry.keywords,
-            "doc_ids": new_entry.doc_ids,
-            "upload_date": new_entry.upload_date
-        }
 
-        # 获取助理的向量存储
+        "file_name": new_entry.file_name,
+        "description": new_entry.description,
+        "token_count": new_entry.token_count,
+        "file_type": new_entry.file_type,
+        "summary": new_entry.summary,
+        "keywords": new_entry.keywords,
+        "doc_ids": new_entry.doc_ids,
+        "upload_date": new_entry.upload_date
     }
 
 
