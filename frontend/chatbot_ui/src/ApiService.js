@@ -168,9 +168,11 @@ class ApiService {
   }
 
   // 獲取知識庫列表
-  async getKnowledgeBases() {
+  async getKnowledgeBases(assistantId) {
     try {
-      const response = await this.axiosInstance.get('/knowledge-bases');
+      const response = await this.axiosInstance.get(
+        `assistant/${assistantId}/knowledge`
+      );
       return response.data;
     } catch (error) {
       throw error;
