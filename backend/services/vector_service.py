@@ -106,15 +106,18 @@ def generate_summary_and_keywords(text, max_summary_words=150, max_keywords=10):
 
         if marker_index != -1:
             # 提取摘要和关键词部分
+            print(f"find  {keyword_marker} => {marker_index}")
             summary = result[:marker_index].strip()
-            keywords_line = result[marker_index + len(keyword_marker):].strip().replace(keyword_marker, "").strip()
+            keywords_line = result[marker_index + len(keyword_marker):].strip()
         else:
+            print("use last line")
             lines = result.strip().split("\n")
 
             if len(lines) > 1:
                 summary = "\n".join(lines[:-1])  # 除最后一行外，其他行作为摘要
                 keywords_line = lines[-1]  # 最后一行为关键词
             else:
+                print("no last line")
                 summary = result.strip()
                 keywords_line = ""
         return summary, keywords_line
