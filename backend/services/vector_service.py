@@ -74,6 +74,7 @@ def generate_summary_and_keywords(text, max_summary_words=150, max_keywords=10):
     }
     lang_code, _ = langid.classify(text)
     language = LANGUAGE_MAP.get(lang_code, "English")
+    print(f"language code = {lang_code}, lang = {language}")
 
     prompt = (
         f"Summarize the following text in {language}, ensuring the summary is less than {max_summary_words} words. "
@@ -92,6 +93,7 @@ def generate_summary_and_keywords(text, max_summary_words=150, max_keywords=10):
     print(f"summary and keywords :{result}")
     # 分隔 summary 和 keywords
     try:
+        result = result.replace("Keywords:", "---")
         summary, keywords = result.split("---")
         keywords_list = [kw.strip() for kw in keywords.split(",")]
         return {"summary": summary.strip(), "keywords": ", ".join(keywords_list)}
