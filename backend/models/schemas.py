@@ -20,6 +20,12 @@ class AssistantCreate(BaseModel):
     language: str
     note: Optional[str] = None
 
+class AssistantUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    language: Optional[str] = None
+    note: Optional[str] = None
+
 
 # 助理的完整响应模型
 class Assistant(BaseModel):

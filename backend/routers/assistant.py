@@ -8,7 +8,7 @@ from models.database import get_db
 from models.models import AIAssistant, User
 from services.vector_service import process_and_store_file, list_knowledge
 from services.auth_service import verify_token
-from models.schemas import AssistantCreate, Assistant
+from models.schemas import AssistantCreate, Assistant, AssistantUpdate
 import os
 import uuid
 
@@ -143,6 +143,13 @@ def get_assistant(assistant_id: int, db: Session = Depends(get_db)):
         "name": assistant.name,
         "description": assistant.description,
         "status": assistant.status,
+        "image_assistant": assistant.image_assistant,
+        "image_crop": assistant.image_crop,
+        "video_1": assistant.video_1,
+        "video_2": assistant.video_2,
+        "language": assistant.language,
+        "link": assistant.link,
+        "note": assistant.note,
         "created_at": assistant.created_at
     }
 
@@ -163,6 +170,65 @@ def toggle_assistant_status(assistant_id: int, db: Session = Depends(get_db)):
         "assistant_id": assistant.assistant_id,
         "new_status": assistant.status,
         "message": "Assistant status updated."
+    }
+
+
+@router.put("/assistant/{assistant_id}")
+async def update_assistant(
+        assistant_id: int,
+        assistant_data: AssistantUpdate,
+        assistant_image: Optional[UploadFile] = File(None),
+        crop_image: Optional[UploadFile] = File(None),
+        video_1: Optional[UploadFile] = File(None),
+        video_2: Optional[UploadFile] = File(None),
+        token: str = Depends(oauth2_scheme),
+        db: Session = Depends(get_db),
+):
+    # 验证用户
+    user_id = verify_token(token)
+    assistant = db.query(AIAssistant).filter(AIAssistant.assistant_id == assistant_id,
+                                             AIAssistant.owner_id == user_id).first()
+
+    if not assistant:
+        raise HTTPException(status_code=404, detail="Assistant not found or access denied")
+
+    # 更新基础字段
+    if assistant_data.name is not None:
+        assistant.name = assistant_data.name
+    if assistant_data.description is not None:
+        assistant.description = assistant_data.description
+    if assistant_data.language is not None:
+        assistant.language = assistant_data.language
+    if assistant_data.note is not None:
+        assistant.note = assistant_data.note
+
+    # 更新文件字段
+    if assistant_image:
+        assistant.image_assistant = save_file(assistant_image, "images")
+    if crop_image:
+        assistant.image_crop = save_file(crop_image, "images")
+    if video_1:
+        assistant.video_1 = save_file(video_1, "videos")
+    if video_2:
+        assistant.video_2 = save_file(video_2, "videos")
+
+    # 保存更改
+    db.commit()
+    db.refresh(assistant)
+
+    return {
+        "status": "success",
+        "message": "Assistant updated successfully",
+        "assistant": {
+            "name": assistant.name,
+            "description": assistant.description,
+            "assistant_image": assistant.image_assistant,
+            "crop_image": assistant.image_crop,
+            "video_1": assistant.video_1,
+            "video_2": assistant.video_2,
+            "default_language": assistant.language,
+            "note": assistant.note,
+        },
     }
 
 
