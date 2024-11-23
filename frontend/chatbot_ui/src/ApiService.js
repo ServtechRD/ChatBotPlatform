@@ -139,12 +139,24 @@ class ApiService {
   }
 
   // 註冊方法
-  async createAssistant(name, description) {
+  async createAssistant(formData) {
     try {
-      const response = await this.axiosInstance.post('/assistant/create', {
-        name,
-        description,
-      });
+      const response = await this.axiosInstance.post(
+        '/assistant/create',
+        formData
+      );
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async updateAssistant(id, formData) {
+    try {
+      const response = await this.axiosInstance.put(
+        `/assistant/${id}`,
+        formData
+      );
       return response.data;
     } catch (error) {
       throw error;
