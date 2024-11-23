@@ -4,6 +4,7 @@ from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import FAISS
 from langchain.document_loaders import TextLoader, PyPDFLoader, UnstructuredWordDocumentLoader
 from langchain.schema import Document
+from langchain.chat_models import ChatOpenAI
 
 from sqlalchemy.orm import Session
 from fastapi import UploadFile
@@ -13,6 +14,7 @@ from models.models import KnowledgeBase
 from transformers import pipeline
 
 from rake_nltk import Rake
+from langchain.schema import HumanMessage
 
 import faiss
 import pickle
@@ -64,14 +66,22 @@ def extract_keywords_as_string(text, max_keywords=10, separator=", "):
 
 def generate_summary(text, max_length=150, min_length=30):
     """
-    对文本内容生成摘要
-    :param text: 原始文本
+    使用 OpenAI GPT 模型生成摘要
+    :param text: 输入文本
     :param max_length: 摘要的最大长度
-    :param min_length: 摘要的最小长度
     :return: 摘要字符串
     """
-    summary = summarizer(text, max_length=max_length, min_length=min_length, do_sample=False)
-    return summary[0]['summary_text']
+    prompt = (
+        f"Please summarize the following text into a concise summary of less than {max_length} words:\n\n{text}"
+    )
+
+    # 初始化 ChatOpenAI 模型
+    llm = ChatOpenAI(
+        openai_api_key=api_key,  # 替换为你的 API 密钥
+        model="gpt-3.5-turbo-16k"  # 使用支持更大上下文的模型
+    )
+    response = llm([HumanMessage(content=prompt)])
+    return response.content.strip()
 
 
 # 计算文档的 token 数量
