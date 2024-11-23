@@ -1,13 +1,25 @@
+from datetime import datetime
+
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import FAISS
 from langchain.document_loaders import TextLoader, PyPDFLoader, UnstructuredWordDocumentLoader
-import os
-import faiss
-import pickle
+from langchain.schema import Document
+
 from sqlalchemy.orm import Session
 from fastapi import UploadFile
 from dotenv import load_dotenv
+from models.models import KnowledgeBase
+
+from transformers import pipeline
+
+from rake_nltk import Rake
+
+import faiss
+import pickle
+
 import os
+import tiktoken  # 用于计算 token 数量
+import uuid
 
 load_dotenv()  # 加载 .env 文件中的环境变量
 
@@ -15,6 +27,60 @@ api_key = os.getenv("OPENAI_API_KEY")
 
 # 用于获取向量存储
 vector_store = {}
+
+# 加载预训练的摘要生成模型
+summarizer = pipeline("summarization")
+
+
+def generate_doc_id():
+    """
+    生成唯一的文档 ID
+    """
+    return str(uuid.uuid4())
+
+
+def process_documents_with_id(documents):
+    """
+    为每个文档生成一个唯一的 doc_id
+    """
+    for doc in documents:
+        doc.metadata["doc_id"] = generate_doc_id()  # 将 doc_id 存入 metadata 中
+    return documents
+
+
+def extract_keywords_as_string(text, max_keywords=10, separator=", "):
+    """
+    提取关键词并返回一个字符串
+    :param text: 输入的文本
+    :param max_keywords: 最大关键词数量
+    :param separator: 关键词之间的分隔符
+    :return: 拼接好的关键词字符串
+    """
+    rake = Rake()
+    rake.extract_keywords_from_text(text)
+    keywords = rake.get_ranked_phrases()[:max_keywords]  # 提取关键词列表
+    return separator.join(keywords)  # 拼接成一个字符串
+
+
+def generate_summary(text, max_length=150, min_length=30):
+    """
+    对文本内容生成摘要
+    :param text: 原始文本
+    :param max_length: 摘要的最大长度
+    :param min_length: 摘要的最小长度
+    :return: 摘要字符串
+    """
+    summary = summarizer(text, max_length=max_length, min_length=min_length, do_sample=False)
+    return summary[0]['summary_text']
+
+
+# 计算文档的 token 数量
+def calculate_token_count(documents):
+    tokenizer = tiktoken.get_encoding("cl100k_base")  # 根据模型选择编码
+    token_count = 0
+    for doc in documents:
+        token_count += len(tokenizer.encode(doc.page_content))
+    return token_count
 
 
 # 用于保存向量存储
@@ -32,6 +98,7 @@ def save_vector_store(assistant_id: int, vector_store):
             "index_to_docstore_id": vector_store.index_to_docstore_id
         }
         pickle.dump(metadata, f)
+
 
 def load_vector_store(assistant_id: int):
     load_path = f"./vector_stores/assistant_{assistant_id}.index"
@@ -92,6 +159,8 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
 
     # 加载文档并生成嵌入
     documents = loader.load()
+    documents = process_documents_with_id(documents)
+
     embeddings = OpenAIEmbeddings(openai_api_key=api_key)
 
     # 生成向量存储并缓存
@@ -100,11 +169,74 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
     # 保存向量存储到磁盘
     save_vector_store(assistant_id, vector_store[assistant_id])
 
+    # 计算 token 数量
+    token_count = calculate_token_count(documents)
 
-    return vector_store[assistant_id]
+    # 提取所有文本内容
+    full_text = " ".join([doc.page_content for doc in documents])
+
+    # 生成摘要
+    summary = generate_summary(full_text)
+
+    # 生成关键词字符串
+    keywords_string = extract_keywords_as_string(full_text)
+
+    # 获取 doc_id 列表
+    doc_ids = [doc.metadata["doc_id"] for doc in documents]
+    # 用逗号拼接
+    doc_ids_string = ", ".join(doc_ids)
+
+    # 保存元信息到数据库
+    new_entry = KnowledgeBase(
+        assistant_id=assistant_id,
+        file_name=file.filename,
+        file_type=f"{file_extension.upper()}",
+        summary=summary,
+        keywords=keywords_string,
+        doc_ids=doc_ids_string,
+        description=f"Uploaded file {file.filename} by assistant {assistant_id}",
+        token_count=token_count,
+        upload_date=datetime.utcnow()
+    )
+
+    db.add(new_entry)
+    db.commit()
+
+    return {
+        "vector_store": vector_store[assistant_id],
+        "knowledge_info": {
+            "file_name": new_entry.file_name,
+            "description": new_entry.description,
+            "token_count": new_entry.token_count,
+            "file_type": new_entry.file_type,
+            "summary": new_entry.summary,
+            "keywords": new_entry.keywords,
+            "doc_ids": new_entry.doc_ids,
+            "upload_date": new_entry.upload_date
+        }
+
+        # 获取助理的向量存储
+    }
 
 
-# 获取助理的向量存储
+def list_knowledge(assistant_id: int, db: Session):
+    records = db.query(KnowledgeBase).filter(KnowledgeBase.assistant_id == assistant_id).order_by(
+        KnowledgeBase.upload_date.desc()).all()
+    return [
+        {
+            "file_name": record.file_name,
+            "description": record.description,
+            "token_count": record.token_count,
+            "file_type": record.file_type,
+            "summary": record.summary,
+            "keywords": record.keywords,
+            "doc_ids": record.doc_ids,
+            "upload_date": record.upload_date
+        }
+        for record in records
+    ]
+
+
 def get_vector_store(assistant_id: int):
     if assistant_id not in vector_store:
         # 如果向量存储不在内存中，从磁盘加载

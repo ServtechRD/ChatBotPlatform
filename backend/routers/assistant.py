@@ -6,7 +6,7 @@ from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
 from sqlalchemy.orm import Session
 from models.database import get_db
 from models.models import AIAssistant, User
-from services.vector_service import process_and_store_file
+from services.vector_service import process_and_store_file, list_knowledge
 from services.auth_service import verify_token
 from models.schemas import AssistantCreate, Assistant
 
@@ -19,7 +19,6 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 @router.post("/assistant/create")
 def create_assistant(assistant_data: AssistantCreate, token: str = Depends(oauth2_scheme),
                      db: Session = Depends(get_db)):
-
     user_id = verify_token(token)
     # 验证用户是否存在
     user = db.query(User).filter(User.user_id == user_id).first()
@@ -52,9 +51,22 @@ async def upload_file(assistant_id: int, file: UploadFile = File(...), db: Sessi
         raise HTTPException(status_code=404, detail="Assistant not found")
 
     # 处理上传的文件，生成嵌入并存储到向量数据库
-    await process_and_store_file(assistant_id, file, db)
+    result = await process_and_store_file(assistant_id, file, db)
 
-    return {"message": "File uploaded and embeddings stored in vector database."}
+    return {"message": "File uploaded and embeddings stored in vector database.", "data": result}
+
+
+@router.get("/assistant/{assistant_id}/knowledge")
+async def get_knowlege(assistant_id: int, db: Session = Depends(get_db)):
+    # 验证助理是否存在
+    assistant = db.query(AIAssistant).filter(AIAssistant.assistant_id == assistant_id).first()
+    if not assistant:
+        raise HTTPException(status_code=404, detail="Assistant not found")
+
+    # 处理上传的文件，生成嵌入并存储到向量数据库
+    knowledge = list_knowledge(assistant_id, db)
+
+    return {"status": "success", "message": "", "data": knowledge}
 
 
 # 获取助理信息

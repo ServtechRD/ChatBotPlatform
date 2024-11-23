@@ -1,4 +1,3 @@
-
 from sqlalchemy import Column, Integer, String, Text, Boolean, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from models.database import Base
@@ -62,3 +61,22 @@ class Message(Base):
 
     # 关联到对话
     conversation = relationship("Conversation", back_populates="messages")
+
+
+class KnowledgeBase(Base):
+    __tablename__ = 'knowledge_base'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    assistant_id = Column(Integer, ForeignKey("assistants.assistant_id"), nullable=False)
+    file_name = Column(String(255), nullable=False)
+    file_type = Column(String(255), nullable=False)
+    description = Column(Text, nullable=False)
+    summary = Column(Text, nullable=False)
+    keywords = Column(Text, nullable=False)
+    doc_ids = Column(Text, nullable=False)
+    comment = Column(String(255), nullable=True)
+    token_count = Column(Integer, nullable=False)
+    upload_date = Column(DateTime, default=datetime.utcnow)
+
+    # 关联到助理
+    assistant = relationship("AIAssistant", back_populates="conversations")
