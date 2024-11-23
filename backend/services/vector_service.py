@@ -232,6 +232,9 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
     doc_ids_string = ", ".join(doc_ids)
 
     print("save to database")
+
+    print(f"{summary_keywords}")
+
     # 保存元信息到数据库
     new_entry = KnowledgeBase(
         assistant_id=assistant_id,
@@ -248,6 +251,8 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
     db.add(new_entry)
     db.commit()
 
+    print("return result")
+    
     return {
         "vector_store": vector_store[assistant_id],
         "knowledge_info": {
