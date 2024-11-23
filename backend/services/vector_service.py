@@ -52,9 +52,6 @@ def process_documents_with_id(documents):
     return documents
 
 
-
-
-
 def generate_summary_and_keywords(text, max_summary_words=150, max_keywords=10):
     """
     使用 ChatOpenAI 一次生成摘要和关键词
@@ -92,6 +89,7 @@ def generate_summary_and_keywords(text, max_summary_words=150, max_keywords=10):
     )
     response = llm([HumanMessage(content=prompt)])
     result = response.content.strip()
+    print(f"summary and keywords :{result}")
     # 分隔 summary 和 keywords
     try:
         summary, keywords = result.split("---")
@@ -204,7 +202,6 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
 
     # 生成摘要和關鍵詞
     summary_keywords = generate_summary_and_keywords(full_text)
-
 
     # 获取 doc_id 列表
     doc_ids = [doc.metadata["doc_id"] for doc in documents]
