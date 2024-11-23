@@ -234,6 +234,8 @@ const KnowledgeBaseUI = ({ currentAssistant }) => {
             fullWidth
             variant="outlined"
             placeholder="使用關鍵字搜尋"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
