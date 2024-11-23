@@ -56,11 +56,11 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
   const [videoPreview2, setVideoPreview2] = useState(false);
 
   const imageRef = useRef(null);
-  const video1Ref = useRef(null);
-  const video2Ref = useRef(null);
+  const videoRef1 = useRef(null);
+  const videoRef2 = useRef(null);
   const fileInputRef = useRef(null);
-  const video1InputRef = useRef(null);
-  const video2InputRef = useRef(null);
+  const videoInputRef1 = useRef(null);
+  const videoInputRef2 = useRef(null);
 
   useEffect(() => {
     if (aiAssistant) {
