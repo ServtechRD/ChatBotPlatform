@@ -117,7 +117,7 @@ def generate_summary_and_keywords(text, max_summary_words=150, max_keywords=10):
             else:
                 summary = result.strip()
                 keywords_line = ""
-        return {"summary": summary, "keywords": keywords_line}
+        return summary, keywords_line
     except ValueError:
         raise ValueError("The response format is incorrect. Ensure the delimiter '---' is present.")
 
@@ -224,7 +224,7 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
     full_text = " ".join([doc.page_content for doc in documents])
 
     # 生成摘要和關鍵詞
-    summary_keywords = generate_summary_and_keywords(full_text)
+    summary, keyword_lines = generate_summary_and_keywords(full_text)
 
     # 获取 doc_id 列表
     doc_ids = [doc.metadata["doc_id"] for doc in documents]
@@ -233,15 +233,15 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
 
     print("save to database")
 
-    print(f"{summary_keywords}")
+    # print(f"{summary_keywords}")
 
     # 保存元信息到数据库
     new_entry = KnowledgeBase(
         assistant_id=assistant_id,
         file_name=file.filename,
         file_type=f"{file_extension.upper()}",
-        summary=summary_keywords["summary"],
-        keywords=summary_keywords["keywords"],
+        summary=summary,
+        keywords=keyword_lines,
         doc_ids=doc_ids_string,
         description=f"Uploaded file {file.filename} by assistant {assistant_id}",
         token_count=token_count,
@@ -252,7 +252,7 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
     db.commit()
 
     print("return result")
-    
+
     return {
         "vector_store": vector_store[assistant_id],
         "knowledge_info": {
