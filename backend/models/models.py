@@ -79,4 +79,4 @@ class KnowledgeBase(Base):
     upload_date = Column(DateTime, default=datetime.utcnow)
 
     # 关联到助理
-    assistant = relationship("AIAssistant", back_populates="conversations")
+    assistant = relationship("AIAssistant", back_populates="knowledgebase")
