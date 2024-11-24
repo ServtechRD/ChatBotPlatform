@@ -47,7 +47,7 @@ async def process_message_through_llm(data, assistant_uuid, customer_unique_id, 
 
     # 沒查到
     if not relevant_docs:
-        system_prompt = prompt1.repalce("$language",lang).replace("$data",data)
+        system_prompt = prompt1.replace("$language",lang).replace("$data",data)
         response = llm(system_prompt)
         print("Response generated without documents.")
         return response
