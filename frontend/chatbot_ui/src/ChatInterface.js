@@ -53,6 +53,13 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
     }
   };
 
+  useEffect(() => {
+    setMessages(prevMessages => [
+      ...prevMessages,
+      { id: 1, text: assistant.message_welcome, isBot: true },
+    ]);
+  }, []);
+
   // 當消息更新時滾動
   useEffect(() => {
     scrollToBottom();
@@ -60,11 +67,6 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
 
   useEffect(() => {
     console.log('name  = ' + assistantname);
-
-    setMessages(prevMessages => [
-      ...prevMessages,
-      { id: 1, text: assistant.message_welcome, isBot: true },
-    ]);
 
     // 建立 WebSocket 连接
     socketRef.current = new WebSocket(
@@ -248,8 +250,8 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
                 textShadow: '1px 1px 2px rgba(0,0,0,0.5)',
               }}
             >
-              {assistantname || '智能助理'} |
-              {isConnected ? 'Connected' : 'Disconnected'} | Session ID:{' '}
+              {assistantname || '智能助理'}
+              {isConnected ? 'Connected' : 'Disconnected'} | ID:{' '}
               {customerIdRef.current.slice(0, 8)}
             </Typography>
           </Paper>
