@@ -73,6 +73,8 @@ async def websocket_endpoint(
     noidea = assistant.message_noidea
     lang = assistant.language
 
+    print(f"assistant => {assistant}")
+
     # 客户连接处理
     await manager.connect(websocket, assistant_uuid, customer_id)
 
