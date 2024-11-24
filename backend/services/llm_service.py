@@ -82,6 +82,9 @@ async def process_message_through_llm(data, assistant_uuid, customer_unique_id, 
     )
 
     print("ask llm with data and qa chain")
+    print(f"doc :{doc_contents}")
+    print(f"lang: {lang}")
+    print(f"query:{data}")
     # 通过 LLM 处理客户消息，生成回复
     response = qa_chain({"context": doc_contents, "language": lang, "query": data})
 
