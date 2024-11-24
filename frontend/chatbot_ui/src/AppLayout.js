@@ -117,6 +117,11 @@ const AppLayout = () => {
     }
   }, [navigate]);
 
+  const refreshAgents = async () => {
+    let alreadyAgents = (await ApiService.getAssistatns()) || [];
+    setAgents(alreadyAgents);
+  };
+
   const handleLogout = () => {
     ApiService.logout();
     navigate('/login');
@@ -158,6 +163,7 @@ const AppLayout = () => {
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
             {workspace}'s Workspace
           </Typography>
+
           <Button
             color="inherit"
             onClick={() => setIsAIManagementDialogOpen(true)}
@@ -286,7 +292,7 @@ const AppLayout = () => {
             </Typography>
           </Toolbar>
         </AppBar>
-        <AIAssistantManagement />
+        <AIAssistantManagement onRefresh={refreshAgents} />
       </Dialog>
     </Box>
   );

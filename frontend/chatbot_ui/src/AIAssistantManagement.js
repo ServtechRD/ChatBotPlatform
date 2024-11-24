@@ -23,7 +23,7 @@ import {
 import EditAIAssistantDialog from './EditAIAssistantDialog'; // 确保导入这个组件
 import ApiService from './ApiService';
 
-const AIAssistantManagement = () => {
+const AIAssistantManagement = ({ onRefresh }) => {
   const [assistants, setAssistants] = useState([
     {
       id: 1,
@@ -93,6 +93,9 @@ const AIAssistantManagement = () => {
     handleCloseDialog();*/
     // 重新獲取列表數據
     await fetchAssistants();
+    if (onRefresh) {
+      onRefresh();
+    }
   };
 
   return (
