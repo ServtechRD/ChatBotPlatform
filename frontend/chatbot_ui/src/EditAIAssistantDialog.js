@@ -269,7 +269,7 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
         formData.append('video_2', video2);
       }
       if (aiAssistant?.assistant_id) {
-        await ApiService.updateAssistant(aiAssistant.id, formData);
+        await ApiService.updateAssistant(aiAssistant.assistant_id, formData);
         alert('更新成功！');
       } else {
         await ApiService.createAssistant(formData);
