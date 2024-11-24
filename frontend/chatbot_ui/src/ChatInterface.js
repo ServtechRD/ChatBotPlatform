@@ -20,7 +20,7 @@ import { formatImageUrl } from './utils/urlUtils';
 
 const CHAT_WIDTH = 398;
 const CHAT_HEIGHT = 598;
-const MESSAGE_TOP_LIMIT = CHAT_HEIGHT / 3;
+const MESSAGE_TOP_LIMIT = (CHAT_HEIGHT / 3) * 2;
 
 const ChatInterface = ({ assistantid, assistantname, assistant }) => {
   const [messages, setMessages] = useState([
