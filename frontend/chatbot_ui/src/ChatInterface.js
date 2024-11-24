@@ -34,6 +34,7 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
   const socketRef = useRef(null);
   const customerIdRef = useRef(uuidv4()); // 生成随机的 customer_id
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const videoRef = useRef(null);
 
   // 控制消息滾動
