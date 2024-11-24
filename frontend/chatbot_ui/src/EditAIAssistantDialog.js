@@ -42,6 +42,9 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
   const [aiAssistantUrl, setAiAssistantUrl] = useState('');
   const [name, setName] = useState('');
 
+  const [welcomeText, setWelcomeText] = useState('');
+  const [unableToRespondText, setUnableToRespondText] = useState('');
+
   // 圖片相關狀態
   const [image, setImage] = useState(null);
   const [imageUrl, setImageUrl] = useState('');
@@ -77,6 +80,10 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
       setName(aiAssistant.name || '');
       setDescription(aiAssistant.description || '');
       setAiAssistantUrl(aiAssistant.link || '');
+
+      setWelcomeText(aiAssistant.message_welcome || 'welcome');
+      setUnableToRespondText(aiAssistant.message_noidea || 'No response');
+
       // 如果 aiAssistant 有 language 屬性，也可以設置
       if (aiAssistant.language) {
         setLanguage(aiAssistant.language);
@@ -250,6 +257,9 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
       formData.append('description', description);
       formData.append('language', language);
       formData.append('note', '');
+
+      formData.append('welcome', welcomeText);
+      formData.append('noidea', unableToRespondText);
 
       // 如果有裁剪後的圖片，轉換為文件並添加到表單
       if (hasNewImage && croppedImageUrl) {
@@ -493,14 +503,50 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
             onChange={e => setLanguage(e.target.value)}
             label="預設回覆語系"
           >
-            <MenuItem value="繁體中文">繁體中文</MenuItem>
-            <MenuItem value="英文">英文</MenuItem>
+            <MenuItem value="Traditional Chinese">繁體中文</MenuItem>
+            <MenuItem value="english">英文</MenuItem>
           </Select>
         </FormControl>
 
         <Typography variant="caption" color="textSecondary">
           AI助理將優先使用所設語系進行回覆。若無法使用預設語系，中文用戶可使用中文來詢問繁體中文。
         </Typography>
+
+        {/* 歡迎文字 */}
+        <Box sx={{ mb: 3 }}>
+          <TextField
+            label="歡迎文字"
+            fullWidth
+            multiline
+            rows={2}
+            variant="outlined"
+            value={welcomeText}
+            onChange={e => setWelcomeText(e.target.value)}
+            placeholder="請輸入當使用者進入對話時的歡迎訊息"
+            sx={{ mb: 1 }}
+          />
+          <Typography variant="caption" color="textSecondary">
+            此訊息將在使用者開始對話時顯示
+          </Typography>
+        </Box>
+
+        {/* 無法回應文字 */}
+        <Box sx={{ mb: 3 }}>
+          <TextField
+            label="無法回應文字"
+            fullWidth
+            multiline
+            rows={2}
+            variant="outlined"
+            value={unableToRespondText}
+            onChange={e => setUnableToRespondText(e.target.value)}
+            placeholder="請輸入當AI無法理解或回應時的訊息"
+            sx={{ mb: 1 }}
+          />
+          <Typography variant="caption" color="textSecondary">
+            當AI無法理解或無法提供適當回應時，將顯示此訊息
+          </Typography>
+        </Box>
 
         <Box display="flex" alignItems="center" marginTop={2}>
           <Typography variant="body2">AI助理網址: {aiAssistantUrl}</Typography>
