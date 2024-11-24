@@ -197,6 +197,7 @@ const AppLayout = () => {
           >
             測試AI助理
           </Button>
+          {/* 
           <IconButton color="inherit">
             <HelpIcon />
           </IconButton>
@@ -206,6 +207,7 @@ const AppLayout = () => {
           >
             <UserIcon />
           </IconButton>
+          */}
           <IconButton color="inherit" onClick={handleLogout}>
             <ExitToAppIcon />
           </IconButton>
@@ -227,11 +229,13 @@ const AppLayout = () => {
         >
           <List>
             <MenuItem icon={<ChatIcon />} label="對話" value="conversations" />
+            {/* 
             <MenuItem
               icon={<SettingsIcon />}
               label="AI助理設定"
               value="aiAssistant"
             />
+            */}
             <MenuItem
               icon={<DatasetIcon />}
               label="知識庫"
