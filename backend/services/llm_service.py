@@ -67,7 +67,7 @@ async def process_message_through_llm(data, assistant_uuid, customer_unique_id, 
 
     print(f"prompt => {prompt2}")
     prompt_template = PromptTemplate(
-        input_variables=["context", "language", "query"],  # 定义变量
+        input_variables=["context"],  # 定义变量
         template=prompt2  # 模板内容
     )
     # 通过 `RetrievalQA.from_chain_type` 方法初始化
