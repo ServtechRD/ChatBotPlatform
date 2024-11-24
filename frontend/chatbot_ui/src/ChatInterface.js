@@ -61,7 +61,10 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
   useEffect(() => {
     console.log('name  = ' + assistantname);
 
-    setMessages({ id: 1, text: assistant.message_welcome, isBot: true });
+    setMessages(prevMessages => [
+      ...prevMessages,
+      { id: 1, text: assistant.message_welcome, isBot: true },
+    ]);
 
     // 建立 WebSocket 连接
     socketRef.current = new WebSocket(
