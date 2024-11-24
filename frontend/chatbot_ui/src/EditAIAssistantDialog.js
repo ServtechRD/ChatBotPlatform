@@ -495,25 +495,28 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
             </Box>
           )}
         </Box>
-
-        <FormControl fullWidth variant="outlined" margin="normal">
-          <InputLabel>預設回覆語系</InputLabel>
-          <Select
-            value={language}
-            onChange={e => setLanguage(e.target.value)}
-            label="預設回覆語系"
-          >
-            <MenuItem value="Traditional Chinese">繁體中文</MenuItem>
-            <MenuItem value="english">英文</MenuItem>
-          </Select>
-        </FormControl>
-
-        <Typography variant="caption" color="textSecondary">
-          AI助理將優先使用所設語系進行回覆。若無法使用預設語系，中文用戶可使用中文來詢問繁體中文。
-        </Typography>
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="caption" color="textSecondary">
+            AI助理將優先使用所設語系進行回覆。若無法使用預設語系，中文用戶可使用中文來詢問繁體中文。
+          </Typography>
+          <FormControl fullWidth variant="outlined" margin="normal">
+            <InputLabel>預設回覆語系</InputLabel>
+            <Select
+              value={language}
+              onChange={e => setLanguage(e.target.value)}
+              label="預設回覆語系"
+            >
+              <MenuItem value="Traditional Chinese">繁體中文</MenuItem>
+              <MenuItem value="english">英文</MenuItem>
+            </Select>
+          </FormControl>
+        </Box>
 
         {/* 歡迎文字 */}
         <Box sx={{ mb: 3 }}>
+          <Typography variant="caption" color="textSecondary">
+            此訊息將在使用者開始對話時顯示
+          </Typography>
           <TextField
             label="歡迎文字"
             fullWidth
@@ -525,13 +528,13 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
             placeholder="請輸入當使用者進入對話時的歡迎訊息"
             sx={{ mb: 1 }}
           />
-          <Typography variant="caption" color="textSecondary">
-            此訊息將在使用者開始對話時顯示
-          </Typography>
         </Box>
 
         {/* 無法回應文字 */}
         <Box sx={{ mb: 3 }}>
+          <Typography variant="caption" color="textSecondary">
+            當AI無法理解或無法提供適當回應時，將顯示此訊息
+          </Typography>
           <TextField
             label="無法回應文字"
             fullWidth
@@ -543,9 +546,6 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
             placeholder="請輸入當AI無法理解或回應時的訊息"
             sx={{ mb: 1 }}
           />
-          <Typography variant="caption" color="textSecondary">
-            當AI無法理解或無法提供適當回應時，將顯示此訊息
-          </Typography>
         </Box>
 
         <Box display="flex" alignItems="center" marginTop={2}>
