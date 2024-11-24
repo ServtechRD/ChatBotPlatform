@@ -27,6 +27,8 @@ import {
 import ReactCrop from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 
+import { formatImageUrl } from '../utils/urlUtils';
+
 import ApiService from './ApiService';
 
 const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
@@ -77,19 +79,19 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
       }
 
       if (aiAssistant.image_assistant) {
-        setImageUrl(aiAssistant.image_assistant);
+        setImageUrl(formatImageUrl(aiAssistant.image_assistant));
       }
 
       if (aiAssistant.image_crop) {
-        setCroppedImageUrl(aiAssistant.image_crop);
+        setCroppedImageUrl(formatImageUrl(aiAssistant.image_crop));
       }
 
       if (aiAssistant.video1) {
-        setVideoUrl1(aiAssistant.video1);
+        setVideoUrl1(formatImageUrl(aiAssistant.video1));
       }
 
       if (aiAssistant.video2) {
-        setVideoUrl1(aiAssistant.video2);
+        setVideoUrl1(formatImageUrl(aiAssistant.video2));
       }
     }
   }, [aiAssistant]);
