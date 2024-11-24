@@ -366,8 +366,10 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
             <IconButton
               onClick={handleSendMessage}
               sx={{
+                m: 0.5,
                 bgcolor: 'primary.main',
                 color: 'white',
+                transform: 'rotate(-45deg)', // 稍微旋轉圖標使其指向右上
                 '&:hover': {
                   bgcolor: 'primary.dark',
                 },
@@ -376,7 +378,14 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
                 },
               }}
               disabled={!isConnected || !inputMessage.trim()}
-            ></IconButton>
+            >
+              <SendIcon
+                fontSize="small"
+                sx={{
+                  fontSize: '1.2rem', // 微調圖標大小
+                }}
+              />
+            </IconButton>
           </Paper>
         </Box>
       </Box>
