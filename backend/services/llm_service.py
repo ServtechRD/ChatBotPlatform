@@ -56,7 +56,7 @@ async def process_message_through_llm(data, assistant_uuid, customer_unique_id, 
     # combine_documents_chain = StuffDocumentsChain(llm=llm)
 
     # qa_chain = RetrievalQA(llm=llm, retriever=retriever)
-    system_prompt = prompt2.repalce("$language", lang).replace("$data", data)
+    system_prompt = prompt2.replace("$language", lang).replace("$data", data)
     doc_contents = "\n\n".join([doc.page_content for doc in relevant_docs])
     system_prompt += doc_contents
 
