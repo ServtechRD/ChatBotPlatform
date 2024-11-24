@@ -45,9 +45,11 @@ async def process_message_through_llm(data, assistant_uuid, customer_unique_id, 
     # 利用 OpenAI GPT 生成基于检索结果的回复
     llm = ChatOpenAI(openai_api_key=api_key, model=model)
 
+    print(f"lang  => {lang}")
+    print(f"data => {data}")
     # 沒查到
     if not relevant_docs:
-        system_prompt = prompt1.replace("$language",lang).replace("$data",data)
+        system_prompt = prompt1.replace("$language", lang).replace("$data", data)
         response = llm(system_prompt)
         print("Response generated without documents.")
         return response
