@@ -248,7 +248,7 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
                 textShadow: '1px 1px 2px rgba(0,0,0,0.5)',
               }}
             >
-              {assistantname || '智能助理'}
+              {assistantname || '智能助理'} |
               {isConnected ? 'Connected' : 'Disconnected'} | Session ID:{' '}
               {customerIdRef.current.slice(0, 8)}
             </Typography>
