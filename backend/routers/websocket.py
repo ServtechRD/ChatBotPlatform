@@ -60,7 +60,7 @@ async def websocket_endpoint(
         db: Session = Depends(get_db)
 ):
     assistant = db.query(AIAssistant).filter(AIAssistant.assistant_id == assistant_uuid).first()
-
+    print(f"setting =>{setting}")
     model = setting["model"]
     prompt1 = setting["prompt1"]
     prompt2 = setting["prompt2"]
