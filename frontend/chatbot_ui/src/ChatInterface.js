@@ -20,7 +20,7 @@ import { formatImageUrl } from './utils/urlUtils';
 
 const CHAT_WIDTH = 398;
 const CHAT_HEIGHT = 598;
-const MESSAGE_TOP_LIMIT = (CHAT_HEIGHT / 3) * 2;
+const MESSAGE_TOP_LIMIT = (CHAT_HEIGHT / 4) * 3;
 
 const ChatInterface = ({ assistantid, assistantname, assistant }) => {
   const [messages, setMessages] = useState([
@@ -145,7 +145,21 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
         />
       );
     }
-    return null;
+    return (
+      <img
+        src={formatImageUrl('images/default.jpg')}
+        alt="background"
+        style={{
+          position: 'absolute',
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          top: 0,
+          left: 0,
+          zIndex: 0,
+        }}
+      />
+    );
   };
 
   const handleSendMessage = () => {
@@ -203,188 +217,189 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
           flexDirection: 'column',
           height: '100%',
         }}
-      ></Box>
-
-      {/* 標題區域 */}
-      <Box
-        sx={{
-          p: 2,
-          textAlign: 'center',
-        }}
       >
-        <Typography
-          variant="h6"
+        {/* 標題區域 */}
+        <Box
           sx={{
-            color: 'white',
-            fontWeight: 'bold',
-            textShadow: '1px 1px 2px rgba(0,0,0,0.5)',
-            fontSize: '1.1rem',
-          }}
-        >
-          {assistantname || '智能助理'}
-        </Typography>
-      </Box>
-
-      {/* 問題提示 */}
-      <Box
-        sx={{
-          p: 1.5,
-          textAlign: 'center',
-        }}
-      >
-        <Paper
-          elevation={0}
-          sx={{
-            display: 'inline-block',
-            p: 1.5,
-            bgcolor: 'rgba(0, 0, 0, 0.6)',
-            borderRadius: 2,
-            maxWidth: '90%',
+            p: 2,
+            textAlign: 'left',
           }}
         >
           <Typography
-            variant="body1"
+            variant="h6"
             sx={{
               color: 'white',
+              fontWeight: 'bold',
               textShadow: '1px 1px 2px rgba(0,0,0,0.5)',
+              fontSize: '1.1rem',
             }}
           >
-            我是科智企業的客服，需要什麼協助？
+            {assistantname || '智能助理'}
+            {isConnected ? 'Connected' : 'Disconnected'} | Session ID:{' '}
+            {customerIdRef.current.slice(0, 8)}
           </Typography>
-        </Paper>
-      </Box>
+        </Box>
 
-      {/* 消息區域 */}
-      <Box
-        sx={{
-          flexGrow: 1,
-          overflowY: 'auto',
-          p: 2,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 2,
-          '&::-webkit-scrollbar': {
-            width: '4px',
-          },
-          '&::-webkit-scrollbar-track': {
-            backgroundColor: 'rgba(0,0,0,0.1)',
-          },
-          '&::-webkit-scrollbar-thumb': {
-            backgroundColor: 'rgba(255,255,255,0.3)',
-            borderRadius: '2px',
-          },
-        }}
-      >
-        {messages.map(message => (
-          <Box
-            key={message.id}
-            sx={{
-              display: 'flex',
-              justifyContent: message.isBot ? 'flex-start' : 'flex-end',
-            }}
-          >
-            <Paper
-              elevation={0}
-              sx={{
-                p: 1.5,
-                maxWidth: '85%',
-                bgcolor: message.isBot
-                  ? 'rgba(255, 255, 255, 0.95)'
-                  : 'rgba(25, 118, 210, 0.95)',
-                borderRadius: 2,
-                backdropFilter: 'blur(5px)',
-              }}
-            >
-              <Typography
-                sx={{
-                  color: message.isBot ? 'black' : 'white',
-                  wordBreak: 'break-word',
-                  lineHeight: 1.4,
-                }}
-              >
-                {message.text}
-              </Typography>
-            </Paper>
-          </Box>
-        ))}
-
-        {isThinking && (
-          <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
-            <Paper
-              elevation={0}
-              sx={{
-                p: 1.5,
-                bgcolor: 'rgba(255, 255, 255, 0.95)',
-                borderRadius: 2,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-              }}
-            >
-              <CircularProgress size={20} />
-              <Typography>思考中...</Typography>
-            </Paper>
-          </Box>
-        )}
-        <div ref={messagesEndRef} />
-      </Box>
-
-      {/* 輸入區域 */}
-      <Box sx={{ p: 2 }}>
-        <Paper
+        {/* 問題提示 */}
+        <Box
           sx={{
-            display: 'flex',
-            alignItems: 'center',
-            p: 1,
-            bgcolor: 'rgba(255, 255, 255, 0.95)',
-            borderRadius: 3,
-            backdropFilter: 'blur(5px)',
+            p: 1.5,
+            textAlign: 'center',
           }}
         >
-          <TextField
-            fullWidth
-            variant="standard"
-            placeholder="Type here..."
-            value={inputMessage}
-            onChange={e => setInputMessage(e.target.value)}
-            onKeyPress={e => e.key === 'Enter' && handleSendMessage()}
-            InputProps={{
-              disableUnderline: true,
-              sx: {
-                px: 2,
-                '& input': {
-                  color: 'rgba(0, 0, 0, 0.87)',
-                },
-              },
-            }}
-          />
-          <IconButton
-            onClick={handleSendMessage}
+          <Paper
+            elevation={0}
             sx={{
-              bgcolor: 'primary.main',
-              color: 'white',
-              '&:hover': {
-                bgcolor: 'primary.dark',
-              },
-              '&:disabled': {
-                bgcolor: 'action.disabledBackground',
-              },
+              display: 'inline-block',
+              p: 1.5,
+              bgcolor: 'rgba(0, 0, 0, 0.6)',
+              borderRadius: 2,
+              maxWidth: '90%',
             }}
-            disabled={!isConnected || !inputMessage.trim()}
-          ></IconButton>
-        </Paper>
-      </Box>
+          >
+            <Typography
+              variant="body1"
+              sx={{
+                color: 'white',
+                textShadow: '1px 1px 2px rgba(0,0,0,0.5)',
+              }}
+            >
+              我是科智企業的客服，需要什麼協助？
+            </Typography>
+          </Paper>
+        </Box>
 
-      {/* Footer */}
+        {/* 消息區域 */}
+        <Box
+          sx={{
+            flexGrow: 1,
+            overflowY: 'auto',
+            p: 2,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2,
+            '&::-webkit-scrollbar': {
+              width: '4px',
+            },
+            '&::-webkit-scrollbar-track': {
+              backgroundColor: 'rgba(0,0,0,0.1)',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              backgroundColor: 'rgba(255,255,255,0.3)',
+              borderRadius: '2px',
+            },
+          }}
+        >
+          {messages.map(message => (
+            <Box
+              key={message.id}
+              sx={{
+                display: 'flex',
+                justifyContent: message.isBot ? 'flex-start' : 'flex-end',
+              }}
+            >
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 1.5,
+                  maxWidth: '85%',
+                  bgcolor: message.isBot
+                    ? 'rgba(255, 255, 255, 0.95)'
+                    : 'rgba(25, 118, 210, 0.95)',
+                  borderRadius: 2,
+                  backdropFilter: 'blur(5px)',
+                }}
+              >
+                <Typography
+                  sx={{
+                    color: message.isBot ? 'black' : 'white',
+                    wordBreak: 'break-word',
+                    lineHeight: 1.4,
+                  }}
+                >
+                  {message.text}
+                </Typography>
+              </Paper>
+            </Box>
+          ))}
+
+          {isThinking && (
+            <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 1.5,
+                  bgcolor: 'rgba(255, 255, 255, 0.95)',
+                  borderRadius: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                }}
+              >
+                <CircularProgress size={20} />
+                <Typography>思考中...</Typography>
+              </Paper>
+            </Box>
+          )}
+          <div ref={messagesEndRef} />
+        </Box>
+
+        {/* 輸入區域 */}
+        <Box sx={{ p: 2 }}>
+          <Paper
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              p: 1,
+              bgcolor: 'rgba(255, 255, 255, 0.95)',
+              borderRadius: 3,
+              backdropFilter: 'blur(5px)',
+            }}
+          >
+            <TextField
+              fullWidth
+              variant="standard"
+              placeholder="Type here..."
+              value={inputMessage}
+              onChange={e => setInputMessage(e.target.value)}
+              onKeyPress={e => e.key === 'Enter' && handleSendMessage()}
+              InputProps={{
+                disableUnderline: true,
+                sx: {
+                  px: 2,
+                  '& input': {
+                    color: 'rgba(0, 0, 0, 0.87)',
+                  },
+                },
+              }}
+            />
+            <IconButton
+              onClick={handleSendMessage}
+              sx={{
+                bgcolor: 'primary.main',
+                color: 'white',
+                '&:hover': {
+                  bgcolor: 'primary.dark',
+                },
+                '&:disabled': {
+                  bgcolor: 'action.disabledBackground',
+                },
+              }}
+              disabled={!isConnected || !inputMessage.trim()}
+            ></IconButton>
+          </Paper>
+        </Box>
+      </Box>
+      {/* Footer
       <Box
         component="footer"
         sx={{ textAlign: 'center', py: 1, bgcolor: 'background.paper' }}
       >
         <Typography variant="body2" color="text.secondary">
-          {isConnected ? 'Connected' : 'Disconnected'} | Session ID:{' '}
-          {customerIdRef.current.slice(0, 8)}
+       
         </Typography>
       </Box>
+       */}
     </Box>
   );
 };
