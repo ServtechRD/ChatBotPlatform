@@ -173,6 +173,7 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
       formData.append('name', name);
       formData.append('description', description);
       formData.append('language', language);
+      formData.append('note', '');
 
       // 如果有裁剪後的圖片，轉換為文件並添加到表單
       if (croppedImageUrl) {
