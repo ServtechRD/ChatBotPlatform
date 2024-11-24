@@ -62,9 +62,10 @@ async def process_message_through_llm(data, assistant_uuid, customer_unique_id, 
 
     # qa_chain = RetrievalQA(llm=llm, retriever=retriever)
     system_prompt = prompt2  # .replace("$language", lang).replace("$data", data)
-    #doc_contents = "\n\n".join([doc.page_content for doc in relevant_docs])
-    #system_prompt += doc_contents
+    # doc_contents = "\n\n".join([doc.page_content for doc in relevant_docs])
+    # system_prompt += doc_contents
 
+    print(f"prompt => {prompt2}")
     prompt_template = PromptTemplate(
         input_variables=["language", "data"],  # 定义变量
         template=prompt2  # 模板内容
