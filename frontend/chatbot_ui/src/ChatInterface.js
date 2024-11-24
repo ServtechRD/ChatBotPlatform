@@ -40,17 +40,17 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
 
   // 控制消息滾動
   const scrollToBottom = () => {
-    if (messagesContainerRef.current && messagesEndRef.current) {
+    if (messagesContainerRef.current) {
       const container = messagesContainerRef.current;
       const scrollHeight = container.scrollHeight;
       const height = container.clientHeight;
       const maxScroll = scrollHeight - height;
-
-      // 計算最小滾動位置（確保消息不會超過頂部 1/3）
       const minScroll = Math.max(0, scrollHeight - MESSAGE_TOP_LIMIT);
 
-      // 設置滾動位置
-      container.scrollTop = Math.max(maxScroll, minScroll);
+      // 使用 requestAnimationFrame 確保在 DOM 更新後執行滾動
+      requestAnimationFrame(() => {
+        container.scrollTop = Math.max(maxScroll, minScroll);
+      });
     }
   };
 
@@ -91,6 +91,7 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
       if (message === '@@@') {
         console.log('is think');
         setIsThinking(true);
+        setTimeout(scrollToBottom, 100);
       } else if (message === '###') {
         console.log('stop thinking');
         setIsThinking(false);
@@ -261,6 +262,7 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
 
         {/* 消息區域 */}
         <Box
+          ref={messagesContainerRef} // 確保 ref 連接到正確的元素
           sx={{
             flexGrow: 1,
             overflowY: 'auto',
@@ -331,7 +333,7 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
               </Paper>
             </Box>
           )}
-          <div ref={messagesEndRef} />
+          <div ref={messagesEndRef} style={{ float: 'left', clear: 'both' }} />
         </Box>
 
         {/* 輸入區域 */}
