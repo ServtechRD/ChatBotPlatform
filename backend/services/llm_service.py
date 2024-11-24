@@ -67,7 +67,7 @@ async def process_message_through_llm(data, assistant_uuid, customer_unique_id, 
 
     print(f"prompt => {prompt2}")
     prompt_template = PromptTemplate(
-        input_variables=["language", "data"],  # 定义变量
+        input_variables=["context", "language", "data"],  # 定义变量
         template=prompt2  # 模板内容
     )
     # 通过 `RetrievalQA.from_chain_type` 方法初始化
@@ -83,7 +83,7 @@ async def process_message_through_llm(data, assistant_uuid, customer_unique_id, 
 
     print("ask llm with data and qachain")
     # 通过 LLM 处理客户消息，生成回复
-    response = qa_chain({"language": lang, "data": data})
+    response = qa_chain({"context": "customer service", "language": lang, "data": data})
 
     print("got response")
     print(response)
