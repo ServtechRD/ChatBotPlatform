@@ -35,9 +35,9 @@ const UPLOAD_IMAGE_WIDTH = 398;
 const UPLOAD_IMAGE_HEIGHT = 598;
 const CROP_SIZE = 200;
 
-const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
+const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSave }) => {
   const [description, setDescription] = useState('');
-  const [language, setLanguage] = useState('繁體中文');
+  const [language, setLanguage] = useState('Traditional Chinese');
   const [allowLiveChat, setAllowLiveChat] = useState(false);
   const [aiAssistantUrl, setAiAssistantUrl] = useState('');
   const [name, setName] = useState('');
@@ -290,6 +290,12 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
         await ApiService.createAssistant(formData);
         alert('建立成功！');
       }
+
+      // 呼叫 onSaved callback，並傳入保存的數據
+      if (onSaved) {
+        onSaved(savedData);
+      }
+
       onClose();
     } catch (error) {
       alert(`${aiAssistant?.assistant_id ? '更新' : '建立'}失敗: ${error}`);
