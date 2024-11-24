@@ -174,7 +174,7 @@ const AIAssistantManagement = () => {
         open={isDialogOpen}
         onClose={handleCloseDialog}
         aiAssistant={editingAssistant}
-        onSave={handleSaveAssistant}
+        onSaved={handleSaveAssistant}
       />
     </Box>
   );

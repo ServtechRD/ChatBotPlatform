@@ -35,7 +35,7 @@ const UPLOAD_IMAGE_WIDTH = 398;
 const UPLOAD_IMAGE_HEIGHT = 598;
 const CROP_SIZE = 200;
 
-const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSave }) => {
+const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
   const [description, setDescription] = useState('');
   const [language, setLanguage] = useState('Traditional Chinese');
   const [allowLiveChat, setAllowLiveChat] = useState(false);
