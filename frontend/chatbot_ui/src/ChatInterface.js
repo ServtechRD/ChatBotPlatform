@@ -270,6 +270,13 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
             display: 'flex',
             flexDirection: 'column',
             gap: 2,
+            position: 'relative',
+            '&::before': {
+              content: '""',
+              display: 'block',
+              minHeight: '50%', // 確保上半部分保持空白
+              pointerEvents: 'none', // 防止干擾滾動
+            },
             '&::-webkit-scrollbar': {
               width: '4px',
             },
