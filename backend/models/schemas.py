@@ -34,16 +34,16 @@ class AssistantUpdate(BaseModel):
 class Assistant(BaseModel):
     assistant_id: int
     name: str
-    description: Optional[str]
+    description: Optional[str] = None
     status: bool
 
-    image_assistant: Optional[str]  # 助理图路径
-    image_crop: Optional[str]  # 裁剪图路径
-    video_1 = Optional[str]  # 第一个视频路径
-    video_2 = Optional[str]  # 第二个视频路径
-    language = Optional[str]  # 预设语言
-    link = Optional[str]  # 外部链接
-    note = Optional[str]  # 备注
+    image_assistant: Optional[str] = None  # 助理图路径
+    image_crop: Optional[str] = None  # 裁剪图路径
+    video_1: Optional[str] = None  # 第一个视频路径
+    video_2: Optional[str] = None  # 第二个视频路径
+    language: Optional[str] = None  # 预设语言
+    link: Optional[str] = None  # 外部链接
+    note: Optional[str] = None  # 备注
 
     created_at: datetime
 
