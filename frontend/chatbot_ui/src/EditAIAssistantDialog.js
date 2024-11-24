@@ -518,7 +518,7 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
             此訊息將在使用者開始對話時顯示
           </Typography>
           <TextField
-            label="歡迎文字"
+            label=""
             fullWidth
             multiline
             rows={2}
@@ -536,7 +536,7 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
             當AI無法理解或無法提供適當回應時，將顯示此訊息
           </Typography>
           <TextField
-            label="無法回應文字"
+            label=""
             fullWidth
             multiline
             rows={2}
