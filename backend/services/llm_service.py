@@ -61,14 +61,14 @@ async def process_message_through_llm(data, assistant_uuid, customer_unique_id, 
     # 创建 PromptTemplate
 
     # qa_chain = RetrievalQA(llm=llm, retriever=retriever)
-    system_prompt = prompt2  # .replace("$language", lang).replace("$data", data)
-    # doc_contents = "\n\n".join([doc.page_content for doc in relevant_docs])
-    # system_prompt += doc_contents
+    system_prompt = prompt2.replace("$language", lang).replace("$data", data)
+    doc_contents = "\n\n".join([doc.page_content for doc in relevant_docs])
+    system_prompt = system_prompt.replace("$doc",doc_contents)
 
     print(f"prompt => {prompt2}")
     prompt_template = PromptTemplate(
         input_variables=["context"],  # 定义变量
-        template=prompt2  # 模板内容
+        template=system_prompt  # 模板内容
     )
     # 通过 `RetrievalQA.from_chain_type` 方法初始化
     print("crate qa_chain")
@@ -86,7 +86,7 @@ async def process_message_through_llm(data, assistant_uuid, customer_unique_id, 
     print(f"lang: {lang}")
     print(f"query:{data}")
     # 通过 LLM 处理客户消息，生成回复
-    response = qa_chain.run({"context": "customer service", "language": lang, "query": data})
+    response = qa_chain.run({"context": "customer service"})
 
     print("got response")
     print(response)
