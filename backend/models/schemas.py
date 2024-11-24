@@ -8,10 +8,12 @@ class UserCreate(BaseModel):
     email: str
     password: str
 
+
 # 登录和注册成功后的JWT返回模型
 class Token(BaseModel):
     access_token: str
     token_type: str
+
 
 # 助理创建模型
 class AssistantCreate(BaseModel):
@@ -19,6 +21,7 @@ class AssistantCreate(BaseModel):
     description: Optional[str] = None
     language: str
     note: Optional[str] = None
+
 
 class AssistantUpdate(BaseModel):
     name: Optional[str] = None
@@ -33,6 +36,15 @@ class Assistant(BaseModel):
     name: str
     description: Optional[str]
     status: bool
+
+    image_assistant: Optional[str]  # 助理图路径
+    image_crop: Optional[str]  # 裁剪图路径
+    video_1 = Optional[str]  # 第一个视频路径
+    video_2 = Optional[str]  # 第二个视频路径
+    language = Optional[str]  # 预设语言
+    link = Optional[str]  # 外部链接
+    note = Optional[str]  # 备注
+
     created_at: datetime
 
     class Config:
