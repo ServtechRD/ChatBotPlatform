@@ -133,6 +133,7 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
 
           setCrop(newCrop);
           setImageUrl(reader.result);
+          setImage(reader.result);
         };
         img.src = reader.result;
       });
