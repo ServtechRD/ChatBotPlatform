@@ -254,6 +254,7 @@ const AppLayout = () => {
             <IconButton
               edge="start"
               color="inherit"
+              disabled={agents.length == 0}
               onClick={() => setIsChatDialogOpen(false)}
               aria-label="close"
             >
