@@ -68,7 +68,7 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
     if (aiAssistant) {
       setName(aiAssistant.name || '');
       setDescription(aiAssistant.description || '');
-      setAiAssistantUrl(aiAssistant.url || '');
+      setAiAssistantUrl(aiAssistant.link || '');
       // 如果 aiAssistant 有 language 屬性，也可以設置
       if (aiAssistant.language) {
         setLanguage(aiAssistant.language);
@@ -86,11 +86,11 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
         setCroppedImageUrl(formatImageUrl(aiAssistant.image_crop));
       }
 
-      if (aiAssistant.video1) {
+      if (aiAssistant.video_1) {
         setVideoUrl1(formatImageUrl(aiAssistant.video1));
       }
 
-      if (aiAssistant.video2) {
+      if (aiAssistant.video_2) {
         setVideoUrl1(formatImageUrl(aiAssistant.video2));
       }
     }
