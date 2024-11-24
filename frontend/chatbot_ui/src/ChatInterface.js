@@ -150,7 +150,7 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
       {/* 背景媒體內容 */}
       {getBackgroundContent()}
 
-      {/* 遮罩層 */}
+      {/* 遮罩層 
       <Box
         sx={{
           position: 'absolute',
@@ -163,6 +163,7 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
           backdropFilter: 'blur(2px)', // 輕微模糊效果
         }}
       />
+      */}
 
       {/* Top Navigation Bar 
       <AppBar
