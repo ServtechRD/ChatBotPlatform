@@ -269,6 +269,7 @@ const AppLayout = () => {
           <ChatInterface
             assistantid={currentAgent.assistant_id}
             assistantname={currentAgent.name}
+            assistant={currentAgent}
           />
         )}
       </Dialog>
