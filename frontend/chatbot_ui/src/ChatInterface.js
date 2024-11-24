@@ -36,6 +36,7 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const videoRef = useRef(null);
+  const welcomeMessageShownRef = useRef(false); // 追蹤歡迎訊息是否已顯示
 
   // 控制消息滾動
   const scrollToBottom = () => {
@@ -53,13 +54,6 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
     }
   };
 
-  useEffect(() => {
-    setMessages(prevMessages => [
-      ...prevMessages,
-      { id: 1, text: assistant.message_welcome, isBot: true },
-    ]);
-  }, []);
-
   // 當消息更新時滾動
   useEffect(() => {
     scrollToBottom();
@@ -67,6 +61,14 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
 
   useEffect(() => {
     console.log('name  = ' + assistantname);
+
+    // 只在首次加載時顯示歡迎訊息
+    if (!welcomeMessageShownRef.current && assistant?.message_welcome) {
+      setMessages([
+        { id: Date.now(), text: assistant.message_welcome, isBot: true },
+      ]);
+      welcomeMessageShownRef.current = true;
+    }
 
     // 建立 WebSocket 连接
     socketRef.current = new WebSocket(
