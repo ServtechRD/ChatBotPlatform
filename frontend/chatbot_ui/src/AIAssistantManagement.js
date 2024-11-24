@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Table,
   TableBody,
@@ -34,6 +34,7 @@ const AIAssistantManagement = () => {
       unread: 0,
     },
   ]);
+  const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState('list');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingAssistant, setEditingAssistant] = useState(null);
@@ -128,48 +129,53 @@ const AIAssistantManagement = () => {
           </Button>
         </Box>
       </Box>
-
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>AI助理名稱</TableCell>
-              <TableCell align="center">狀態</TableCell>
-              <TableCell align="right">操作</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {assistants.map(assistant => (
-              <TableRow key={assistant.id}>
-                <TableCell>
-                  <Typography variant="subtitle1">{assistant.name}</Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    {assistant.description}
-                  </Typography>
-                </TableCell>
-                <TableCell align="center">
-                  <Switch
-                    checked={assistant.status}
-                    onChange={() => handleStatusChange(assistant.id)}
-                    color="primary"
-                  />
-                </TableCell>
-                <TableCell align="right">
-                  <IconButton size="small">
-                    <LinkIcon />
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    onClick={() => handleOpenDialog(assistant)}
-                  >
-                    <EditIcon />
-                  </IconButton>
-                </TableCell>
+      {isLoading ? (
+        <Typography>載入中...</Typography>
+      ) : (
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>AI助理名稱</TableCell>
+                <TableCell align="center">狀態</TableCell>
+                <TableCell align="right">操作</TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+            </TableHead>
+            <TableBody>
+              {assistants.map(assistant => (
+                <TableRow key={assistant.id}>
+                  <TableCell>
+                    <Typography variant="subtitle1">
+                      {assistant.name}
+                    </Typography>
+                    <Typography variant="body2" color="textSecondary">
+                      {assistant.description}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="center">
+                    <Switch
+                      checked={assistant.status}
+                      onChange={() => handleStatusChange(assistant.id)}
+                      color="primary"
+                    />
+                  </TableCell>
+                  <TableCell align="right">
+                    <IconButton size="small">
+                      <LinkIcon />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleOpenDialog(assistant)}
+                    >
+                      <EditIcon />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
 
       <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
         <Button disabled>上一頁</Button>
