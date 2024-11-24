@@ -87,11 +87,11 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
       }
 
       if (aiAssistant.video_1) {
-        setVideoUrl1(formatImageUrl(aiAssistant.video1));
+        setVideoUrl1(formatImageUrl(aiAssistant.video_1));
       }
 
       if (aiAssistant.video_2) {
-        setVideoUrl1(formatImageUrl(aiAssistant.video2));
+        setVideoUrl1(formatImageUrl(aiAssistant.video_2));
       }
     }
   }, [aiAssistant]);
