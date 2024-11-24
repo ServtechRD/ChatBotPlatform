@@ -23,7 +23,7 @@ async def process_message_through_llm(data, assistant_uuid, customer_unique_id, 
 
     if not vector_store:
         print("No vector store found.")
-        return {"message": noidea}
+        return noidea
 
     print(vector_store)
 
@@ -50,7 +50,7 @@ async def process_message_through_llm(data, assistant_uuid, customer_unique_id, 
         system_prompt = prompt1.repalce("$language",lang).replace("$data",data)
         response = llm(system_prompt)
         print("Response generated without documents.")
-        return {"message": response}
+        return response
 
     # 使用 StuffDocumentsChain 作为文档组合链
     # combine_documents_chain = StuffDocumentsChain(llm=llm)
