@@ -268,7 +268,7 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
       if (video2) {
         formData.append('video_2', video2);
       }
-      if (aiAssistant?.id) {
+      if (aiAssistant?.assistant_id) {
         await ApiService.updateAssistant(aiAssistant.id, formData);
         alert('更新成功！');
       } else {
@@ -277,13 +277,15 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
       }
       onClose();
     } catch (error) {
-      alert(`${aiAssistant?.id ? '更新' : '建立'}失敗: ${error}`);
+      alert(`${aiAssistant?.assistant_id ? '更新' : '建立'}失敗: ${error}`);
     }
   };
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>{aiAssistant?.id ? '編輯AI助理' : '新AI助理'}</DialogTitle>
+      <DialogTitle>
+        {aiAssistant?.assistant_id ? '編輯AI助理' : '新AI助理'}
+      </DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="textSecondary" gutterBottom>
           AI助理助理主要使用情境以及使用者知悉與其互動。對於表現演算結果的使用情境，請使用範本填入背景知識。請根據您的需求修改範本中的問題。
@@ -514,7 +516,7 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
           variant="contained"
           color="primary"
         >
-          {aiAssistant?.id ? '更新' : '儲存'}
+          {aiAssistant?.assistant_id ? '更新' : '儲存'}
         </Button>
       </DialogActions>
     </Dialog>
