@@ -24,7 +24,7 @@ const MESSAGE_TOP_LIMIT = (CHAT_HEIGHT / 4) * 3;
 
 const ChatInterface = ({ assistantid, assistantname, assistant }) => {
   const [messages, setMessages] = useState([
-    { id: 1, text: 'Welcome!', isBot: true },
+    //{ id: 1, text: 'Welcome!', isBot: true },
   ]);
   const [inputMessage, setInputMessage] = useState('');
   const [isConnected, setIsConnected] = useState(false);
@@ -60,6 +60,9 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
 
   useEffect(() => {
     console.log('name  = ' + assistantname);
+
+    setMessages({ id: 1, text: assistant.message_welcome, isBot: true });
+
     // 建立 WebSocket 连接
     socketRef.current = new WebSocket(
       `ws://192.168.1.234:36100/ws/assistant/${assistantid}/${customerIdRef.current}`
@@ -221,30 +224,8 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
         {/* 標題區域 */}
         <Box
           sx={{
-            p: 2,
-            textAlign: 'left',
-          }}
-        >
-          <Typography
-            variant="h6"
-            sx={{
-              color: 'white',
-              fontWeight: 'bold',
-              textShadow: '1px 1px 2px rgba(0,0,0,0.5)',
-              fontSize: '1.1rem',
-            }}
-          >
-            {assistantname || '智能助理'}
-            {isConnected ? 'Connected' : 'Disconnected'} | Session ID:{' '}
-            {customerIdRef.current.slice(0, 8)}
-          </Typography>
-        </Box>
-
-        {/* 問題提示 */}
-        <Box
-          sx={{
             p: 1.5,
-            textAlign: 'center',
+            textAlign: 'left',
           }}
         >
           <Paper
@@ -264,7 +245,9 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
                 textShadow: '1px 1px 2px rgba(0,0,0,0.5)',
               }}
             >
-              我是科智企業的客服，需要什麼協助？
+              {assistantname || '智能助理'}
+              {isConnected ? 'Connected' : 'Disconnected'} | Session ID:{' '}
+              {customerIdRef.current.slice(0, 8)}
             </Typography>
           </Paper>
         </Box>
