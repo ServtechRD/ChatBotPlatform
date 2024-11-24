@@ -166,6 +166,17 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
     }
   }, [completedCrop]);
 
+  function base64ToFile(base64, filename) {
+    const byteString = atob(base64.split(',')[1]); // 解码 Base64
+    const mimeString = base64.split(',')[0].match(/:(.*?);/)[1]; // 获取 MIME 类型
+    const ab = new ArrayBuffer(byteString.length);
+    const ia = new Uint8Array(ab);
+    for (let i = 0; i < byteString.length; i++) {
+      ia[i] = byteString.charCodeAt(i);
+    }
+    return new File([ab], filename, { type: mimeString });
+  }
+
   const handleSave = async () => {
     // 处理保存逻辑
     try {
@@ -177,13 +188,17 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
 
       // 如果有裁剪後的圖片，轉換為文件並添加到表單
       if (croppedImageUrl) {
-        const response = await fetch(croppedImageUrl);
-        const blob = await response.blob();
-        formData.append('crop_image', blob, 'icon.jpg');
+        //const response = await fetch(croppedImageUrl);
+        //const blob = await response.blob();
+        const corp_imge_file = base64ToFile(croppedImageUrl, 'crop_image.jpg');
+        formData.append('crop_image', corp_imge_file);
       }
 
       if (image) {
-        formData.append('assistant_image', image);
+        formData.append(
+          'assistant_image',
+          base64ToFile(imageUrl, 'assistant_image.jpg')
+        );
       }
 
       // 如果有影片，添加到表單
