@@ -293,7 +293,7 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
 
       // 呼叫 onSaved callback，並傳入保存的數據
       if (onSaved) {
-        onSaved(savedData);
+        onSaved(aiAssistant);
       }
 
       onClose();
