@@ -2,7 +2,7 @@ from typing import List, Optional
 
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
+from fastapi import APIRouter, UploadFile, File, Depends, HTTPException,Form
 from sqlalchemy.orm import Session
 from models.database import get_db
 from models.models import AIAssistant, User
@@ -49,7 +49,11 @@ def save_file(file: UploadFile, sub_dir: str) -> str:
 
 # 创建助理
 @router.post("/assistant/create")
-def create_assistant(assistant_data: AssistantCreate,
+def create_assistant(#assistant_data: AssistantCreate,
+                     name: str = Form(...),
+                     description: str = Form(...),
+                     language: str = Form(...),
+                     note: str = Form(""),
                      assistant_image: Optional[UploadFile] = File(None),
                      crop_image: Optional[UploadFile] = File(None),
                      video_1: Optional[UploadFile] = File(None),
@@ -73,17 +77,16 @@ def create_assistant(assistant_data: AssistantCreate,
 
     # 创建新的助理
     new_assistant = AIAssistant(
-        name=assistant_data.name,
-        description=assistant_data.description,
+        name=name,
+        description=description,
         owner_id=user_id,
-
         image_assistant=assistant_image_path,
         image_crop=crop_image_path,
         video_1=video_1_path,
         video_2=video_2_path,
-        language=assistant_data.default_language,
+        language=language,
         link=unique_link,
-        note=assistant_data.note
+        note=note
     )
     db.add(new_assistant)
     db.commit()
@@ -176,7 +179,10 @@ def toggle_assistant_status(assistant_id: int, db: Session = Depends(get_db)):
 @router.put("/assistant/{assistant_id}")
 async def update_assistant(
         assistant_id: int,
-        assistant_data: AssistantUpdate,
+        name: Optional[str] = Form(None),  # 可选字段
+        description: Optional[str] = Form(None),
+        language: Optional[str] = Form(None),
+        note: Optional[str] = Form(None),
         assistant_image: Optional[UploadFile] = File(None),
         crop_image: Optional[UploadFile] = File(None),
         video_1: Optional[UploadFile] = File(None),
@@ -193,14 +199,14 @@ async def update_assistant(
         raise HTTPException(status_code=404, detail="Assistant not found or access denied")
 
     # 更新基础字段
-    if assistant_data.name is not None:
-        assistant.name = assistant_data.name
-    if assistant_data.description is not None:
-        assistant.description = assistant_data.description
-    if assistant_data.language is not None:
-        assistant.language = assistant_data.language
-    if assistant_data.note is not None:
-        assistant.note = assistant_data.note
+    if name is not None:
+        assistant.name = name
+    if description is not None:
+        assistant.description = description
+    if language is not None:
+        assistant.language = language
+    if note is not None:
+        assistant.note = note
 
     # 更新文件字段
     if assistant_image:
