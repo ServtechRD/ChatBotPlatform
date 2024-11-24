@@ -1,5 +1,6 @@
 from langchain.chains import RetrievalQA
 from langchain.chat_models import ChatOpenAI
+from langchain.prompts import PromptTemplate
 from services.vector_service import get_vector_store
 from langchain.schema import Document
 # from langchain.chains.combine_documents import StuffDocumentsChain
@@ -57,11 +58,17 @@ async def process_message_through_llm(data, assistant_uuid, customer_unique_id, 
     # 使用 StuffDocumentsChain 作为文档组合链
     # combine_documents_chain = StuffDocumentsChain(llm=llm)
 
+    # 创建 PromptTemplate
+
     # qa_chain = RetrievalQA(llm=llm, retriever=retriever)
-    system_prompt = prompt2.replace("$language", lang).replace("$data", data)
+    system_prompt = prompt2  # .replace("$language", lang).replace("$data", data)
     doc_contents = "\n\n".join([doc.page_content for doc in relevant_docs])
     system_prompt += doc_contents
 
+    prompt_template = PromptTemplate(
+        input_variables=["language", "data"],  # 定义变量
+        template=prompt2  # 模板内容
+    )
     # 通过 `RetrievalQA.from_chain_type` 方法初始化
     print("crate qa_chain")
 
@@ -70,12 +77,12 @@ async def process_message_through_llm(data, assistant_uuid, customer_unique_id, 
         chain_type="stuff",  # 这是最简单的文档组合方式
         retriever=retriever,
         return_source_documents=False,
-        chain_type_kwargs={"prompt": system_prompt},
+        chain_type_kwargs={"prompt": prompt_template},
     )
 
     print("ask llm with data and qachain")
     # 通过 LLM 处理客户消息，生成回复
-    response = qa_chain.run(data)
+    response = qa_chain.run({"language": lang, "data": data})
 
     print("got response")
     print(response)
