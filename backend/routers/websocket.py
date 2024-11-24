@@ -38,6 +38,8 @@ class ConnectionManager:
 # 实例化WebSocket连接管理类
 manager = ConnectionManager()
 
+setting = {}
+
 
 def read_json_file(file_path: str) -> dict:
     try:
@@ -49,9 +51,6 @@ def read_json_file(file_path: str) -> dict:
         return None
 
 
-setting = read_json_file("./config/setting.json")
-
-
 @router.websocket("/ws/assistant/{assistant_uuid}/{customer_id}")
 async def websocket_endpoint(
         websocket: WebSocket,
@@ -59,6 +58,12 @@ async def websocket_endpoint(
         customer_id: str,
         db: Session = Depends(get_db)
 ):
+    global setting
+
+    if len(setting) == 0:
+        print("load setting")
+        setting = read_json_file("./config/setting.json")
+
     assistant = db.query(AIAssistant).filter(AIAssistant.assistant_id == assistant_uuid).first()
     print(f"setting =>{setting}")
     model = setting["model"]
