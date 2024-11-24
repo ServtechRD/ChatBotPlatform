@@ -38,18 +38,22 @@ const AIAssistantManagement = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingAssistant, setEditingAssistant] = useState(null);
 
-  useEffect(() => {
-    const fetchAssistants = async () => {
-      try {
-        const data = await ApiService.fetchAssistants();
-        setAssistants(data);
-      } catch (error) {
-        console.error('Failed to fetch assistants data:', error);
-      }
-    };
-
-    fetchAssistants();
+  const fetchAssistants = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const data = await ApiService.fetchAssistants();
+      setAssistants(data);
+    } catch (error) {
+      console.error('Failed to fetch assistants data:', error);
+      alert('獲取助理列表失敗');
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchAssistants();
+  }, [fetchAssistants]);
 
   const handleStatusChange = id => {
     setAssistants(
@@ -74,7 +78,8 @@ const AIAssistantManagement = () => {
     setEditingAssistant(null);
   };
 
-  const handleSaveAssistant = updatedAssistant => {
+  const handleSaveAssistant = async updatedAssistant => {
+    /*
     if (editingAssistant) {
       setAssistants(
         assistants.map(assistant =>
@@ -84,7 +89,9 @@ const AIAssistantManagement = () => {
     } else {
       setAssistants([...assistants, { ...updatedAssistant, id: Date.now() }]);
     }
-    handleCloseDialog();
+    handleCloseDialog();*/
+    // 重新獲取列表數據
+    await fetchAssistants();
   };
 
   return (
