@@ -31,6 +31,10 @@ import { formatImageUrl } from './utils/urlUtils';
 
 import ApiService from './ApiService';
 
+const UPLOAD_IMAGE_WIDTH = 398;
+const UPLOAD_IMAGE_HEIGHT = 598;
+const CROP_SIZE = 200;
+
 const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
   const [description, setDescription] = useState('');
   const [language, setLanguage] = useState('繁體中文');
@@ -42,9 +46,11 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
   const [image, setImage] = useState(null);
   const [imageUrl, setImageUrl] = useState('');
   const [crop, setCrop] = useState({
-    unit: '%',
-    width: 30,
-    aspect: 1,
+    unit: 'px',
+    width: CROP_SIZE,
+    height: CROP_SIZE,
+    x: (UPLOAD_IMAGE_WIDTH - CROP_SIZE) / 2,
+    y: (UPLOAD_IMAGE_HEIGHT - CROP_SIZE) / 2,
   });
   const [completedCrop, setCompletedCrop] = useState(null);
   const [croppedImageUrl, setCroppedImageUrl] = useState('');
@@ -101,9 +107,34 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
-      reader.addEventListener('load', () => {
+      /*reader.addEventListener('load', () => {
         setImageUrl(reader.result);
         setImage(reader.result);
+      });
+      reader.readAsDataURL(file);*/
+      reader.addEventListener('load', () => {
+        // 創建新的 Image 對象來獲取圖片尺寸
+        const img = new Image();
+        img.onload = () => {
+          // 計算縮放比例
+          const scale = Math.min(
+            UPLOAD_IMAGE_WIDTH / img.width,
+            UPLOAD_IMAGE_HEIGHT / img.height
+          );
+
+          // 設置初始裁剪區域在中心
+          const newCrop = {
+            unit: 'px',
+            width: CROP_SIZE,
+            height: CROP_SIZE,
+            x: (UPLOAD_IMAGE_WIDTH - CROP_SIZE) / 2,
+            y: (UPLOAD_IMAGE_HEIGHT - CROP_SIZE) / 2,
+          };
+
+          setCrop(newCrop);
+          setImageUrl(reader.result);
+        };
+        img.src = reader.result;
       });
       reader.readAsDataURL(file);
     }
@@ -135,7 +166,7 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
   };
 
   // 生成裁剪後的圖片
-  const generateCroppedImage = async () => {
+  /*const generateCroppedImage = async () => {
     if (!imageRef.current || !completedCrop) return;
 
     const canvas = document.createElement('canvas');
@@ -160,7 +191,34 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
     // 將裁剪後的圖片轉換為URL
     const base64Image = canvas.toDataURL('image/jpeg');
     setCroppedImageUrl(base64Image);
-  };
+  };*/
+
+  const generateCroppedImage = useCallback(() => {
+    if (!imageRef.current || !completedCrop) return;
+
+    const canvas = document.createElement('canvas');
+    const scaleX = imageRef.current.naturalWidth / imageRef.current.width;
+    const scaleY = imageRef.current.naturalHeight / imageRef.current.height;
+
+    canvas.width = CROP_SIZE;
+    canvas.height = CROP_SIZE;
+    const ctx = canvas.getContext('2d');
+
+    ctx.drawImage(
+      imageRef.current,
+      completedCrop.x * scaleX,
+      completedCrop.y * scaleY,
+      completedCrop.width * scaleX,
+      completedCrop.height * scaleY,
+      0,
+      0,
+      CROP_SIZE,
+      CROP_SIZE
+    );
+
+    // 將裁剪後的圖片轉換為URL
+    setCroppedImageUrl(canvas.toDataURL('image/jpeg'));
+  }, [completedCrop]);
 
   useEffect(() => {
     if (completedCrop) {
@@ -278,19 +336,36 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
             {imageUrl && (
               <Box sx={{ flex: 1 }}>
                 <Typography variant="subtitle2" gutterBottom>
-                  選擇區域
+                  選擇區域 (200 x 200)
                 </Typography>
-                <Paper variant="outlined" sx={{ p: 1 }}>
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    width: UPLOAD_IMAGE_WIDTH,
+                    height: UPLOAD_IMAGE_HEIGHT,
+                    overflow: 'hidden',
+                  }}
+                >
                   <ReactCrop
                     crop={crop}
-                    onChange={c => setCrop(c)}
+                    onChange={(_, percentCrop) => setCrop(percentCrop)}
                     onComplete={c => setCompletedCrop(c)}
                     aspect={1}
+                    minWidth={CROP_SIZE}
+                    minHeight={CROP_SIZE}
+                    maxWidth={CROP_SIZE}
+                    maxHeight={CROP_SIZE}
+                    locked={true}
                   >
                     <img
                       ref={imageRef}
                       src={imageUrl}
-                      style={{ maxWidth: '100%' }}
+                      style={{
+                        width: UPLOAD_IMAGE_WIDTH,
+                        height: UPLOAD_IMAGE_HEIGHT,
+                        objectFit: 'contain',
+                      }}
+                      alt="Upload"
                     />
                   </ReactCrop>
                 </Paper>
@@ -306,17 +381,22 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
                   variant="outlined"
                   sx={{
                     p: 1,
-                    width: 100,
-                    height: 100,
+                    width: CROP_SIZE,
+                    height: CROP_SIZE,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
+                    overflow: 'hidden',
                   }}
                 >
                   <img
                     src={croppedImageUrl}
                     alt="Cropped"
-                    style={{ maxWidth: '100%', maxHeight: '100%' }}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                    }}
                   />
                 </Paper>
               </Box>
