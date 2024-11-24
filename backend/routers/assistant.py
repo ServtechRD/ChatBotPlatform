@@ -2,7 +2,7 @@ from typing import List, Optional
 
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException,Form
+from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Form
 from sqlalchemy.orm import Session
 from models.database import get_db
 from models.models import AIAssistant, User
@@ -49,17 +49,20 @@ def save_file(file: UploadFile, sub_dir: str) -> str:
 
 # 创建助理
 @router.post("/assistant/create")
-def create_assistant(#assistant_data: AssistantCreate,
-                     name: str = Form(...),
-                     description: str = Form(...),
-                     language: str = Form(...),
-                     note: str = Form(""),
-                     assistant_image: Optional[UploadFile] = File(None),
-                     crop_image: Optional[UploadFile] = File(None),
-                     video_1: Optional[UploadFile] = File(None),
-                     video_2: Optional[UploadFile] = File(None),
-                     token: str = Depends(oauth2_scheme),
-                     db: Session = Depends(get_db)):
+def create_assistant(  # assistant_data: AssistantCreate,
+        name: str = Form(...),
+        description: str = Form(...),
+        language: str = Form(...),
+        note: str = Form(""),
+        welcome: str = Form("welcome"),
+        noidea: str = Form("i don't know"),
+        other: str = Form(""),
+        assistant_image: Optional[UploadFile] = File(None),
+        crop_image: Optional[UploadFile] = File(None),
+        video_1: Optional[UploadFile] = File(None),
+        video_2: Optional[UploadFile] = File(None),
+        token: str = Depends(oauth2_scheme),
+        db: Session = Depends(get_db)):
     user_id = verify_token(token)
     # 验证用户是否存在
     user = db.query(User).filter(User.user_id == user_id).first()
@@ -81,6 +84,9 @@ def create_assistant(#assistant_data: AssistantCreate,
         description=description,
         owner_id=user_id,
         image_assistant=assistant_image_path,
+        message_welcome=welcome,
+        message_noidea=noidea,
+        message_other=other,
         image_crop=crop_image_path,
         video_1=video_1_path,
         video_2=video_2_path,
@@ -96,6 +102,9 @@ def create_assistant(#assistant_data: AssistantCreate,
         "status": "success",
         "assistant_id": new_assistant.assistant_id,
         "message": "Assistant created successfully",
+        "welcome": welcome,
+        "noidea": noidea,
+
         "file_paths": {
             "assistant_image": assistant_image_path,
             "crop_image": crop_image_path,
@@ -183,6 +192,9 @@ async def update_assistant(
         description: Optional[str] = Form(None),
         language: Optional[str] = Form(None),
         note: Optional[str] = Form(None),
+        welcome: Optional[str] = Form(None),
+        noidea: Optional[str] = Form(None),
+        other: Optional[str] = Form(None),
         assistant_image: Optional[UploadFile] = File(None),
         crop_image: Optional[UploadFile] = File(None),
         video_1: Optional[UploadFile] = File(None),
@@ -207,6 +219,12 @@ async def update_assistant(
         assistant.language = language
     if note is not None:
         assistant.note = note
+    if welcome is not None:
+        assistant.message_welcome = welcome
+    if noidea is not None:
+        assistant.message_noidea = noidea
+    if other is not None:
+        assistant.message_other = other
 
     # 更新文件字段
     if assistant_image:
@@ -228,6 +246,9 @@ async def update_assistant(
         "assistant": {
             "name": assistant.name,
             "description": assistant.description,
+            "welcome": welcome,
+            "noidea": noidea,
+            "other": other,
             "assistant_image": assistant.image_assistant,
             "crop_image": assistant.image_crop,
             "video_1": assistant.video_1,

@@ -177,8 +177,9 @@ def load_vector_store(assistant_id: int):
         return vector_store[assistant_id]
     else:
         # 返回空的 FAISS 对象
-        embeddings = OpenAIEmbeddings()
-        return FAISS.from_texts([], embeddings)  # 空的文本列表
+        return None
+        #embeddings = OpenAIEmbeddings()
+        #return FAISS.from_texts([], embeddings)  # 空的文本列表
         #raise ValueError(f"Vector store for assistant {assistant_id} is not initialized.")
 
 

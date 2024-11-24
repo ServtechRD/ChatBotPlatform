@@ -1,10 +1,11 @@
 import asyncio
+import json
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
 from sqlalchemy.orm import Session
 from services.llm_service import process_message_through_llm
 from models.database import get_db
-from models.models import Conversation, Message
+from models.models import Conversation, Message, AIAssistant
 
 router = APIRouter()
 
@@ -38,6 +39,19 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
+def read_json_file(file_path: str) -> dict:
+    try:
+        with open(file_path, "r", encoding="utf-8") as json_file:
+            data = json.load(json_file)
+        return data
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        print(f"Error: {e}")
+        return None
+
+
+setting = read_json_file("./config/setting.json")
+
+
 @router.websocket("/ws/assistant/{assistant_uuid}/{customer_id}")
 async def websocket_endpoint(
         websocket: WebSocket,
@@ -45,6 +59,15 @@ async def websocket_endpoint(
         customer_id: str,
         db: Session = Depends(get_db)
 ):
+    assistant = db.query(AIAssistant).filter(AIAssistant.assistant_id == assistant_uuid).first()
+
+    model = setting["model"]
+    prompt1 = setting["prompt1"]
+    prompt2 = setting["prompt2"]
+    welcome = assistant.message_welcome
+    noidea = assistant.message_noidea
+    lang = assistant.language
+
     # 客户连接处理
     await manager.connect(websocket, assistant_uuid, customer_id)
 
@@ -59,7 +82,7 @@ async def websocket_endpoint(
             # 接收客户的消息
             data = await websocket.receive_text()
 
-            print("recv :"+data)
+            print("recv :" + data)
             # 開始思考
             await manager.send_message("@@@", assistant_uuid, customer_id)
             # 再次添加一个延时，确保 "###" 的发送是分离的
@@ -75,7 +98,8 @@ async def websocket_endpoint(
             db.commit()
 
             # 使用 LLM 处理消息，生成智能回复
-            response = await process_message_through_llm(data, assistant_uuid, customer_id)
+            response = await process_message_through_llm(data, assistant_uuid, customer_id, lang, model, prompt1,
+                                                         prompt2, welcome, noidea)
 
             # 保存助理的回复消息
             assistant_reply = Message(

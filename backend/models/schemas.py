@@ -45,6 +45,10 @@ class Assistant(BaseModel):
     link: Optional[str] = None  # 外部链接
     note: Optional[str] = None  # 备注
 
+    message_welcome: Optional[str] = None
+    message_noidea: Optional[str] = None
+    message_other: Optional[str] = None
+
     created_at: datetime
 
     class Config:

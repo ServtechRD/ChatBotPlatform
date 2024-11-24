@@ -43,6 +43,11 @@ class AIAssistant(Base):
     link = Column(String(255), nullable=True)  # 外部链接
     note = Column(Text, nullable=True)  # 备注
 
+    # 新增加字段
+    message_welcome = Column(Text, nullable=True)
+    message_noidea = Column(Text, nullable=True)
+    message_other = Column(Text, nullable=True)
+
 
 class Conversation(Base):
     __tablename__ = "conversations"
