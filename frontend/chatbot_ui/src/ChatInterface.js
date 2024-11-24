@@ -18,6 +18,10 @@ import {
 import { v4 as uuidv4 } from 'uuid'; // 请确保安装了 uuid 库
 import { formatImageUrl } from './utils/urlUtils';
 
+const CHAT_WIDTH = 398;
+const CHAT_HEIGHT = 598;
+const MESSAGE_TOP_LIMIT = CHAT_HEIGHT / 3;
+
 const ChatInterface = ({ assistantid, assistantname, assistant }) => {
   const [messages, setMessages] = useState([
     { id: 1, text: 'Welcome!', isBot: true },
@@ -31,6 +35,27 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
   const customerIdRef = useRef(uuidv4()); // 生成随机的 customer_id
   const messagesEndRef = useRef(null);
   const videoRef = useRef(null);
+
+  // 控制消息滾動
+  const scrollToBottom = () => {
+    if (messagesContainerRef.current && messagesEndRef.current) {
+      const container = messagesContainerRef.current;
+      const scrollHeight = container.scrollHeight;
+      const height = container.clientHeight;
+      const maxScroll = scrollHeight - height;
+
+      // 計算最小滾動位置（確保消息不會超過頂部 1/3）
+      const minScroll = Math.max(0, scrollHeight - MESSAGE_TOP_LIMIT);
+
+      // 設置滾動位置
+      container.scrollTop = Math.max(maxScroll, minScroll);
+    }
+  };
+
+  // 當消息更新時滾動
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isThinking]);
 
   useEffect(() => {
     console.log('name  = ' + assistantname);
@@ -139,12 +164,15 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
   return (
     <Box
       sx={{
-        height: '100vh',
+        width: CHAT_WIDTH,
+        height: CHAT_HEIGHT,
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',
         bgcolor: '#000',
-        overflow: 'hidden', // 防止背景溢出
+        overflow: 'hidden',
+        margin: 'auto', // 置中顯示
+        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
       }}
     >
       {/* 背景媒體內容 */}
@@ -165,28 +193,16 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
       />
       */}
 
-      {/* Top Navigation Bar 
-      <AppBar
-        position="static"
-        sx={{ background: 'linear-gradient(to right, #4db6ac, #26a69a)' }}
-      >
-        <Toolbar>
-          <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
-            <Box
-              sx={{
-                width: 32,
-                height: 32,
-                bgcolor: 'white',
-                borderRadius: '50%',
-                mr: 1,
-              }}
-            />
-            <Typography variant="h6" component="div">
-              {assistantname}
-            </Typography>
-          </Box>
-        </Toolbar>
-      </AppBar>*/}
+      {/* 主要內容區域 */}
+      <Box
+        sx={{
+          position: 'relative',
+          zIndex: 2,
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+        }}
+      ></Box>
 
       {/* 標題區域 */}
       <Box
@@ -201,6 +217,7 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
             color: 'white',
             fontWeight: 'bold',
             textShadow: '1px 1px 2px rgba(0,0,0,0.5)',
+            fontSize: '1.1rem',
           }}
         >
           {assistantname || '智能助理'}
@@ -210,7 +227,7 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
       {/* 問題提示 */}
       <Box
         sx={{
-          p: 2,
+          p: 1.5,
           textAlign: 'center',
         }}
       >
@@ -218,10 +235,10 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
           elevation={0}
           sx={{
             display: 'inline-block',
-            p: 2,
+            p: 1.5,
             bgcolor: 'rgba(0, 0, 0, 0.6)',
             borderRadius: 2,
-            maxWidth: '80%',
+            maxWidth: '90%',
           }}
         >
           <Typography
@@ -236,31 +253,6 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
         </Paper>
       </Box>
 
-      {/* Chat Messages Area 
-      <Box sx={{ flexGrow: 1, overflowY: 'auto', p: 2 }}>
-        {messages.map(message => (
-          <Box
-            key={message.id}
-            sx={{
-              mb: 2,
-              display: 'flex',
-              justifyContent: message.isBot ? 'flex-start' : 'flex-end',
-            }}
-          >
-            <Paper
-              elevation={1}
-              sx={{
-                p: 1,
-                bgcolor: message.isBot ? 'white' : 'primary.main',
-                color: message.isBot ? 'text.primary' : 'white',
-              }}
-            >
-              <Typography variant="body1">{message.text}</Typography>
-            </Paper>
-          </Box>
-        ))}
-          */}
-
       {/* 消息區域 */}
       <Box
         sx={{
@@ -271,14 +263,14 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
           flexDirection: 'column',
           gap: 2,
           '&::-webkit-scrollbar': {
-            width: '8px',
+            width: '4px',
           },
           '&::-webkit-scrollbar-track': {
             backgroundColor: 'rgba(0,0,0,0.1)',
           },
           '&::-webkit-scrollbar-thumb': {
             backgroundColor: 'rgba(255,255,255,0.3)',
-            borderRadius: '4px',
+            borderRadius: '2px',
           },
         }}
       >
@@ -293,11 +285,11 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
             <Paper
               elevation={0}
               sx={{
-                p: 2,
-                maxWidth: '80%',
+                p: 1.5,
+                maxWidth: '85%',
                 bgcolor: message.isBot
                   ? 'rgba(255, 255, 255, 0.95)'
-                  : 'rgba(25, 118, 210, 0.95)', // 使用主題色
+                  : 'rgba(25, 118, 210, 0.95)',
                 borderRadius: 2,
                 backdropFilter: 'blur(5px)',
               }}
@@ -306,6 +298,7 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
                 sx={{
                   color: message.isBot ? 'black' : 'white',
                   wordBreak: 'break-word',
+                  lineHeight: 1.4,
                 }}
               >
                 {message.text}
@@ -319,7 +312,7 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
             <Paper
               elevation={0}
               sx={{
-                p: 2,
+                p: 1.5,
                 bgcolor: 'rgba(255, 255, 255, 0.95)',
                 borderRadius: 2,
                 display: 'flex',
@@ -380,29 +373,6 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
           ></IconButton>
         </Paper>
       </Box>
-
-      {/* Input Area 
-      <Paper sx={{ p: 2 }}>
-        <Container maxWidth="md">
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <TextField
-              fullWidth
-              variant="outlined"
-              placeholder="對話..."
-              value={inputMessage}
-              onChange={e => setInputMessage(e.target.value)}
-              onKeyPress={e => e.key === 'Enter' && handleSendMessage()}
-            />
-            <Button
-              variant="contained"
-              onClick={handleSendMessage}
-              sx={{ minWidth: 'unset' }}
-            >
-              <SendIcon />
-            </Button>
-          </Box>
-        </Container>
-      </Paper>*/}
 
       {/* Footer */}
       <Box
