@@ -54,6 +54,8 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
   });
   const [completedCrop, setCompletedCrop] = useState(null);
   const [croppedImageUrl, setCroppedImageUrl] = useState('');
+  // 新增一個 state 來追蹤是否有新上傳的圖片
+  const [hasNewImage, setHasNewImage] = useState(false);
 
   // 影片相關狀態
   const [video1, setVideo1] = useState(null);
@@ -86,6 +88,7 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
 
       if (aiAssistant.image_assistant) {
         setImageUrl(formatImageUrl(aiAssistant.image_assistant));
+        setHasNewImage(false); // 重置新圖片標記
       }
 
       if (aiAssistant.image_crop) {
@@ -134,6 +137,7 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
           setCrop(newCrop);
           setImageUrl(reader.result);
           setImage(reader.result);
+          setHasNewImage(true); // 重置新圖片標記
         };
         img.src = reader.result;
       });
@@ -248,14 +252,14 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant }) => {
       formData.append('note', '');
 
       // 如果有裁剪後的圖片，轉換為文件並添加到表單
-      if (croppedImageUrl) {
+      if (hasNewImage && croppedImageUrl) {
         //const response = await fetch(croppedImageUrl);
         //const blob = await response.blob();
         const corp_imge_file = base64ToFile(croppedImageUrl, 'crop_image.jpg');
         formData.append('crop_image', corp_imge_file);
       }
 
-      if (image) {
+      if (hasNewImage && image) {
         formData.append(
           'assistant_image',
           base64ToFile(imageUrl, 'assistant_image.jpg')
