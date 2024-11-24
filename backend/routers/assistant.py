@@ -155,6 +155,8 @@ def get_assistant(assistant_id: int, db: Session = Depends(get_db)):
         "name": assistant.name,
         "description": assistant.description,
         "status": assistant.status,
+        "message_welcome": assistant.message_welcome,
+        "message_noidea": assistant.message_noidea,
         "image_assistant": assistant.image_assistant,
         "image_crop": assistant.image_crop,
         "video_1": assistant.video_1,
