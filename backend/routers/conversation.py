@@ -51,13 +51,13 @@ def get_conversation_messages(
 
 
 # 获取用户的所有对话
-@router.get("/user/{user_id}/conversations", response_model=List[Conversation])
+@router.get("/user/{assistant_id}/conversations", response_model=List[Conversation])
 def get_user_conversations(
-    user_id: int,
+    assistant_id: int,
     db: Session = Depends(get_db)
 ):
     # 查找用户的所有对话
-    conversations = db.query(Conversation).filter(Conversation.customer_id == user_id).all()
+    conversations = db.query(Conversation).filter(Conversation.assistant_id == assistant_id).all()
     if not conversations:
         raise HTTPException(status_code=404, detail="No conversations found for this user")
 
