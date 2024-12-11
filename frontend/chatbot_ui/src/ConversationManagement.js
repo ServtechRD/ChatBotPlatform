@@ -3,73 +3,30 @@ import {
   Box,
   Typography,
   TextField,
-  Select,
-  MenuItem,
   InputAdornment,
-  Avatar,
   IconButton,
   CircularProgress,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
+  Chip,
   Button,
-  Alert,
-  Snackbar,
 } from '@mui/material';
 import {
   Search as SearchIcon,
-  Add as AddIcon,
-  Language as LanguageIcon,
   Refresh as RefreshIcon,
-  Delete as DeleteIcon,
-  Chat as ChatIcon,
+  Download as DownloadIcon,
 } from '@mui/icons-material';
 import ApiService from './ApiService';
 
 const ConversationManagement = ({ currentAssistant }) => {
-  // 狀態管理
-  const [userInfo, setUserInfo] = useState(null);
   const [conversations, setConversations] = useState([]);
-  const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [isLoadingConversations, setIsLoadingConversations] = useState(false);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filter, setFilter] = useState('全部');
-  const [selectedConversation, setSelectedConversation] = useState(null);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: '',
-    severity: 'info',
-  });
-
-  // 初始載入
-  useEffect(() => {
-    fetchUserInfo();
-  }, []);
 
   useEffect(() => {
-    if (userInfo?.id) {
+    if (currentAssistant?.assistant_id) {
       fetchConversations();
     }
-  }, [userInfo]);
-
-  // API 操作
-  const fetchUserInfo = async () => {
-    try {
-      setIsLoadingUser(true);
-      setError(null);
-      const userData = await ApiService.fetchUserData();
-      setUserInfo(userData);
-    } catch (err) {
-      setError('無法載入使用者資訊，請稍後再試');
-      console.error('Error fetching user info:', err);
-      handleApiError(err);
-    } finally {
-      setIsLoadingUser(false);
-    }
-  };
+  }, [currentAssistant]);
 
   const fetchConversations = async () => {
     try {
@@ -88,68 +45,49 @@ const ConversationManagement = ({ currentAssistant }) => {
     }
   };
 
-  const handleCreateConversation = async () => {
-    try {
-      const userId = ApiService.getUserId();
-      if (!userId) {
-        throw new Error('找不到使用者 ID');
-      }
+  const handleDownloadCSV = () => {
+    const csvData = [];
+    csvData.push([
+      'customer_id',
+      'conversation_id',
+      'content',
+      'sender',
+      'time',
+    ]);
 
-      const newConversation = await ApiService.createConversation(userId, {
-        name: `新對話 ${new Date().toLocaleString()}`,
-        status: '進行中',
+    conversations.forEach(conversation => {
+      conversation.messages.forEach(message => {
+        csvData.push([
+          conversation.customer_id,
+          conversation.conversation_id,
+          message.content,
+          message.sender,
+          message.timestamp,
+        ]);
       });
+    });
 
-      setConversations(prev => [newConversation, ...prev]);
-      showSnackbar('成功建立新對話', 'success');
-    } catch (err) {
-      console.error('Error creating conversation:', err);
-      showSnackbar('建立對話失敗', 'error');
-      handleApiError(err);
-    }
+    const csvContent = csvData
+      .map(row => row.map(cell => `"${cell}"`).join(','))
+      .join('\n');
+
+    const blob = new Blob(['\uFEFF' + csvContent], {
+      type: 'text/csv;charset=utf-8;',
+    });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute(
+      'download',
+      `conversations_${currentAssistant?.assistant_id}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
-  const handleDeleteConversation = async () => {
-    if (!selectedConversation) return;
-
-    try {
-      const userId = ApiService.getUserId();
-      if (!userId) {
-        throw new Error('找不到使用者 ID');
-      }
-
-      await ApiService.deleteConversation(userId, selectedConversation.id);
-      setConversations(prev =>
-        prev.filter(conv => conv.id !== selectedConversation.id)
-      );
-      showSnackbar('成功刪除對話', 'success');
-      setIsDeleteDialogOpen(false);
-      setSelectedConversation(null);
-    } catch (err) {
-      console.error('Error deleting conversation:', err);
-      showSnackbar('刪除對話失敗', 'error');
-      handleApiError(err);
-    }
-  };
-
-  // 事件處理
-  const handleSearchChange = event => {
-    setSearchTerm(event.target.value);
-  };
-
-  const handleFilterChange = event => {
-    setFilter(event.target.value);
-  };
-
-  const handleConversationClick = conversation => {
-    // 處理對話點擊事件，可以導航到對話詳情頁面
-    console.log('Navigate to conversation:', conversation.id);
-  };
-
-  const handleDeleteClick = (conversation, event) => {
-    event.stopPropagation();
-    setSelectedConversation(conversation);
-    setIsDeleteDialogOpen(true);
+  const getMessageCount = messages => {
+    return messages?.length || 0;
   };
 
   const handleApiError = error => {
@@ -159,53 +97,28 @@ const ConversationManagement = ({ currentAssistant }) => {
     }
   };
 
-  const showSnackbar = (message, severity = 'info') => {
-    setSnackbar({
-      open: true,
-      message,
-      severity,
-    });
+  const handleSearchChange = event => {
+    setSearchTerm(event.target.value);
   };
 
-  // 過濾邏輯
   const getFilteredConversations = () => {
-    let filtered = [...conversations];
+    if (!searchTerm) return conversations;
 
-    if (searchTerm) {
-      filtered = filtered.filter(conversation =>
-        conversation.name.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    if (filter !== '全部') {
-      filtered = filtered.filter(
-        conversation => conversation.status === filter
-      );
-    }
-
-    return filtered;
+    return conversations.filter(conversation =>
+      conversation.customer_id.toLowerCase().includes(searchTerm.toLowerCase())
+    );
   };
 
-  // 載入中狀態
-  if (isLoadingUser) {
+  if (!currentAssistant) {
     return (
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '100vh',
-        }}
-      >
-        <CircularProgress />
+      <Box sx={{ p: 3, textAlign: 'center' }}>
+        <Typography color="text.secondary">請先選擇一個助理</Typography>
       </Box>
     );
   }
 
-  // 主要渲染
   return (
     <Box sx={{ p: 3, height: '100vh', overflow: 'auto' }}>
-      {/* 標題區 */}
       <Box
         sx={{
           display: 'flex',
@@ -215,63 +128,50 @@ const ConversationManagement = ({ currentAssistant }) => {
         }}
       >
         <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-          {userInfo?.email ? `${userInfo.email} 的對話` : '對話'}
+          {currentAssistant.name || '對話管理'} - 對話列表
         </Typography>
         <Box>
-          <IconButton
-            onClick={handleCreateConversation}
-            disabled={isLoadingConversations}
-            title="建立新對話"
+          <Button
+            variant="contained"
+            startIcon={<DownloadIcon />}
+            onClick={handleDownloadCSV}
+            sx={{ mr: 1 }}
+            disabled={conversations.length === 0}
           >
-            <AddIcon />
-          </IconButton>
+            下載對話紀錄
+          </Button>
           <IconButton
             onClick={fetchConversations}
             disabled={isLoadingConversations}
-            title="重新整理"
           >
             <RefreshIcon />
           </IconButton>
         </Box>
       </Box>
 
-      {/* 搜尋和過濾區 */}
-      <Box sx={{ display: 'flex', mb: 2, gap: 2 }}>
-        <TextField
-          fullWidth
-          variant="outlined"
-          placeholder="搜尋對話"
-          size="small"
-          value={searchTerm}
-          onChange={handleSearchChange}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon />
-              </InputAdornment>
-            ),
-          }}
-        />
-        <Select
-          value={filter}
-          onChange={handleFilterChange}
-          size="small"
-          sx={{ minWidth: 120 }}
-        >
-          <MenuItem value="全部">全部</MenuItem>
-          <MenuItem value="已完成">已完成</MenuItem>
-          <MenuItem value="進行中">進行中</MenuItem>
-        </Select>
-      </Box>
+      <TextField
+        fullWidth
+        variant="outlined"
+        placeholder="搜尋客戶 ID"
+        size="small"
+        value={searchTerm}
+        onChange={handleSearchChange}
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <SearchIcon />
+            </InputAdornment>
+          ),
+        }}
+        sx={{ mb: 2 }}
+      />
 
-      {/* 錯誤提示 */}
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Typography color="error" sx={{ mb: 2 }}>
           {error}
-        </Alert>
+        </Typography>
       )}
 
-      {/* 對話列表 */}
       {isLoadingConversations ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
           <CircularProgress />
@@ -286,123 +186,45 @@ const ConversationManagement = ({ currentAssistant }) => {
             color: 'text.secondary',
           }}
         >
-          <ChatIcon sx={{ fontSize: 48, mb: 2, opacity: 0.5 }} />
-          <Typography>沒有找到符合的對話</Typography>
+          <Typography>
+            {searchTerm ? '沒有找到符合的對話' : '目前沒有對話記錄'}
+          </Typography>
         </Box>
       ) : (
-        getFilteredConversations().map(conversation => (
-          <ConversationItem
-            key={conversation.id}
-            conversation={conversation}
-            onClick={() => handleConversationClick(conversation)}
-            onDelete={e => handleDeleteClick(conversation, e)}
-          />
-        ))
-      )}
-
-      {/* 刪除確認對話框 */}
-      <Dialog
-        open={isDeleteDialogOpen}
-        onClose={() => setIsDeleteDialogOpen(false)}
-      >
-        <DialogTitle>確認刪除</DialogTitle>
-        <DialogContent>
-          <Typography>
-            確定要刪除對話「{selectedConversation?.name}」嗎？此操作無法復原。
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setIsDeleteDialogOpen(false)}>取消</Button>
-          <Button onClick={handleDeleteConversation} color="error">
-            刪除
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* 提示訊息 */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
-      >
-        <Alert
-          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
-          severity={snackbar.severity}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-    </Box>
-  );
-};
-
-// 對話項目元件
-const ConversationItem = ({ conversation, onClick, onDelete }) => {
-  const { avatar, name, time, status } = conversation;
-
-  const getStatusColor = status => {
-    switch (status) {
-      case '進行中':
-        return '#1976d2';
-      case '已完成':
-        return '#2e7d32';
-      default:
-        return '#757575';
-    }
-  };
-
-  return (
-    <Box
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        p: 2,
-        mb: 1,
-        borderRadius: 1,
-        transition: 'background-color 0.2s',
-        '&:hover': {
-          bgcolor: 'action.hover',
-        },
-      }}
-      onClick={onClick}
-    >
-      <Avatar
-        sx={{
-          mr: 2,
-          bgcolor: 'grey.200',
-          width: 40,
-          height: 40,
-          fontSize: 18,
-        }}
-      >
-        {avatar}
-      </Avatar>
-      <Box sx={{ flexGrow: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-          <LanguageIcon
-            sx={{
-              fontSize: 16,
-              color: getStatusColor(status),
-              mr: 0.5,
-            }}
-          />
-          <Typography
-            variant="subtitle2"
-            sx={{
-              fontWeight: 'bold',
-              color: getStatusColor(status),
-            }}
-          >
-            {name}
-          </Typography>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {getFilteredConversations().map(conversation => (
+            <Box
+              key={conversation.conversation_id}
+              sx={{
+                p: 2,
+                borderRadius: 1,
+                border: '1px solid',
+                borderColor: 'divider',
+                '&:hover': {
+                  bgcolor: 'action.hover',
+                },
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <Typography
+                  variant="subtitle1"
+                  sx={{ fontWeight: 'bold', mr: 2 }}
+                >
+                  客戶 ID: {conversation.customer_id}
+                </Typography>
+                <Chip
+                  label={`${getMessageCount(conversation.messages)} 則訊息`}
+                  size="small"
+                  color="primary"
+                />
+              </Box>
+              <Typography variant="caption" color="text.secondary">
+                建立時間: {new Date(conversation.created_at).toLocaleString()}
+              </Typography>
+            </Box>
+          ))}
         </Box>
-        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-          {time}
-        </Typography>
-      </Box>
-      <IconButton size="small" onClick={onDelete} title="刪除對話">
-        <DeleteIcon fontSize="small" />
-      </IconButton>
+      )}
     </Box>
   );
 };
