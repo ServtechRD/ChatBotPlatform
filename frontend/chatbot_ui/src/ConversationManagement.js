@@ -68,18 +68,18 @@ const ConversationManagement = ({ currentAssistant }) => {
     });
 
     const csvContent = csvData
-      .map(row => row.map(cell => `"${cell}"`).join(','))
+      .map(row => row.map(cell => `"${cell}"`).join('|'))
       .join('\n');
 
     const blob = new Blob(['\uFEFF' + csvContent], {
-      type: 'text/csv;charset=utf-8;',
+      type: 'text;charset=utf-8;',
     });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
     link.setAttribute(
       'download',
-      `conversations_${currentAssistant?.assistant_id}.csv`
+      `conversations_${currentAssistant?.assistant_id}.txt`
     );
     document.body.appendChild(link);
     link.click();
