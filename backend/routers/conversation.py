@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 from models.database import get_db
-from models.models import Conversation, Message, AIAssistant
+from models.models import Conversation as ORMConversation, Message, AIAssistant
 from models.schemas import ConversationCreate, Conversation, Message as MessageSchema
 
 router = APIRouter()
@@ -57,7 +57,7 @@ def get_user_conversations(
     db: Session = Depends(get_db)
 ):
     # 查找用户的所有对话
-    conversations = db.query(Conversation).filter(Conversation.assistant_id == assistant_id).all()
+    conversations = db.query(ORMConversation).filter(ORMConversation.assistant_id == assistant_id).all()
     if not conversations:
         raise HTTPException(status_code=404, detail="No conversations found for this user")
 
