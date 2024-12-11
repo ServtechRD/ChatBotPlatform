@@ -25,7 +25,7 @@ import {
   Delete as DeleteIcon,
   Chat as ChatIcon,
 } from '@mui/icons-material';
-import ApiService from './services/ApiService';
+import ApiService from './ApiService';
 
 const ConversationManagement = () => {
   // 狀態管理
