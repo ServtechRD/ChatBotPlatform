@@ -243,6 +243,19 @@ class ApiService {
     }
   }
 
+  // 獲取使用者的對話列表
+  async fetchUserConversations(userId) {
+    try {
+      const response = await this.axiosInstance.get(
+        `/user/${userId}/conversations`
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch conversations:', error);
+      throw error;
+    }
+  }
+
   // 您可以繼續添加其他API方法...
 }
 
