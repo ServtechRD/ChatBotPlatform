@@ -244,10 +244,10 @@ class ApiService {
   }
 
   // 獲取使用者的對話列表
-  async fetchUserConversations(userId) {
+  async fetchUserConversations(assistantId) {
     try {
       const response = await this.axiosInstance.get(
-        `/user/${userId}/conversations`
+        `/user/${assistantId}/conversations`
       );
       return response.data;
     } catch (error) {

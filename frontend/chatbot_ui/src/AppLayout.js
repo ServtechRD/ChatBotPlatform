@@ -80,7 +80,7 @@ const AppLayout = () => {
       case 'chat':
         return <ChatInterface />;
       case 'conversations':
-        return <ConversationManagement />;
+        return <ConversationManagement currentAssistant={currentAgent} />;
       case 'templateChat':
         return <Typography>模板對話內容</Typography>;
       case 'aiAssistant':

@@ -27,7 +27,7 @@ import {
 } from '@mui/icons-material';
 import ApiService from './ApiService';
 
-const ConversationManagement = () => {
+const ConversationManagement = ({ currentAssistant }) => {
   // 狀態管理
   const [userInfo, setUserInfo] = useState(null);
   const [conversations, setConversations] = useState([]);
@@ -75,11 +75,9 @@ const ConversationManagement = () => {
     try {
       setIsLoadingConversations(true);
       setError(null);
-      const userId = ApiService.getUserId();
-      if (!userId) {
-        throw new Error('找不到使用者 ID');
-      }
-      const data = await ApiService.fetchUserConversations(userId);
+
+      const assistantId = currentAssistant?.assistant_id;
+      const data = await ApiService.fetchUserConversations(assistantId);
       setConversations(data);
     } catch (err) {
       setError('無法載入對話列表，請稍後再試');
