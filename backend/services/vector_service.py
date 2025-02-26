@@ -87,7 +87,7 @@ def generate_summary_and_keywords(text, max_summary_words=150, max_keywords=10):
     # 初始化 ChatOpenAI 模型
     llm = ChatOpenAI(
         openai_api_key=api_key,  # 替换为你的 API 密钥
-        model="gpt-3.5-turbo-16k"  # 使用支持更大上下文的模型
+        model="gpt-3.5-turbo"  # 使用支持更大上下文的模型
     )
     response = llm([HumanMessage(content=prompt)])
     result = response.content.strip()
