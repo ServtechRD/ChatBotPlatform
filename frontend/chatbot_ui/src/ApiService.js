@@ -2,7 +2,7 @@ import axios from 'axios';
 
 class ApiService {
   constructor() {
-    this.baseURL = `${window.location.protocol}//${window.location.hostname}`; //'http://192.168.1.234:36100'; // 替換為您的API域名和端口
+    this.baseURL = `${window.location.protocol}//${window.location.hostname}:36100`; //'http://192.168.1.234:36100'; // 替換為您的API域名和端口
     this.axiosInstance = axios.create({
       baseURL: this.baseURL,
       timeout: 10000, // 10 seconds timeout
