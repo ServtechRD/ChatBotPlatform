@@ -13,10 +13,22 @@ const EmbedPage = () => {
   const queryParams = new URLSearchParams(location.search);
   const idFromQuery = queryParams.get('id'); // 從查詢參數獲取ID
 
+  console.log('ID from URL:', id); // 應該顯示 "assistant-d8e4190a"
+
   const [error, setError] = useState(null);
 
   // 優先使用URL參數，其次使用路由參數
   const id = idFromQuery || assistantId;
+
+  useEffect(() => {
+    console.log('完整URL:', window.location.href);
+    console.log('location對象:', location);
+    console.log('查詢字符串:', location.search);
+    console.log(
+      '嘗試手動解析:',
+      new URLSearchParams(window.location.search).get('id')
+    );
+  }, [location]);
 
   if (!id) {
     return (
@@ -54,7 +66,7 @@ const EmbedPage = () => {
       }}
     >
       <EmbeddableChatInterface
-        assistantId={id}
+        assistantUrl={id}
         containerStyle={{
           width: '100%',
           height: '100%',
