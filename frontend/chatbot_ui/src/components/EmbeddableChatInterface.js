@@ -50,6 +50,9 @@ const EmbeddableChatInterface = ({
 
   // 獲取助手信息
   useEffect(() => {
+    // 添加一個標誌來防止重複請求
+    let isMounted = true;
+
     const fetchAssistant = async () => {
       try {
         console.log('fetch Assistant');
@@ -59,6 +62,9 @@ const EmbeddableChatInterface = ({
         const response = await fetch(
           `${baseURL}/api/embed/assistant/${assistantUrl}`
         );
+
+        // 檢查組件是否仍然掛載
+        if (!isMounted) return;
 
         if (!response.ok) {
           throw new Error(`Failed to fetch assistant: ${response.status}`);
@@ -70,17 +76,30 @@ const EmbeddableChatInterface = ({
         setAssistantName(data.name);
         setAssistant(data);
         setIsLoading(false);
-        onLoad(data);
+
+        //onLoad(data);
+
+        // 使用函數方式調用避免依賴關係
+        if (typeof onLoad === 'function') onLoad(data);
       } catch (err) {
+        // 檢查組件是否仍然掛載
+        if (!isMounted) return;
+
         console.error('Error fetching assistant:', err);
         setError(err.message);
         setIsLoading(false);
-        onError(err);
+        //onError(err);
+        // 使用函數方式調用避免依賴關係
+        if (typeof onError === 'function') onError(err);
       }
     };
 
     fetchAssistant();
-  }, [assistantUrl, /*apiBaseUrl,*/ onLoad, onError]);
+    // 清理函數
+    return () => {
+      isMounted = false;
+    };
+  }, [assistantUrl]);
 
   // 滚动控制
   const scrollToBottom = () => {
