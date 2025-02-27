@@ -13,12 +13,14 @@ const EmbedPage = () => {
   const queryParams = new URLSearchParams(location.search);
   const idFromQuery = queryParams.get('id'); // 從查詢參數獲取ID
 
-  console.log('ID from URL:', id); // 應該顯示 "assistant-d8e4190a"
+  console.log('ID from URL:', idFromQuery); // 應該顯示 "assistant-d8e4190a"
 
   const [error, setError] = useState(null);
 
   // 優先使用URL參數，其次使用路由參數
   const id = idFromQuery || assistantId;
+
+  console.log('ID :', id); // 應該顯示 "assistant-d8e4190a"
 
   useEffect(() => {
     console.log('完整URL:', window.location.href);
