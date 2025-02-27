@@ -42,13 +42,11 @@ async def get_assistant_image(assistant_link: str, db: Session = Depends(get_db)
 
         # 如果路徑是相對路徑，添加基礎路徑
         # 如果路徑不是以/public開頭，添加前綴
-        if not image_path.startswith("/public/"):
+        if image_path.startswith("/public/"):
             # 去除開頭的斜槓（如果有）
             if image_path.startswith("/"):
                 image_path = image_path[1:]
 
-            image_path = f"/public/{image_path}"
-            
         # 返回圖片文件
         return FileResponse(image_path)
 
