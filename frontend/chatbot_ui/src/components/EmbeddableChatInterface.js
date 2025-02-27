@@ -108,9 +108,12 @@ const EmbeddableChatInterface = ({
       const scrollHeight = container.scrollHeight;
       const height = container.clientHeight;
       const maxScroll = scrollHeight - height;
-      const minScroll = Math.max(0, scrollHeight - MESSAGE_TOP_LIMIT);
+
+      // 確保滾動位置使得消息只顯示在下半部分
+      const minScroll = Math.max(0, scrollHeight - height / 2);
 
       requestAnimationFrame(() => {
+        // 設置滾動位置，確保最少滾動到minScroll
         container.scrollTop = Math.max(maxScroll, minScroll);
       });
     }
@@ -375,60 +378,72 @@ const EmbeddableChatInterface = ({
             },
           }}
         >
-          {messages.map(message => (
-            <Box
-              key={message.id}
-              sx={{
-                display: 'flex',
-                justifyContent: message.isBot ? 'flex-start' : 'flex-end',
-              }}
-            >
-              <Paper
-                elevation={0}
+          <Box
+            sx={{
+              mt: 'auto', // 自動將消息推至底部
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2,
+              width: '100%',
+            }}
+          >
+            {messages.map(message => (
+              <Box
+                key={message.id}
                 sx={{
-                  p: 1.5,
-                  maxWidth: '85%',
-                  bgcolor: message.isBot
-                    ? 'rgba(255, 255, 255, 0.95)'
-                    : 'rgba(25, 118, 210, 0.95)',
-                  borderRadius: 2,
-                  backdropFilter: 'blur(5px)',
+                  display: 'flex',
+                  justifyContent: message.isBot ? 'flex-start' : 'flex-end',
                 }}
               >
-                <Typography
+                <Paper
+                  elevation={0}
                   sx={{
-                    color: message.isBot ? 'black' : 'white',
-                    wordBreak: 'break-word',
-                    lineHeight: 1.4,
+                    p: 1.5,
+                    maxWidth: '85%',
+                    bgcolor: message.isBot
+                      ? 'rgba(255, 255, 255, 0.95)'
+                      : 'rgba(25, 118, 210, 0.95)',
+                    borderRadius: 2,
+                    backdropFilter: 'blur(5px)',
                   }}
                 >
-                  {message.text}
-                </Typography>
-              </Paper>
-            </Box>
-          ))}
+                  <Typography
+                    sx={{
+                      color: message.isBot ? 'black' : 'white',
+                      wordBreak: 'break-word',
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    {message.text}
+                  </Typography>
+                </Paper>
+              </Box>
+            ))}
 
-          {isThinking && (
-            <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
-              <Paper
-                elevation={0}
-                sx={{
-                  p: 1.5,
-                  bgcolor: 'rgba(255, 255, 255, 0.95)',
-                  borderRadius: 2,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1,
-                }}
-              >
-                <CircularProgress size={20} />
-                <Typography>思考中...</Typography>
-              </Paper>
-            </Box>
-          )}
-          <div ref={messagesEndRef} style={{ float: 'left', clear: 'both' }} />
+            {isThinking && (
+              <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: 1.5,
+                    bgcolor: 'rgba(255, 255, 255, 0.95)',
+                    borderRadius: 2,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                  }}
+                >
+                  <CircularProgress size={20} />
+                  <Typography>思考中...</Typography>
+                </Paper>
+              </Box>
+            )}
+            <div
+              ref={messagesEndRef}
+              style={{ float: 'left', clear: 'both' }}
+            />
+          </Box>
         </Box>
-
         {/* 輸入區域 */}
         <Box sx={{ p: 2 }}>
           <Paper
