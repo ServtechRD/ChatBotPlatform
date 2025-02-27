@@ -10,10 +10,49 @@ from models.database import get_db
 from models.models import AIAssistant
 from sqlalchemy.orm import Session
 
+from fastapi.responses import FileResponse
 
 # 創建路由器
 router = APIRouter(tags=["embed"])
 
+
+@router.get("/api/embed/assistant/{assistant_link}/image")
+async def get_assistant_image(assistant_link: str, db: Session = Depends(get_db)):
+    """
+    根據助手連結獲取其圖片
+    """
+    try:
+        # 查詢助手信息
+        assistant = db.query(AIAssistant).filter(AIAssistant.link == assistant_link).first()
+
+        if not assistant:
+            raise HTTPException(status_code=404, detail="找不到指定助手")
+
+        # 檢查圖片路徑是否存在
+        if not assistant.image_crop:
+            # 返回默認圖片
+            default_image_path = "public/images/default_assistant.png"
+            if os.path.exists(default_image_path):
+                return FileResponse(default_image_path)
+            else:
+                raise HTTPException(status_code=404, detail="找不到圖片")
+
+        # 根據數據庫中儲存的路徑獲取圖片
+        image_path = assistant.image_crop
+
+        # 如果路徑是相對路徑，添加基礎路徑
+        if not os.path.isabs(image_path):
+            image_path = os.path.join("public", image_path)
+
+        # 檢查文件是否存在
+        if not os.path.exists(image_path):
+            raise HTTPException(status_code=404, detail="找不到圖片文件")
+
+        # 返回圖片文件
+        return FileResponse(image_path)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"伺服器錯誤: {str(e)}")
 
 # 獲取助手嵌入信息API
 @router.get("/api/embed/assistant/{assistant_link}")
