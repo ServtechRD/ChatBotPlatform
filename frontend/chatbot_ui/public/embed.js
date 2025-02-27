@@ -113,8 +113,8 @@
         toggleButton.style.bottom = '20px'; // 初始位置在底部
         toggleButton.style.right = '20px';
         toggleButton.style.zIndex = '9999';
-        toggleButton.style.width = '60px'; // 稍微大一點以顯示圖片
-        toggleButton.style.height = '60px';
+        toggleButton.style.width = '100px'; // 稍微大一點以顯示圖片
+        toggleButton.style.height = '100px';
         toggleButton.style.borderRadius = '50%';
         toggleButton.style.backgroundColor = '#1976d2';
         toggleButton.style.color = 'white';
@@ -127,21 +127,53 @@
         toggleButton.style.fontSize = '16px';
         toggleButton.style.padding = '0'; // 移除內邊距，以便圖片能充滿按鈕
 
+        // 創建X按鈕的文本內容
+        const closeText = document.createElement('span');
+        closeText.innerHTML = '&#x2715;'; // X符號
+        closeText.style.display = 'none'; // 初始隱藏
+
         // 最小化狀態
         let isMinimized = true; // 預設是最小化的
         iframe.style.display = 'none'; // 初始隱藏iframe
 
+        // 先加載默認圖片符號
+        toggleButton.innerHTML = '';
+        toggleButton.appendChild(imgElement);
+        toggleButton.appendChild(closeText);
+
         // 點擊事件
         toggleButton.addEventListener('click', function () {
           if (isMinimized) {
+            // 展開聊天 - 顯示X符號
             iframe.style.display = 'block';
             toggleButton.style.bottom =
               (typeof config.height === 'number' ? config.height + 30 : '630') +
               'px';
+
+            // 切換到X符號
+            imgElement.style.display = 'none';
+            closeText.style.display = 'block';
+
+            // 調整按鈕尺寸為更小的X按鈕
+            toggleButton.style.width = '40px';
+            toggleButton.style.height = '40px';
+            toggleButton.style.backgroundColor = '#555'; // 更改背景顏色
+
             isMinimized = false;
           } else {
+            // 最小化聊天 - 顯示圖片
             iframe.style.display = 'none';
             toggleButton.style.bottom = '20px';
+
+            // 切換到圖片
+            closeText.style.display = 'none';
+            imgElement.style.display = 'block';
+
+            // 恢復按鈕尺寸
+            toggleButton.style.width = '100px';
+            toggleButton.style.height = '100px';
+            toggleButton.style.backgroundColor = '#1976d2'; // 恢復原始背景顏色
+
             isMinimized = true;
           }
         });
