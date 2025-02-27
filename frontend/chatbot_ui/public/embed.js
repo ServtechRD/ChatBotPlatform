@@ -7,7 +7,7 @@
   // 主域名，應該是React應用部署的位置
   const getDefaultHost = () => {
     // 可以硬編碼為實際的生產環境域名
-    return 'your-react-app-domain.com';
+    return 'cloud.servtech.com.tw';
   };
 
   /**
@@ -40,7 +40,7 @@
     const iframe = document.createElement('iframe');
 
     // 設置iframe的src，指向React應用的嵌入頁面
-    iframe.src = `${config.protocol}//${config.host}/embed?id=${assistantId}`;
+    iframe.src = `${config.protocol}//${config.host}:36000/embed?id=${assistantId}`;
 
     // 設置iframe的樣式
     iframe.style.width =

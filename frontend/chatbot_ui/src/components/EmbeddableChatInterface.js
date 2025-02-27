@@ -321,7 +321,7 @@ const EmbeddableChatInterface = ({
               }}
             >
               {assistant?.name || assistantName || '智能助理'}
-              {isConnected ? ' Connected' : ' Disconnected'} | ID:{' '}
+              {/*isConnected ? ' Connected' : ' Disconnected'*/} ID:{' '}
               {customerIdRef.current.slice(0, 8)}
             </Typography>
           </Paper>
