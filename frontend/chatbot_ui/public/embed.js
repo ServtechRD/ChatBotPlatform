@@ -4,6 +4,9 @@
   const DEFAULT_HEIGHT = 600;
   const DEFAULT_POSITION = 'inline';
 
+  // 追蹤初始化狀態
+  const initializedContainers = new Set();
+
   // 主域名，應該是React應用部署的位置
   const getDefaultHost = () => {
     // 可以硬編碼為實際的生產環境域名
@@ -17,11 +20,21 @@
    * @param {Object} options - 配置選項
    */
   function initChat(assistantId, containerId, options = {}) {
+    if (initializedContainers.has(containerId)) {
+      console.log(`聊天助手已在容器 ${containerId} 中初始化，跳過重複初始化`);
+      return;
+    }
+
     // 獲取容器元素
     const container = document.getElementById(containerId);
     if (!container) {
       console.error(`找不到ID為${containerId}的容器元素`);
       return;
+    }
+
+    // 清空容器中可能存在的舊內容
+    while (container.firstChild) {
+      container.removeChild(container.firstChild);
     }
 
     // 合併選項
@@ -84,7 +97,7 @@
         toggleButton.style.fontSize = '16px';
 
         // 最小化狀態
-        let isMinimized = false;
+        let isMinimized = true;
 
         // 點擊事件
         toggleButton.addEventListener('click', function () {
@@ -119,6 +132,7 @@
           container.removeChild = function (child) {
             if (child === iframe) {
               removeButton();
+              initializedContainers.delete(containerId); // 移除初始化標記
             }
             return originalRemoveChild.call(this, child);
           };
@@ -129,12 +143,40 @@
     // 添加到容器
     container.appendChild(iframe);
 
+    // 標記此容器為已初始化
+    initializedContainers.add(containerId);
+
     // 返回iframe引用，以便後續操作
     return iframe;
+  }
+
+  // 提供銷毀方法
+  function destroyChat(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    // 清空容器
+    while (container.firstChild) {
+      container.removeChild(container.firstChild);
+    }
+
+    // 移除按鈕
+    const toggleButton = document.getElementById(
+      `toggle-button-${containerId}`
+    );
+    if (toggleButton && document.body.contains(toggleButton)) {
+      document.body.removeChild(toggleButton);
+    }
+
+    // 移除初始化標記
+    initializedContainers.delete(containerId);
   }
 
   // 公開API
   window.AssistantChat = {
     init: initChat,
+    destroy: destroyChat,
+    // 添加檢查方法
+    isInitialized: containerId => initializedContainers.has(containerId),
   };
 })();
