@@ -2,6 +2,8 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.orm import joinedload
+from sqlalchemy import exists
 from typing import List
 from models.database import get_db
 from models.models import Conversation as ORMConversation, Message, AIAssistant
@@ -9,11 +11,12 @@ from models.schemas import ConversationCreate, Conversation, Message as MessageS
 
 router = APIRouter()
 
+
 # 创建新的对话
 @router.post("/conversation/", response_model=Conversation)
 def create_conversation(
-    conversation_data: ConversationCreate,
-    db: Session = Depends(get_db)
+        conversation_data: ConversationCreate,
+        db: Session = Depends(get_db)
 ):
     # 验证助理是否存在
     assistant = db.query(AIAssistant).filter(AIAssistant.assistant_id == conversation_data.assistant_id).first()
@@ -37,8 +40,8 @@ def create_conversation(
 # 获取指定对话的所有消息
 @router.get("/conversation/{conversation_id}/messages", response_model=List[MessageSchema])
 def get_conversation_messages(
-    conversation_id: int,
-    db: Session = Depends(get_db)
+        conversation_id: int,
+        db: Session = Depends(get_db)
 ):
     # 检查对话是否存在
     conversation = db.query(Conversation).filter(Conversation.conversation_id == conversation_id).first()
@@ -53,11 +56,14 @@ def get_conversation_messages(
 # 获取用户的所有对话
 @router.get("/user/{assistant_id}/conversations", response_model=List[Conversation])
 def get_user_conversations(
-    assistant_id: int,
-    db: Session = Depends(get_db)
+        assistant_id: int,
+        db: Session = Depends(get_db)
 ):
     # 查找用户的所有对话
-    conversations = db.query(ORMConversation).filter(ORMConversation.assistant_id == assistant_id).all()
+    conversations = (db.query(ORMConversation).filter(ORMConversation.assistant_id == assistant_id)
+                     .filter(exists().where(ORMConversation.conversation_id == Message.conversation_id))
+                     .options(joinedload(ORMConversation.messages))  # 预加载 messages 避免 N+1 查询问题
+                     .all())
     if not conversations:
         raise HTTPException(status_code=404, detail="No conversations found for this user")
 
@@ -67,8 +73,8 @@ def get_user_conversations(
 # 结束对话并保存对话内容
 @router.post("/conversation/{conversation_id}/finalize")
 def finalize_conversation(
-    conversation_id: int,
-    db: Session = Depends(get_db)
+        conversation_id: int,
+        db: Session = Depends(get_db)
 ):
     # 查找对话
     conversation = db.query(Conversation).filter(Conversation.conversation_id == conversation_id).first()

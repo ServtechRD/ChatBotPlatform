@@ -104,6 +104,14 @@ const EmbeddableChatInterface = ({
   // 滚动控制
   const scrollToBottom = () => {
     if (messagesContainerRef.current) {
+      requestAnimationFrame(() => {
+        messagesContainerRef.current.scrollTop =
+          messagesContainerRef.current.scrollHeight;
+      });
+    }
+    /*
+
+    if (messagesContainerRef.current) {
       const container = messagesContainerRef.current;
       const scrollHeight = container.scrollHeight;
       const height = container.clientHeight;
@@ -116,7 +124,7 @@ const EmbeddableChatInterface = ({
         // 設置滾動位置，確保最少滾動到minScroll
         container.scrollTop = Math.max(maxScroll, minScroll);
       });
-    }
+    }*/
   };
 
   // 消息更新时滚动
@@ -348,11 +356,30 @@ const EmbeddableChatInterface = ({
             </Typography>
           </Paper>
         </Box>
-
-        {/* 消息區域 */}
         <Box
-          ref={messagesContainerRef}
           sx={{
+            position: 'relative', // 設為相對定位，作為絕對定位的參考點
+            flexGrow: 1,
+            overflow: 'hidden', // 改為 hidden 防止內容超出
+          }}
+        >
+          {/* 上半部分 - 只顯示背景 */}
+          <Box
+            sx={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: '50%',
+              zIndex: 2, // 確保在消息上方
+              pointerEvents: 'none', // 防止干擾滾動和點擊
+            }}
+          />
+          {/* 消息區域 */}
+          <Box
+            ref={messagesContainerRef}
+            sx={
+              /*{
             flexGrow: 1,
             overflowY: 'auto',
             p: 2,
@@ -376,16 +403,29 @@ const EmbeddableChatInterface = ({
               backgroundColor: 'rgba(255,255,255,0.3)',
               borderRadius: '2px',
             },
-          }}
-        >
-          <Box
-            sx={{
-              mt: 'auto', // 自動將消息推至底部
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 2,
-              width: '100%',
-            }}
+          }*/ {
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: '50%', // 固定高度為容器的一半
+                overflowY: 'auto',
+                p: 2,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2,
+                '&::-webkit-scrollbar': {
+                  width: '4px',
+                },
+                '&::-webkit-scrollbar-track': {
+                  backgroundColor: 'rgba(0,0,0,0.1)',
+                },
+                '&::-webkit-scrollbar-thumb': {
+                  backgroundColor: 'rgba(255,255,255,0.3)',
+                  borderRadius: '2px',
+                },
+              }
+            }
           >
             {messages.map(message => (
               <Box
