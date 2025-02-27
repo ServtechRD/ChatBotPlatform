@@ -66,7 +66,7 @@ const EmbeddableChatInterface = ({
         const baseURL = `${window.location.protocol}//${window.location.hostname}:36100`;
         // 從API獲取助手信息
         const response = await fetch(
-          `${baseURL}/api/embed/assistant/${assistantId}`
+          `${baseURL}/api/embed/assistant/${assistantUrl}`
         );
 
         if (!response.ok) {
