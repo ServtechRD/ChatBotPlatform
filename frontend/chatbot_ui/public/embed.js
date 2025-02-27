@@ -74,17 +74,47 @@
 
       // 如果需要最小化功能
       if (config.minimizable) {
+        // 檢查是否已有按鈕
+        const existingButton = document.getElementById(
+          `toggle-button-${containerId}`
+        );
+        if (existingButton) {
+          document.body.removeChild(existingButton);
+        }
+
         // 創建最小化按鈕
         const toggleButton = document.createElement('button');
-        toggleButton.innerHTML = '&#x2715;'; // X符號
+        toggleButton.id = `toggle-button-${containerId}`;
+
+        // 默認使用文本，但我們會嘗試加載助手圖片
+        toggleButton.innerHTML = '&#x1F4AC;'; // 對話泡泡符號
+
+        // 嘗試加載助手圖片
+        const imgElement = document.createElement('img');
+        imgElement.style.width = '100%';
+        imgElement.style.height = '100%';
+        imgElement.style.borderRadius = '50%';
+        imgElement.style.objectFit = 'cover';
+        imgElement.alt = 'Chat';
+        imgElement.onerror = () => {
+          // 圖片加載失敗時顯示默認符號
+          toggleButton.innerHTML = '&#x1F4AC;';
+        };
+
+        // 設置圖片源
+        imgElement.src = `${config.protocol}//${config.host}:36100/api/embed/assistant/${assistantId}/image`;
+
+        // 先清空按鈕內容，然後添加圖片
+        toggleButton.innerHTML = '';
+        toggleButton.appendChild(imgElement);
+
+        // 設置按鈕樣式
         toggleButton.style.position = 'fixed';
-        toggleButton.style.bottom =
-          (typeof config.height === 'number' ? config.height + 30 : '630') +
-          'px';
+        toggleButton.style.bottom = '20px'; // 初始位置在底部
         toggleButton.style.right = '20px';
         toggleButton.style.zIndex = '9999';
-        toggleButton.style.width = '40px';
-        toggleButton.style.height = '40px';
+        toggleButton.style.width = '60px'; // 稍微大一點以顯示圖片
+        toggleButton.style.height = '60px';
         toggleButton.style.borderRadius = '50%';
         toggleButton.style.backgroundColor = '#1976d2';
         toggleButton.style.color = 'white';
@@ -95,22 +125,22 @@
         toggleButton.style.alignItems = 'center';
         toggleButton.style.justifyContent = 'center';
         toggleButton.style.fontSize = '16px';
+        toggleButton.style.padding = '0'; // 移除內邊距，以便圖片能充滿按鈕
 
         // 最小化狀態
-        let isMinimized = true;
+        let isMinimized = true; // 預設是最小化的
+        iframe.style.display = 'none'; // 初始隱藏iframe
 
         // 點擊事件
         toggleButton.addEventListener('click', function () {
           if (isMinimized) {
             iframe.style.display = 'block';
-            toggleButton.innerHTML = '&#x2715;';
             toggleButton.style.bottom =
               (typeof config.height === 'number' ? config.height + 30 : '630') +
               'px';
             isMinimized = false;
           } else {
             iframe.style.display = 'none';
-            toggleButton.innerHTML = '&#x1F4AC;'; // 對話泡泡符號
             toggleButton.style.bottom = '20px';
             isMinimized = true;
           }
