@@ -52,19 +52,10 @@ const EmbeddableChatInterface = ({
   useEffect(() => {
     const fetchAssistant = async () => {
       try {
-        // 如果已經提供了assistantName，可以跳過獲取步驟
-        if (assistantName) {
-          setAssistant({
-            id: assistantId,
-            name: assistantName,
-          });
-          setIsLoading(false);
-          onLoad();
-          return;
-        }
-
+        console.log('fetch Assistant');
         const baseURL = `${window.location.protocol}//${window.location.hostname}:36100`;
         // 從API獲取助手信息
+        console.log(`fetch api ${baseURL}/api/embed/assistant/${assistantUrl}`);
         const response = await fetch(
           `${baseURL}/api/embed/assistant/${assistantUrl}`
         );
@@ -74,6 +65,7 @@ const EmbeddableChatInterface = ({
         }
 
         const data = await response.data; //json();
+        console.log(data);
         setAssistantId(data.id);
         setAssistantName(data.name);
         setAssistant(data);
