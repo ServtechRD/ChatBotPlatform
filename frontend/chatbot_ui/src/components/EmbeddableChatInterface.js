@@ -88,7 +88,7 @@ const EmbeddableChatInterface = ({
     };
 
     fetchAssistant();
-  }, [assistantId, assistantName, apiBaseUrl, onLoad, onError]);
+  }, [assistantId, assistantName, /*apiBaseUrl,*/ onLoad, onError]);
 
   // 滚动控制
   const scrollToBottom = () => {
