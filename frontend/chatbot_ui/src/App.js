@@ -56,6 +56,7 @@ function App() {
             )
           }
         />
+        <Route path="/embed" element={<EmbedPage />} />
         <Route
           path="/*"
           element={token ? <AppLayout /> : <Navigate to="/login" replace />}
