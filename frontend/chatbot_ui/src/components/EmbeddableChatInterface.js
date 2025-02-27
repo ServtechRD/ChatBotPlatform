@@ -21,15 +21,18 @@ import { formatImageUrl } from '../utils/urlUtils';
 const CHAT_WIDTH = 398;
 const CHAT_HEIGHT = 598;
 const MESSAGE_TOP_LIMIT = CHAT_HEIGHT / 2;
+const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 
 const EmbeddableChatInterface = ({
-  assistantId, // 助手ID作為參數傳入
-  assistantName = null, // 可選參數
-  apiBaseUrl = '', // API基礎URL，方便跨域使用
+  assistantUrl, // 助手ID作為參數傳入
+  //assistantName = null, // 可選參數
+  //apiBaseUrl = '', // API基礎URL，方便跨域使用
   containerStyle = {}, // 容器樣式自定義
   onLoad = () => {}, // 加載完成回調
   onError = () => {}, // 錯誤回調
 }) => {
+  const [assistantId, setAssistantId] = useState([]);
+  const [assistantName, setAssistantName] = useState([]);
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isConnected, setIsConnected] = useState(false);
@@ -60,16 +63,19 @@ const EmbeddableChatInterface = ({
           return;
         }
 
+        const baseURL = `${window.location.protocol}//${window.location.hostname}:36100`;
         // 從API獲取助手信息
         const response = await fetch(
-          `${apiBaseUrl}/api/assistant/${assistantId}`
+          `${baseURL}/api/embed/assistant/${assistantId}`
         );
 
         if (!response.ok) {
           throw new Error(`Failed to fetch assistant: ${response.status}`);
         }
 
-        const data = await response.json();
+        const data = await response.data; //json();
+        setAssistantId(data.id);
+        setAssistantName(data.name);
         setAssistant(data);
         setIsLoading(false);
         onLoad(data);
