@@ -21,6 +21,7 @@ import { formatImageUrl } from './utils/urlUtils';
 const CHAT_WIDTH = 398;
 const CHAT_HEIGHT = 598;
 const MESSAGE_TOP_LIMIT = CHAT_HEIGHT / 2;
+const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 
 const ChatInterface = ({ assistantid, assistantname, assistant }) => {
   const [messages, setMessages] = useState([
@@ -72,7 +73,7 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
 
     // 建立 WebSocket 连接
     socketRef.current = new WebSocket(
-      `ws://${window.location.hostname}:36100/ws/assistant/${assistantid}/${customerIdRef.current}`
+      `${protocol}://${window.location.hostname}:36100/ws/assistant/${assistantid}/${customerIdRef.current}`
     );
 
     socketRef.current.onopen = () => {
