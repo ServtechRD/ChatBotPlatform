@@ -64,7 +64,7 @@ const EmbeddableChatInterface = ({
           throw new Error(`Failed to fetch assistant: ${response.status}`);
         }
 
-        const data = await response.data; //json();
+        const data = await response.json();
         console.log(data);
         setAssistantId(data.id);
         setAssistantName(data.name);
