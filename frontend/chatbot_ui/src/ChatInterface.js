@@ -73,7 +73,7 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
 
     // 建立 WebSocket 连接
     socketRef.current = new WebSocket(
-      `${protocol}://${window.location.hostname}:36100/ws/assistant/${assistantid}/${customerIdRef.current}`
+      `${protocol}//${window.location.hostname}:36100/ws/assistant/${assistantid}/${customerIdRef.current}`
     );
 
     socketRef.current.onopen = () => {
