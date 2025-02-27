@@ -7,6 +7,7 @@ import {
 } from 'react-router-dom';
 import AppLayout from './AppLayout';
 import LoginPage from './LoginPage';
+import EmbedPage from './pages/EmbedPage';
 import ConversationManagement from './ConversationManagement';
 import ApiService from './ApiService';
 
