@@ -206,18 +206,31 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
   };*/
 
   const generateCroppedImage = useCallback(() => {
-    if (!imageRef.current || !completedCrop) return;
+    const image = imageRef.current;
+    if (!image || !completedCrop?.width || !completedCrop?.height) return;
 
     const canvas = document.createElement('canvas');
-    const scaleX = imageRef.current.naturalWidth / imageRef.current.width;
-    const scaleY = imageRef.current.naturalHeight / imageRef.current.height;
-
-    canvas.width = CROP_SIZE;
-    canvas.height = CROP_SIZE;
     const ctx = canvas.getContext('2d');
 
+    // 原圖對應的實際像素比例（確保不會變形）
+    const scaleX = image.naturalWidth / image.width;
+    const scaleY = image.naturalHeight / image.height;
+
+    // 設定輸出大小 (正方形 200x200)
+    const pixelRatio = window.devicePixelRatio || 1;
+    canvas.width = CROP_SIZE * pixelRatio;
+    canvas.height = CROP_SIZE * pixelRatio;
+
+    ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    ctx.imageSmoothingQuality = 'high';
+
+    // 補上白底（非必要）
+    ctx.fillStyle = '#FFF';
+    ctx.fillRect(0, 0, CROP_SIZE, CROP_SIZE);
+
+    // 使用 completedCrop 的 px 值（即使 unit 為 %，react-image-crop 會轉成 px）
     ctx.drawImage(
-      imageRef.current,
+      image,
       completedCrop.x * scaleX,
       completedCrop.y * scaleY,
       completedCrop.width * scaleX,
@@ -228,15 +241,15 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
       CROP_SIZE
     );
 
-    // 將裁剪後的圖片轉換為URL
-    setCroppedImageUrl(canvas.toDataURL('image/jpeg'));
+    const base64 = canvas.toDataURL('image/jpeg', 0.95);
+    setCroppedImageUrl(base64);
   }, [completedCrop]);
 
   useEffect(() => {
     if (completedCrop) {
       generateCroppedImage();
     }
-  }, [completedCrop]);
+  }, [completedCrop, generateCroppedImage]);
 
   function base64ToFile(base64, filename) {
     const byteString = atob(base64.split(',')[1]); // 解码 Base64
@@ -359,7 +372,7 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
             {imageUrl && (
               <Box sx={{ flex: 1 }}>
                 <Typography variant="subtitle2" gutterBottom>
-                  選擇區域 (200 x 200)
+                  選擇區域 (可調整大小,保持正方形)
                 </Typography>
                 <Paper
                   variant="outlined"
@@ -374,21 +387,20 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
                     onChange={(_, percentCrop) => setCrop(percentCrop)}
                     onComplete={c => setCompletedCrop(c)}
                     aspect={1}
-                    minWidth={CROP_SIZE}
-                    minHeight={CROP_SIZE}
-                    maxWidth={CROP_SIZE}
-                    maxHeight={CROP_SIZE}
-                    locked={true}
                   >
                     <img
                       ref={imageRef}
                       src={imageUrl}
+                      crossOrigin="anonymous"
+                      alt="Upload"
                       style={{
-                        width: UPLOAD_IMAGE_WIDTH,
-                        height: UPLOAD_IMAGE_HEIGHT,
+                        maxWidth: UPLOAD_IMAGE_WIDTH,
+                        maxHeight: UPLOAD_IMAGE_HEIGHT,
                         objectFit: 'contain',
                       }}
-                      alt="Upload"
+                      onLoad={e => {
+                        e.currentTarget.style.aspectRatio = `${e.currentTarget.naturalWidth}/${e.currentTarget.naturalHeight}`;
+                      }}
                     />
                   </ReactCrop>
                 </Paper>

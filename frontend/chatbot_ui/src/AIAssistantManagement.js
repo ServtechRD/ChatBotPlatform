@@ -145,8 +145,8 @@ const AIAssistantManagement = ({ onRefresh }) => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {assistants.map(assistant => (
-                <TableRow key={assistant.id}>
+              {assistants.map((assistant, i) => (
+                <TableRow key={i}>
                   <TableCell>
                     <Typography variant="subtitle1">
                       {assistant.name}
