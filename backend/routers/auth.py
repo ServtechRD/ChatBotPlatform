@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from models.database import get_db
 from models.models import User
 from models.schemas import UserCreate, Token
-from services.auth_service import get_password_hash, verify_password, create_access_token, verify_token
+from services.auth_service import get_password_hash, verify_password, create_access_token, create_refresh_token, verify_token, verify_refresh_token
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from datetime import timedelta
 
@@ -28,11 +28,12 @@ def register_user(user_data: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
 
-    # 注册后生成JWT
+    # 注册后生成 Access Token 和 Refresh Token
     access_token_expires = timedelta(minutes=30)
     access_token = create_access_token(data={"sub": str(new_user.user_id)}, expires_delta=access_token_expires)
+    refresh_token = create_refresh_token(data={"sub": str(new_user.user_id)})
 
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
 
 
 # 用户登录
@@ -46,7 +47,38 @@ def login_user(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = D
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # 登录成功后生成JWT
+    # 登录成功后生成 Access Token 和 Refresh Token
+    access_token_expires = timedelta(minutes=30)
+    access_token = create_access_token(data={"sub": str(user.user_id)}, expires_delta=access_token_expires)
+    refresh_token = create_refresh_token(data={"sub": str(user.user_id)})
+
+    return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
+
+
+# 刷新 Access Token
+@router.post("/refresh")
+def refresh_access_token(refresh_token: str, db: Session = Depends(get_db)):
+    # 验证 refresh token
+    user_id = verify_refresh_token(refresh_token)
+    if user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # 确保 user_id 是整数类型
+    try:
+        user_id = int(user_id)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=401, detail="Invalid token format")
+
+    # 验证用户是否存在
+    user = db.query(User).filter(User.user_id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # 生成新的 access token
     access_token_expires = timedelta(minutes=30)
     access_token = create_access_token(data={"sub": str(user.user_id)}, expires_delta=access_token_expires)
 

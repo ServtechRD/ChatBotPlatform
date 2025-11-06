@@ -6,6 +6,9 @@ const API_BASE_URL =
 class ApiService {
   constructor() {
     this.baseURL = API_BASE_URL;
+    this.isRefreshing = false;
+    this.failedQueue = [];
+
     this.axiosInstance = axios.create({
       baseURL: this.baseURL,
       timeout: 10000, // 10 seconds timeout
@@ -28,18 +31,85 @@ class ApiService {
       }
     );
 
-    // 響應攔截器，用於處理錯誤
+    // 響應攔截器，用於處理錯誤和自動刷新 token
     this.axiosInstance.interceptors.response.use(
       response => response,
-      error => {
-        if (error.response && error.response.status === 401) {
-          // 處理未授權錯誤，例如重定向到登錄頁面
-          // 您可能需要導入並使用react-router的history對象
-          // history.push('/login');
+      async error => {
+        const originalRequest = error.config;
+
+        // 如果收到 401 錯誤且不是 refresh 請求本身
+        if (error.response && error.response.status === 401 && !originalRequest._retry) {
+          if (this.isRefreshing) {
+            // 如果正在刷新，將請求加入隊列
+            return new Promise((resolve, reject) => {
+              this.failedQueue.push({ resolve, reject });
+            }).then(token => {
+              originalRequest.headers['Authorization'] = 'Bearer ' + token;
+              return this.axiosInstance(originalRequest);
+            }).catch(err => {
+              return Promise.reject(err);
+            });
+          }
+
+          originalRequest._retry = true;
+          this.isRefreshing = true;
+
+          const refreshToken = localStorage.getItem('refreshToken');
+
+          if (!refreshToken) {
+            // 沒有 refresh token，清除並跳轉到登入頁
+            this.clearAuthData();
+            window.location.href = '/login';
+            return Promise.reject(error);
+          }
+
+          try {
+            // 嘗試刷新 token
+            const response = await axios.post(`${this.baseURL}/auth/refresh`, {
+              refresh_token: refreshToken
+            });
+
+            const newAccessToken = response.data.access_token;
+            localStorage.setItem('token', newAccessToken);
+
+            // 處理隊列中的請求
+            this.processQueue(null, newAccessToken);
+            this.failedQueue = [];
+
+            // 重試原始請求
+            originalRequest.headers['Authorization'] = 'Bearer ' + newAccessToken;
+            return this.axiosInstance(originalRequest);
+          } catch (refreshError) {
+            // Refresh token 也過期，清除並跳轉到登入頁
+            this.processQueue(refreshError, null);
+            this.failedQueue = [];
+            this.clearAuthData();
+            window.location.href = '/login';
+            return Promise.reject(refreshError);
+          } finally {
+            this.isRefreshing = false;
+          }
         }
+
         return Promise.reject(error);
       }
     );
+  }
+
+  processQueue(error, token = null) {
+    this.failedQueue.forEach(prom => {
+      if (error) {
+        prom.reject(error);
+      } else {
+        prom.resolve(token);
+      }
+    });
+  }
+
+  clearAuthData() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('userData');
   }
 
   // 登錄方法
@@ -56,6 +126,9 @@ class ApiService {
       });
       if (response.data.access_token) {
         localStorage.setItem('token', response.data.access_token);
+      }
+      if (response.data.refresh_token) {
+        localStorage.setItem('refreshToken', response.data.refresh_token);
       }
       return response.data;
     } catch (error) {
@@ -113,8 +186,7 @@ class ApiService {
 
   // 登出方法
   logout() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('userData');
+    this.clearAuthData();
     // 可以在這裡添加其他清理操作
   }
 

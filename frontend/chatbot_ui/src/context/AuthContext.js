@@ -14,6 +14,8 @@ export function AuthProvider({ children }) {
         .then(() => setIsAuthenticated(true))
         .catch(() => {
           localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
+          localStorage.removeItem('userData');
           setIsAuthenticated(false);
         })
         .finally(() => setLoading(false));
@@ -29,6 +31,8 @@ export function AuthProvider({ children }) {
 
   const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('userData');
     setIsAuthenticated(false);
   };
 
