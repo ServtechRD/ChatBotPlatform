@@ -16,7 +16,7 @@ import {
 } from '@mui/icons-material';
 import ApiService from '../../api/ApiService';
 
-const ConversationManagement = ({ currentAssistant }) => {
+export default function ConversationManagement({ currentAssistant }) {
   const [conversations, setConversations] = useState([]);
   const [isLoadingConversations, setIsLoadingConversations] = useState(false);
   const [error, setError] = useState(null);
@@ -28,7 +28,7 @@ const ConversationManagement = ({ currentAssistant }) => {
     }
   }, [currentAssistant]);
 
-  const fetchConversations = async () => {
+  async function fetchConversations() {
     try {
       setIsLoadingConversations(true);
       setError(null);
@@ -37,15 +37,16 @@ const ConversationManagement = ({ currentAssistant }) => {
       const data = await ApiService.fetchUserConversations(assistantId);
       setConversations(data);
     } catch (err) {
-      setError('無法載入對話列表，請稍後再試');
       console.error('Error fetching conversations:', err);
+      setError('無法載入對話列表，請稍後再試');
+      setConversations([]);
       handleApiError(err);
     } finally {
       setIsLoadingConversations(false);
     }
-  };
+  }
 
-  const handleDownloadCSV = () => {
+  function handleDownloadCSV() {
     const csvData = [];
     csvData.push([
       'customer_id',
@@ -84,30 +85,30 @@ const ConversationManagement = ({ currentAssistant }) => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  };
+  }
 
-  const getMessageCount = messages => {
+  function getMessageCount(messages) {
     return messages?.length || 0;
-  };
+  }
 
-  const handleApiError = error => {
+  function handleApiError(error) {
     if (error.response && error.response.status === 401) {
       ApiService.logout();
       // navigate('/login');
     }
-  };
+  }
 
-  const handleSearchChange = event => {
+  function handleSearchChange(event) {
     setSearchTerm(event.target.value);
-  };
+  }
 
-  const getFilteredConversations = () => {
+  function getFilteredConversations() {
     if (!searchTerm) return conversations;
 
     return conversations.filter(conversation =>
       conversation.customer_id.toLowerCase().includes(searchTerm.toLowerCase())
     );
-  };
+  }
 
   if (!currentAssistant) {
     return (
@@ -227,6 +228,4 @@ const ConversationManagement = ({ currentAssistant }) => {
       )}
     </Box>
   );
-};
-
-export default ConversationManagement;
+}

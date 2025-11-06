@@ -254,7 +254,8 @@ class ApiService {
       const response = await this.axiosInstance.get(
         `/user/${assistantId}/conversations`
       );
-      return response.data;
+
+      return response?.data || [];
     } catch (error) {
       console.error('Failed to fetch conversations:', error);
       throw error;

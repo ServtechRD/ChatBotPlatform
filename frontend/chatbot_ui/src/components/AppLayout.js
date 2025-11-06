@@ -89,9 +89,8 @@ export default function AppLayout() {
   useEffect(() => {
     const initializeData = async () => {
       try {
-        console.log('ApiService.getUserEmail():', ApiService.getUserEmail());
         setWorkspace(ApiService.getUserEmail() || 'default');
-        let alreadyAgents = (await ApiService.getAssistatns()) || [];
+        const alreadyAgents = (await ApiService.getAssistatns()) || [];
         setAgents(alreadyAgents);
         if (alreadyAgents.length > 0) {
           setCurrentAgent(alreadyAgents[0]);
@@ -107,7 +106,7 @@ export default function AppLayout() {
   }, []);
 
   async function refreshAgents() {
-    let alreadyAgents = (await ApiService.getAssistatns()) || [];
+    const alreadyAgents = (await ApiService.getAssistatns()) || [];
     setAgents(alreadyAgents);
   }
 
@@ -117,8 +116,6 @@ export default function AppLayout() {
   }
 
   function handleSelectAgent(index) {
-    console.log('index:', index)
-    console.log('agents: ')
     setCurrentAgentIndex(index);
     const agent = agents[index];
     setCurrentAgent(agent);
