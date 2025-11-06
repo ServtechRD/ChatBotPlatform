@@ -119,9 +119,11 @@ class ApiService {
   }
 
   // 獲取用戶資料
+  // MARK: 這個有噴錯
   async fetchUserData() {
     try {
       const response = await this.axiosInstance.get('/auth/users/me');
+
       const userData = response.data;
       localStorage.setItem('userData', JSON.stringify(userData));
       return userData;

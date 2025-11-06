@@ -27,9 +27,9 @@ import {
 import ReactCrop from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 
-import { formatImageUrl } from './utils/urlUtils';
+import { formatImageUrl } from '../../utils/urlUtils';
 
-import ApiService from './ApiService';
+import ApiService from '../../api/ApiService';
 
 const UPLOAD_IMAGE_WIDTH = 398;
 const UPLOAD_IMAGE_HEIGHT = 598;

@@ -16,7 +16,7 @@ import {
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 // 导入 ApiService
-import ApiService from './ApiService';
+import ApiService from '../../api/ApiService';
 
 const FileUploadDialog = ({
   isOpen,

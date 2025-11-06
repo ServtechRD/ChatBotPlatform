@@ -12,7 +12,7 @@ import {
   Box,
 } from '@mui/material';
 
-import ApiService from './ApiService';
+import ApiService from '../../api/ApiService';
 
 // 獲取用戶ID
 const userId = ApiService.getUserId();
@@ -71,7 +71,6 @@ const AIAssistantSettings = () => {
                 <MenuItem value="gpt3.5">GPT-3.5 Turbo</MenuItem>
                 <MenuItem value="gpt3.5">GPT-4o</MenuItem>
               </Select>
-             
             </Box>
 
             <Box>

@@ -16,7 +16,7 @@ import {
   Send as SendIcon,
 } from '@mui/icons-material';
 import { v4 as uuidv4 } from 'uuid'; // 请确保安装了 uuid 库
-import { formatImageUrl } from './utils/urlUtils';
+import { formatImageUrl } from '../../utils/urlUtils';
 
 const CHAT_WIDTH = 398;
 const CHAT_HEIGHT = 598;

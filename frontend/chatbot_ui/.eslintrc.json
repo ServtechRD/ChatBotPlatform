@@ -1,0 +1,73 @@
+{
+  "extends": ["react-app", "react-app/jest", "prettier"],
+  "plugins": [],
+  "env": {
+    "browser": true,
+    "es6": true
+  },
+  "globals": {},
+  "parserOptions": {
+    "ecmaVersion": 6,
+    "sourceType": "module",
+    "ecmaFeatures": {
+      "jsx": true
+    }
+  },
+  "ignorePatterns": ["**/font/**/*.js"],
+  "rules": {
+    "no-param-reassign": "warn",
+    "no-unused-vars": "warn",
+    "no-console": [
+      "warn",
+      {
+        "allow": ["warn", "info"]
+      }
+    ],
+    // "no-promise-excutor-return": 1,
+    "array-callback-return": 1,
+    "block-scoped-var": 1,
+    "class-methods-use-this": 0,
+    "default-case": 1,
+    "default-case-last": 1,
+    "default-param-last": 1,
+    "eqeqeq": 1, // fixable
+    "guard-for-in": 1,
+    "no-alert": 1,
+    "no-caller": 1,
+    "no-constructor-return": 1,
+    "no-eq-null": 1,
+    "no-extend-native": 1,
+    "no-implied-eval": 1,
+    "no-loop-func": 1,
+    "no-new-func": 1,
+    // "no-new-wrapper": 2,
+    "no-return-assign": 1,
+    "radix": 1,
+    "require-await": 1,
+    // "vars-on-top": 1,
+    // "wrap-iife": 1,
+    "no-use-before-define": [
+      1,
+      {
+        "functions": false,
+        "classes": false
+      }
+    ],
+    "prefer-const": 1, // fixable
+    "prefer-rest-params": 1,
+    // indent.ignoreNodes 設定來源 https://github.com/babel/babel-eslint/issues/681#issuecomment-451336031
+    // "indent": ["warn", 2, {
+    //   "ignoredNodes": ["TemplateLiteral"],
+    //   "SwitchCase": 1
+    // }],
+    // enable babel rules instead of original due to using babel parser (may cause rules conflict)
+    "new-cap": 0,
+    "camelcase": 0,
+    "no-invalid-this": 0,
+    "object-curly-spacing": 0,
+    "quotes": 0,
+    "semi": 0,
+    "no-unused-expressions": 0,
+    "valid-typeof": 0
+  }
+}

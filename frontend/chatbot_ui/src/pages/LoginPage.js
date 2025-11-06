@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -6,11 +6,13 @@ import {
   TextField,
   Typography,
   Container,
+  Paper,
+  Alert,
   Dialog,
   DialogTitle,
+  IconButton,
   DialogContent,
   DialogActions,
-  IconButton,
   InputAdornment,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
@@ -20,7 +22,8 @@ import {
   Close as CloseIcon,
 } from '@mui/icons-material';
 
-import ApiService from './ApiService';
+import useAuth from '../hook/useAuth';
+import ApiService from '../api/ApiService';
 
 const Logo = styled('img')({
   width: 150,
@@ -28,25 +31,55 @@ const Logo = styled('img')({
   marginBottom: 20,
 });
 
-const LoginPage = ({ onLogin }) => {
+export default function LoginPage() {
   const navigate = useNavigate();
+  const { login, isAuthenticated } = useAuth();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [openRegister, setOpenRegister] = useState(false);
   const [registerEmail, setRegisterEmail] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
 
-  const handleLogin = async e => {
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
+
+  async function handleLogin(e) {
     e.preventDefault();
+    setError('');
+    setIsLoading(true);
+
     try {
       const response = await ApiService.login(email, password);
-      onLogin(response.access_token);
-      navigate('/');
-    } catch (error) {
-      alert('登入失敗，請檢查您的輸入。');
+      const token = response.access_token;
+
+      await login(token);
+      await ApiService.fetchUserData();
+
+      navigate('/', { replace: true });
+    } catch (err) {
+      console.error('Login failed:', err);
+      setError('登入失敗，請檢查您的帳號和密碼');
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }
+  // const handleLogin = async e => {
+  //   e.preventDefault();
+  //   try {
+  //     const response = await ApiService.login(email, password);
+  //     onLogin(response.access_token);
+  //     navigate('/');
+  //   } catch (error) {
+  //     alert('登入失敗，請檢查您的輸入。');
+  //   }
+  // };
 
   const handleRegister = async () => {
     try {
@@ -184,6 +217,4 @@ const LoginPage = ({ onLogin }) => {
       </Dialog>
     </Container>
   );
-};
-
-export default LoginPage;
+}

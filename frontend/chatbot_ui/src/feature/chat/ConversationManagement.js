@@ -14,7 +14,7 @@ import {
   Refresh as RefreshIcon,
   Download as DownloadIcon,
 } from '@mui/icons-material';
-import ApiService from './ApiService';
+import ApiService from '../../api/ApiService';
 
 const ConversationManagement = ({ currentAssistant }) => {
   const [conversations, setConversations] = useState([]);

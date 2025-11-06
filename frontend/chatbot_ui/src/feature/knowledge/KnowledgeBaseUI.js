@@ -38,7 +38,8 @@ import {
 } from '@mui/icons-material';
 
 import FileUploadDialog from './FileUploadDialog';
-import ApiService from './ApiService';
+import TextInputDialog from './TextInputDialog';
+import ApiService from '../../api/ApiService';
 
 // 保留原有的 IconWrapper 和 KnowledgeBaseItem 組件
 const IconWrapper = ({ children }) => (
@@ -65,6 +66,7 @@ const KnowledgeBaseUI = ({ currentAssistant }) => {
 
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [uploadType, setUploadType] = useState(null);
+  const [isTextDialogOpen, setIsTextDialogOpen] = useState(false);
 
   const [expandedItem, setExpandedItem] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -82,7 +84,11 @@ const KnowledgeBaseUI = ({ currentAssistant }) => {
 
   const handleKnowledgeItemClick = type => {
     setUploadType(type);
-    setIsUploadDialogOpen(true);
+    if (type === '上傳文件或網址') {
+      setIsUploadDialogOpen(true);
+    } else {
+      setIsTextDialogOpen(true);
+    }
   };
 
   const handleUploadComplete = async data => {
@@ -95,7 +101,7 @@ const KnowledgeBaseUI = ({ currentAssistant }) => {
   const KnowledgeBaseItem = ({ icon, title, description, type }) => (
     <Card
       sx={{ height: '100%', cursor: 'pointer' }}
-      onClick={() => handleKnowledgeItemClick(type)}
+      onClick={() => handleKnowledgeItemClick(title)}
     >
       <CardContent>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -195,6 +201,17 @@ const KnowledgeBaseUI = ({ currentAssistant }) => {
       ],
     },
   ];
+
+  // MARK:手動輸入
+  const handleCloseTextDialog = () => {
+    setIsTextDialogOpen(false);
+  };
+
+  const handleTextSubmitComplete = data => {
+    console.log('文字提交成功:', data);
+    // 在這裡處理提交成功後的邏輯
+    // 例如：刷新知識庫列表、顯示通知等
+  };
 
   const renderNewKnowledge = () => (
     <>
@@ -436,6 +453,12 @@ const KnowledgeBaseUI = ({ currentAssistant }) => {
         onUploadComplete={handleUploadComplete}
         uploadType={uploadType}
         assistantId={currentAssistant?.assistant_id}
+      />
+      <TextInputDialog
+        isOpen={isTextDialogOpen}
+        onClose={handleCloseTextDialog}
+        onSubmitComplete={handleTextSubmitComplete}
+        assistantId={currentAssistant?.assistant_id} // 這個應該已經存在於你的組件中
       />
     </Box>
   );

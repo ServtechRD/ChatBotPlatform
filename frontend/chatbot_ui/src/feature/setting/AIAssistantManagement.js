@@ -20,20 +20,11 @@ import {
   ViewModule as GridViewIcon,
   ViewList as ListViewIcon,
 } from '@mui/icons-material';
-import EditAIAssistantDialog from './EditAIAssistantDialog'; // 确保导入这个组件
-import ApiService from './ApiService';
+import EditAIAssistantDialog from './EditAIAssistantDialog';
+import ApiService from '../../api/ApiService';
 
 const AIAssistantManagement = ({ onRefresh }) => {
-  const [assistants, setAssistants] = useState([
-    {
-      id: 1,
-      name: 'TestAgent',
-      description:
-        "DO:Be friendly and proactive in helping users resolve their issues. Use casual language and avoid repeating the same sentences. DON'T: Provide generic, unhelpf...",
-      status: true,
-      unread: 0,
-    },
-  ]);
+  const [assistants, setAssistants] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState('list');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -43,6 +34,7 @@ const AIAssistantManagement = ({ onRefresh }) => {
     try {
       setIsLoading(true);
       const data = await ApiService.fetchAssistants();
+      console.log('fetchAssistants data:', data);
       setAssistants(data);
     } catch (error) {
       console.error('Failed to fetch assistants data:', error);
@@ -59,7 +51,7 @@ const AIAssistantManagement = ({ onRefresh }) => {
   const handleStatusChange = id => {
     setAssistants(
       assistants.map(assistant =>
-        assistant.id === id
+        assistant.assistant_id === id
           ? { ...assistant, status: !assistant.status }
           : assistant
       )
@@ -158,7 +150,7 @@ const AIAssistantManagement = ({ onRefresh }) => {
                   <TableCell align="center">
                     <Switch
                       checked={assistant.status}
-                      onChange={() => handleStatusChange(assistant.id)}
+                      onChange={e => handleStatusChange(assistant.assistant_id)}
                       color="primary"
                     />
                   </TableCell>

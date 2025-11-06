@@ -16,66 +16,58 @@ import {
   MenuItem as MuiMenuItem,
   Select,
   CircularProgress,
-  getListItemAvatarUtilityClass,
+  Link,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import {
   Menu as MenuIcon,
   Chat as ChatIcon,
-  Description as DescriptionIcon,
-  Settings as SettingsIcon,
-  Help as HelpIcon,
-  Person as UserIcon,
-  Close as CloseIcon,
   Dataset as DatasetIcon,
-  ExitToApp as ExitToAppIcon, //
+  ExitToApp as ExitToAppIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 
-// 导入其他组件
-import ChatInterface from './ChatInterface';
-import KnowledgeBaseUI from './KnowledgeBaseUI';
-import AIAssistantSettings from './AIAssistantSettings';
-import AIAssistantManagement from './AIAssistantManagement';
-import AccountProfile from './AccountProfile';
-import ConversationManagement from './ConversationManagement';
+// 導入其他組件
+import ChatInterface from '../feature/chat/ChatInterface';
+import KnowledgeBaseUI from '../feature/knowledge/KnowledgeBaseUI';
+import AIAssistantSettings from '../feature/setting/AIAssistantSettings';
+import AIAssistantManagement from '../feature/setting/AIAssistantManagement';
+import AccountProfile from '../feature/setting/AccountProfile';
+import ConversationManagement from '../feature/chat/ConversationManagement';
 
-// 导入 ApiService
-import ApiService from './ApiService';
+// 導入 ApiService 和 useAuth
+import ApiService from '../api/ApiService';
+import useAuth from '../hook/useAuth';
 
-const AppLayout = () => {
+export default function AppLayout() {
   const navigate = useNavigate();
+  const { userData, logout, isLoading: authLoading } = useAuth();
 
   const [isMenuOpen, setIsMenuOpen] = useState(true);
   const [selectedMenuItem, setSelectedMenuItem] = useState('conversations');
   const [isChatDialogOpen, setIsChatDialogOpen] = useState(false);
   const [isAIManagementDialogOpen, setIsAIManagementDialogOpen] =
     useState(false);
-  const [agentName, setAgentName] = useState('TestAgent');
   const [currentAgent, setCurrentAgent] = useState(null);
   const [currentAgentIndex, setCurrentAgentIndex] = useState(0);
-
   const [workspace, setWorkspace] = useState('Kao');
-  const [agents, setAgents] = useState([
-    { name: 'TestAgent' },
-    { name: 'Agent2' },
-    { name: 'Agent3' },
-  ]);
-
-  const [userData, setUserData] = useState(null);
+  const [agents, setAgents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const MenuItem = ({ icon, label, value }) => (
-    <ListItem
-      button
-      selected={selectedMenuItem === value}
-      onClick={() => setSelectedMenuItem(value)}
-    >
-      <ListItemIcon>{icon}</ListItemIcon>
-      <ListItemText primary={label} />
-    </ListItem>
-  );
+  function MenuItem({ icon, label, value }) {
+    return (
+      <ListItem
+        button
+        selected={selectedMenuItem === value}
+        onClick={() => setSelectedMenuItem(value)}
+      >
+        <ListItemIcon>{icon}</ListItemIcon>
+        <ListItemText primary={label} />
+      </ListItem>
+    );
+  }
 
-  const renderContent = () => {
+  function renderContent() {
     switch (selectedMenuItem) {
       case 'chat':
         return <ChatInterface />;
@@ -92,48 +84,44 @@ const AppLayout = () => {
       default:
         return <Typography>請選擇一個選項</Typography>;
     }
-  };
+  }
 
   useEffect(() => {
-    const fetchUserData = async () => {
+    const initializeData = async () => {
       try {
-        const data = await ApiService.fetchUserData();
-        setUserData(data);
-        setIsLoading(false);
+        setWorkspace(ApiService.getUserEmail() || 'default');
+        let alreadyAgents = (await ApiService.getAssistatns()) || [];
+        setAgents(alreadyAgents);
+        if (alreadyAgents.length > 0) {
+          setCurrentAgent(alreadyAgents[0]);
+        }
       } catch (error) {
-        console.error('Failed to fetch user data:', error);
+        console.error('Failed to initialize data:', error);
+      } finally {
         setIsLoading(false);
-        // 如果获取用户数据失败，可能需要重定向到登录页面
-        navigate('/login');
       }
     };
 
-    fetchUserData();
-    setWorkspace(ApiService.getUserEmail() || 'default');
-    let alreadyAgents = ApiService.getAssistatns() || [];
-    setAgents(alreadyAgents);
-    if (alreadyAgents.length > 0) {
-      setCurrentAgent(alreadyAgents[0]);
-    }
-  }, [navigate]);
+    initializeData();
+  }, []);
 
-  const refreshAgents = async () => {
+  async function refreshAgents() {
     let alreadyAgents = (await ApiService.getAssistatns()) || [];
     setAgents(alreadyAgents);
-  };
+  }
 
-  const handleLogout = () => {
-    ApiService.logout();
+  function handleLogout() {
+    logout();
     navigate('/login');
-  };
+  }
 
-  const handleSelectAgent = index => {
+  function handleSelectAgent(index) {
     setCurrentAgentIndex(index);
     const agent = agents[index];
     setCurrentAgent(agent);
-  };
+  }
 
-  if (isLoading) {
+  if (authLoading || isLoading) {
     return (
       <Box
         sx={{
@@ -160,10 +148,11 @@ const AppLayout = () => {
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            {workspace}'s Workspace
-          </Typography>
-
+          <Link href="/" sx={{ flexGrow: 1 }}>
+            <Typography variant="h6" color="#fff">
+              {workspace}'s Workspace
+            </Typography>
+          </Link>
           <Button
             color="inherit"
             onClick={() => setIsAIManagementDialogOpen(true)}
@@ -197,17 +186,6 @@ const AppLayout = () => {
           >
             測試AI助理
           </Button>
-          {/* 
-          <IconButton color="inherit">
-            <HelpIcon />
-          </IconButton>
-          <IconButton
-            color="inherit"
-            onClick={() => setSelectedMenuItem('account')}
-          >
-            <UserIcon />
-          </IconButton>
-          */}
           <IconButton color="inherit" onClick={handleLogout}>
             <ExitToAppIcon />
           </IconButton>
@@ -229,13 +207,6 @@ const AppLayout = () => {
         >
           <List>
             <MenuItem icon={<ChatIcon />} label="對話" value="conversations" />
-            {/* 
-            <MenuItem
-              icon={<SettingsIcon />}
-              label="AI助理設定"
-              value="aiAssistant"
-            />
-            */}
             <MenuItem
               icon={<DatasetIcon />}
               label="知識庫"
@@ -258,7 +229,7 @@ const AppLayout = () => {
             <IconButton
               edge="start"
               color="inherit"
-              disabled={agents.length == 0}
+              disabled={agents.length === 0}
               onClick={() => setIsChatDialogOpen(false)}
               aria-label="close"
             >
@@ -302,6 +273,4 @@ const AppLayout = () => {
       </Dialog>
     </Box>
   );
-};
-
-export default AppLayout;
+}
