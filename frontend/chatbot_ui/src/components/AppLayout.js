@@ -41,7 +41,7 @@ import useAuth from '../hook/useAuth';
 
 export default function AppLayout() {
   const navigate = useNavigate();
-  const { userData, logout, isLoading: authLoading } = useAuth();
+  const { logout, isLoading: authLoading } = useAuth();
 
   const [isMenuOpen, setIsMenuOpen] = useState(true);
   const [selectedMenuItem, setSelectedMenuItem] = useState('conversations');
@@ -89,6 +89,7 @@ export default function AppLayout() {
   useEffect(() => {
     const initializeData = async () => {
       try {
+        console.log('ApiService.getUserEmail():', ApiService.getUserEmail());
         setWorkspace(ApiService.getUserEmail() || 'default');
         let alreadyAgents = (await ApiService.getAssistatns()) || [];
         setAgents(alreadyAgents);
@@ -116,6 +117,8 @@ export default function AppLayout() {
   }
 
   function handleSelectAgent(index) {
+    console.log('index:', index)
+    console.log('agents: ')
     setCurrentAgentIndex(index);
     const agent = agents[index];
     setCurrentAgent(agent);
