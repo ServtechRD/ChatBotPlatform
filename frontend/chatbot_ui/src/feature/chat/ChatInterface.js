@@ -140,10 +140,10 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
           Your browser does not support the video tag.
         </video>
       );
-    } else if (assistant?.assistant_image) {
+    } else if (assistant?.image_assistant) {
       return (
         <img
-          src={formatImageUrl(assistant.assistant_image)}
+          src={formatImageUrl(assistant.image_assistant)}
           alt="background"
           style={{
             position: 'absolute',
