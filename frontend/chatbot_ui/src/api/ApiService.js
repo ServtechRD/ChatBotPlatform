@@ -261,7 +261,23 @@ class ApiService {
     }
   }
 
-  // 您可以繼續添加其他API方法...
+  async submitText(assistantId, text) {
+    try {
+      const formData = new FormData();
+      const blob = new Blob([text], { type: 'text/plain' });
+      formData.append('file', blob, 'manual_input.txt');
+
+      const response = await this.axiosInstance.post(
+        `/assistant/${assistantId}/upload`,
+        formData,
+        { headers: { 'Content-Type': 'multipart/form-data' } }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Failed to submit text knowledge:', error);
+      throw error;
+    }
+  }
 }
 
 export default new ApiService();
