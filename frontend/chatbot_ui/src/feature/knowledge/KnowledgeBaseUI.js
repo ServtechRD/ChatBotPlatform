@@ -90,8 +90,9 @@ export default function KnowledgeBaseUI({ currentAssistant }) {
   const [uploadType, setUploadType] = useState(null);
 
   useEffect(() => {
+    if (!currentAssistant?.assistant_id) return;
     fetchKnowledgeItems();
-  }, []);
+  }, [currentAssistant]);
 
   async function fetchKnowledgeItems() {
     try {

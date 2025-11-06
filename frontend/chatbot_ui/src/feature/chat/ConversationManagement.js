@@ -26,7 +26,7 @@ export default function ConversationManagement({ currentAssistant }) {
     if (currentAssistant?.assistant_id) {
       fetchConversations();
     }
-  }, [currentAssistant]);
+  }, [currentAssistant?.assistant_id]);
 
   async function fetchConversations() {
     try {
