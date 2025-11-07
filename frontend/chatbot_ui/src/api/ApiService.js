@@ -110,6 +110,7 @@ class ApiService {
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('userData');
+    localStorage.removeItem('assistantsData');
   }
 
   // 登錄方法
@@ -265,6 +266,12 @@ class ApiService {
       );
       const assistants = response.data;
       localStorage.setItem('assistantsData', JSON.stringify(assistants));
+
+      // 觸發自定義事件，通知其他組件 assistantsData 已更新
+      window.dispatchEvent(new CustomEvent('assistantsDataUpdated', {
+        detail: assistants
+      }));
+
       return assistants;
     } catch (error) {
       console.error('Failed to fetch user data:', error);

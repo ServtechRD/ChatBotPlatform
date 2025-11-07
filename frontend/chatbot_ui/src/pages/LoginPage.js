@@ -61,6 +61,7 @@ export default function LoginPage() {
 
       await login(token);
       await ApiService.fetchUserData();
+      await ApiService.fetchAssistants();  // 登入後獲取助理列表
 
       navigate('/', { replace: true });
     } catch (err) {

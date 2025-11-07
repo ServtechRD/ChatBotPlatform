@@ -16,6 +16,7 @@ export function AuthProvider({ children }) {
           localStorage.removeItem('token');
           localStorage.removeItem('refreshToken');
           localStorage.removeItem('userData');
+          localStorage.removeItem('assistantsData');
           setIsAuthenticated(false);
         })
         .finally(() => setLoading(false));
@@ -33,6 +34,7 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('userData');
+    localStorage.removeItem('assistantsData');
     setIsAuthenticated(false);
   };
 

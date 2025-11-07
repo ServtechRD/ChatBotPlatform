@@ -104,7 +104,7 @@ export default function AppLayout() {
 
     initializeData();
 
-    // 監聽 storage 變化，當 userData 更新時重新讀取
+    // 監聽 storage 變化，當 userData 或 assistantsData 更新時重新讀取
     const handleStorageChange = (e) => {
       if (e.key === 'userData' || e.type === 'userDataUpdated') {
         const newEmail = ApiService.getUserEmail();
@@ -114,15 +114,25 @@ export default function AppLayout() {
       }
     };
 
+    const handleAssistantsChange = (e) => {
+      const assistants = e.detail || ApiService.getAssistatns() || [];
+      setAgents(assistants);
+      if (assistants.length > 0 && !currentAgent) {
+        setCurrentAgent(assistants[0]);
+      }
+    };
+
     // 監聽 storage 事件（跨 tab 同步）
     window.addEventListener('storage', handleStorageChange);
 
     // 監聽自定義事件（同一 tab 內的更新）
     window.addEventListener('userDataUpdated', handleStorageChange);
+    window.addEventListener('assistantsDataUpdated', handleAssistantsChange);
 
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('userDataUpdated', handleStorageChange);
+      window.removeEventListener('assistantsDataUpdated', handleAssistantsChange);
     };
   }, []);
 
