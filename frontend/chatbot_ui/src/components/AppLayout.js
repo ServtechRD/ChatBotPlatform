@@ -103,6 +103,27 @@ export default function AppLayout() {
     };
 
     initializeData();
+
+    // 監聽 storage 變化，當 userData 更新時重新讀取
+    const handleStorageChange = (e) => {
+      if (e.key === 'userData' || e.type === 'userDataUpdated') {
+        const newEmail = ApiService.getUserEmail();
+        if (newEmail) {
+          setWorkspace(newEmail);
+        }
+      }
+    };
+
+    // 監聽 storage 事件（跨 tab 同步）
+    window.addEventListener('storage', handleStorageChange);
+
+    // 監聽自定義事件（同一 tab 內的更新）
+    window.addEventListener('userDataUpdated', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('userDataUpdated', handleStorageChange);
+    };
   }, []);
 
   async function refreshAgents() {

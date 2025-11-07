@@ -198,6 +198,12 @@ class ApiService {
 
       const userData = response.data;
       localStorage.setItem('userData', JSON.stringify(userData));
+
+      // 觸發自定義事件，通知其他組件 userData 已更新
+      window.dispatchEvent(new CustomEvent('userDataUpdated', {
+        detail: userData
+      }));
+
       return userData;
     } catch (error) {
       console.error('Failed to fetch user data:', error);
