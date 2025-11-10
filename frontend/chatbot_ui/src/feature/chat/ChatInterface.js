@@ -14,6 +14,7 @@ import {
 import {
   MoreVert as MoreVertIcon,
   Send as SendIcon,
+  Mic as MicIcon,
 } from '@mui/icons-material';
 import { v4 as uuidv4 } from 'uuid'; // 请确保安装了 uuid 库
 import { formatImageUrl } from '../../utils/urlUtils';
@@ -22,15 +23,25 @@ const CHAT_WIDTH = 398;
 const CHAT_HEIGHT = 598;
 const MESSAGE_TOP_LIMIT = CHAT_HEIGHT / 2;
 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+const WS_BASE_URL =
+  `${protocol}//${process.env.REACT_APP_API_BASE_WS_URL}` ||
+  `${protocol}//localhost:8080`;
 
-const ChatInterface = ({ assistantid, assistantname, assistant }) => {
+export default function ChatInterface({
+  assistantid,
+  assistantname,
+  assistant,
+}) {
   const [messages, setMessages] = useState([
     //{ id: 1, text: 'Welcome!', isBot: true },
   ]);
   const [inputMessage, setInputMessage] = useState('');
   const [isConnected, setIsConnected] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
-  const [backgroundUrl, setBackgroundUrl] = useState('');
+
+  // 語音辨識狀態
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef(null);
 
   const socketRef = useRef(null);
   const customerIdRef = useRef(uuidv4()); // 生成随机的 customer_id
@@ -40,7 +51,7 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
   const welcomeMessageShownRef = useRef(false); // 追蹤歡迎訊息是否已顯示
 
   // 控制消息滾動
-  const scrollToBottom = () => {
+  function scrollToBottom() {
     if (messagesContainerRef.current) {
       const container = messagesContainerRef.current;
       const scrollHeight = container.scrollHeight;
@@ -53,17 +64,44 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
         container.scrollTop = Math.max(maxScroll, minScroll);
       });
     }
-  };
+  }
 
-  // 當消息更新時滾動
+  // 語音輸入初始化
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, isThinking]);
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      console.warn('此瀏覽器不支援語音辨識功能');
+      return;
+    }
 
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'zh-TW'; // 語音輸入語言
+    recognition.interimResults = false; // 只要最終結果
+    recognition.maxAlternatives = 1;
+
+    recognition.onresult = event => {
+      const transcript = event.results[0][0].transcript;
+      console.log('辨識結果:', transcript);
+      setInputMessage(transcript);
+      // 自動送出
+      setTimeout(() => handleSendMessage(), 300);
+    };
+
+    recognition.onstart = () => setIsListening(true);
+    recognition.onend = () => setIsListening(false);
+    recognition.onerror = err => {
+      console.error('語音辨識錯誤:', err);
+      setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+  }, []);
+
+  // 聊天室 ws 初始化
   useEffect(() => {
     console.log('name  = ' + assistantname);
 
-    // 只在首次加載時顯示歡迎訊息
     if (!welcomeMessageShownRef.current && assistant?.message_welcome) {
       setMessages([
         { id: Date.now(), text: assistant.message_welcome, isBot: true },
@@ -71,9 +109,8 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
       welcomeMessageShownRef.current = true;
     }
 
-    // 建立 WebSocket 连接
     socketRef.current = new WebSocket(
-      `${protocol}//${window.location.hostname}:36100/ws/assistant/${assistantid}/${customerIdRef.current}`
+      `${WS_BASE_URL}/ws/assistant/${assistantid}/${customerIdRef.current}`
     );
 
     socketRef.current.onopen = () => {
@@ -82,11 +119,6 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
     };
 
     socketRef.current.onmessage = event => {
-      /*const assistantReply = event.data;
-      setMessages(prevMessages => [
-        ...prevMessages,
-        { id: Date.now(), text: assistantReply, isBot: true },
-      ]);*/
       const message = event.data;
       console.log('recv ' + message);
       if (message === '@@@') {
@@ -109,7 +141,6 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
       setIsConnected(false);
     };
 
-    // 组件卸载时关闭 WebSocket 连接
     return () => {
       if (socketRef.current) {
         socketRef.current.close();
@@ -117,7 +148,25 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
     };
   }, [assistantid, assistantname]);
 
-  const getBackgroundContent = () => {
+  // 當消息更新時滾動
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isThinking]);
+
+  function handleVoiceInput() {
+    if (!recognitionRef.current) {
+      alert('此瀏覽器不支援語音辨識功能');
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current.stop();
+    } else {
+      recognitionRef.current.start();
+    }
+  }
+
+  function getBackgroundContent() {
     if (assistant?.video_1) {
       return (
         <video
@@ -172,9 +221,9 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
         }}
       />
     );
-  };
+  }
 
-  const handleSendMessage = () => {
+  function handleSendMessage() {
     if (inputMessage.trim() && isConnected) {
       // 发送消息到 WebSocket
       socketRef.current.send(inputMessage);
@@ -186,7 +235,7 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
       ]);
       setInputMessage('');
     }
-  };
+  }
 
   return (
     <Box
@@ -359,7 +408,7 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
             <TextField
               fullWidth
               variant="standard"
-              placeholder="Type here..."
+              placeholder="請輸入文字或點擊語音輸入..."
               value={inputMessage}
               onChange={e => setInputMessage(e.target.value)}
               onKeyPress={e => e.key === 'Enter' && handleSendMessage()}
@@ -373,13 +422,30 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
                 },
               }}
             />
+
+            {/* 🎤 語音輸入按鈕 */}
+            <IconButton
+              onClick={handleVoiceInput}
+              sx={{
+                m: 0.5,
+                bgcolor: isListening ? 'error.main' : 'secondary.main',
+                color: 'white',
+                '&:hover': {
+                  bgcolor: isListening ? 'error.dark' : 'secondary.dark',
+                },
+              }}
+            >
+              <MicIcon />
+            </IconButton>
+
+            {/* 📤 送出按鈕 */}
             <IconButton
               onClick={handleSendMessage}
               sx={{
                 m: 0.5,
                 bgcolor: 'primary.main',
                 color: 'white',
-                transform: 'rotate(-45deg)', // 稍微旋轉圖標使其指向右上
+                transform: 'rotate(-45deg)',
                 '&:hover': {
                   bgcolor: 'primary.dark',
                 },
@@ -392,7 +458,7 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
               <SendIcon
                 fontSize="small"
                 sx={{
-                  fontSize: '1.2rem', // 微調圖標大小
+                  fontSize: '1.2rem',
                 }}
               />
             </IconButton>
@@ -411,6 +477,4 @@ const ChatInterface = ({ assistantid, assistantname, assistant }) => {
        */}
     </Box>
   );
-};
-
-export default ChatInterface;
+}
