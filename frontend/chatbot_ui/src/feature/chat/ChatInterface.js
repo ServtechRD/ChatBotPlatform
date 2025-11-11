@@ -16,7 +16,8 @@ import {
   Send as SendIcon,
   Mic as MicIcon,
 } from '@mui/icons-material';
-import { v4 as uuidv4 } from 'uuid'; // 请确保安装了 uuid 库
+import VolumeUpIcon from '@mui/icons-material/VolumeUp';
+import { v4 as uuidv4 } from 'uuid';
 import { formatImageUrl } from '../../utils/urlUtils';
 
 const CHAT_WIDTH = 398;
@@ -25,16 +26,14 @@ const MESSAGE_TOP_LIMIT = CHAT_HEIGHT / 2;
 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 const WS_BASE_URL =
   `${protocol}//${process.env.REACT_APP_API_BASE_WS_URL}` ||
-  `${protocol}//localhost:8080`;
+  `${protocol}//192.168.1.234:36100`;
 
 export default function ChatInterface({
   assistantid,
   assistantname,
   assistant,
 }) {
-  const [messages, setMessages] = useState([
-    //{ id: 1, text: 'Welcome!', isBot: true },
-  ]);
+  const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isConnected, setIsConnected] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
@@ -43,28 +42,17 @@ export default function ChatInterface({
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef(null);
 
+  // 語音播放設定
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const speechSynthesisRef = useRef(window.speechSynthesis);
+  const voiceRef = useRef(null);
+
   const socketRef = useRef(null);
   const customerIdRef = useRef(uuidv4()); // 生成随机的 customer_id
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const videoRef = useRef(null);
   const welcomeMessageShownRef = useRef(false); // 追蹤歡迎訊息是否已顯示
-
-  // 控制消息滾動
-  function scrollToBottom() {
-    if (messagesContainerRef.current) {
-      const container = messagesContainerRef.current;
-      const scrollHeight = container.scrollHeight;
-      const height = container.clientHeight;
-      const maxScroll = scrollHeight - height;
-      const minScroll = Math.max(0, scrollHeight - MESSAGE_TOP_LIMIT);
-
-      // 使用 requestAnimationFrame 確保在 DOM 更新後執行滾動
-      requestAnimationFrame(() => {
-        container.scrollTop = Math.max(maxScroll, minScroll);
-      });
-    }
-  }
 
   // 語音輸入初始化
   useEffect(() => {
@@ -98,6 +86,33 @@ export default function ChatInterface({
     recognitionRef.current = recognition;
   }, []);
 
+  // 語音播放初始化
+  useEffect(() => {
+    if ('speechSynthesis' in window) {
+      const synth = window.speechSynthesis;
+      const loadVoices = () => {
+        const voices = synth.getVoices();
+        // 優先找繁體中文（zh-TW），找不到就用英文
+        voiceRef.current =
+          voices.find(v => v.lang.includes('zh-TW')) ||
+          voices.find(v => v.lang.includes('zh-CN')) ||
+          voices.find(v => v.lang.includes('en')) ||
+          null;
+      };
+      loadVoices();
+      // 某些瀏覽器需監聽 voiceschanged 事件
+      synth.onvoiceschanged = loadVoices;
+    } else {
+      console.warn('此瀏覽器不支援語音播放');
+    }
+
+    return () => {
+      if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
   // 聊天室 ws 初始化
   useEffect(() => {
     console.log('name  = ' + assistantname);
@@ -106,6 +121,7 @@ export default function ChatInterface({
       setMessages([
         { id: Date.now(), text: assistant.message_welcome, isBot: true },
       ]);
+
       welcomeMessageShownRef.current = true;
     }
 
@@ -113,33 +129,38 @@ export default function ChatInterface({
       `${WS_BASE_URL}/ws/assistant/${assistantid}/${customerIdRef.current}`
     );
 
-    socketRef.current.onopen = () => {
-      console.log('WebSocket connection established.');
-      setIsConnected(true);
-    };
+    const socket = socketRef.current; // 暫存引用避免閉包問題
 
-    socketRef.current.onmessage = event => {
+    socket.addEventListener('open', () => {
+      console.log('✅ WebSocket connected');
+      setIsConnected(true);
+    });
+
+    socket.addEventListener('message', event => {
       const message = event.data;
-      console.log('recv ' + message);
+      console.log('recv', message);
       if (message === '@@@') {
-        console.log('is think');
         setIsThinking(true);
         setTimeout(scrollToBottom, 100);
       } else if (message === '###') {
-        console.log('stop thinking');
         setIsThinking(false);
       } else {
-        setMessages(prevMessages => [
-          ...prevMessages,
+        setMessages(prev => [
+          ...prev,
           { id: Date.now(), text: message, isBot: true },
         ]);
+        speakText(message);
       }
-    };
+    });
 
-    socketRef.current.onclose = () => {
-      console.log('WebSocket connection closed.');
+    socket.addEventListener('error', err => {
+      console.error('❌ WebSocket error:', err);
+    });
+
+    socket.addEventListener('close', () => {
+      console.log('🔌 WebSocket closed');
       setIsConnected(false);
-    };
+    });
 
     return () => {
       if (socketRef.current) {
@@ -152,6 +173,22 @@ export default function ChatInterface({
   useEffect(() => {
     scrollToBottom();
   }, [messages, isThinking]);
+
+  // 控制消息滾動
+  function scrollToBottom() {
+    if (messagesContainerRef.current) {
+      const container = messagesContainerRef.current;
+      const scrollHeight = container.scrollHeight;
+      const height = container.clientHeight;
+      const maxScroll = scrollHeight - height;
+      const minScroll = Math.max(0, scrollHeight - MESSAGE_TOP_LIMIT);
+
+      // 使用 requestAnimationFrame 確保在 DOM 更新後執行滾動
+      requestAnimationFrame(() => {
+        container.scrollTop = Math.max(maxScroll, minScroll);
+      });
+    }
+  }
 
   function handleVoiceInput() {
     if (!recognitionRef.current) {
@@ -224,16 +261,46 @@ export default function ChatInterface({
   }
 
   function handleSendMessage() {
-    if (inputMessage.trim() && isConnected) {
-      // 发送消息到 WebSocket
-      socketRef.current.send(inputMessage);
+    if (!inputMessage.trim()) return;
+    safeSend(inputMessage);
+    setMessages(prev => [
+      ...prev,
+      { id: Date.now(), text: inputMessage, isBot: false },
+    ]);
+    setInputMessage('');
+  }
 
-      // 添加用户消息到聊天界面
-      setMessages(prevMessages => [
-        ...prevMessages,
-        { id: Date.now(), text: inputMessage, isBot: false },
-      ]);
-      setInputMessage('');
+  function speakText(text) {
+    if (!('speechSynthesis' in window)) return;
+
+    const synth = speechSynthesisRef.current;
+    synth.cancel(); // 停止前一次播放
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'zh-TW';
+    utterance.pitch = 1.0;
+    utterance.rate = 1.0;
+    utterance.volume = 1.0;
+
+    if (voiceRef.current) utterance.voice = voiceRef.current;
+
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+
+    synth.speak(utterance);
+  }
+
+  function safeSend(msg) {
+    const socket = socketRef.current;
+    if (!socket) return console.warn('WebSocket 尚未初始化');
+
+    if (socket.readyState === WebSocket.OPEN) {
+      socket.send(msg);
+    } else if (socket.readyState === WebSocket.CONNECTING) {
+      console.log('等待 WebSocket 連線...');
+      socket.addEventListener('open', () => socket.send(msg), { once: true });
+    } else {
+      console.warn('WebSocket 已關閉，無法送出');
     }
   }
 
@@ -253,21 +320,6 @@ export default function ChatInterface({
     >
       {/* 背景媒體內容 */}
       {getBackgroundContent()}
-
-      {/* 遮罩層 
-      <Box
-        sx={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 1,
-          backgroundColor: 'rgba(0, 0, 0, 0.4)', // 調整透明度
-          backdropFilter: 'blur(2px)', // 輕微模糊效果
-        }}
-      />
-      */}
 
       {/* 主要內容區域 */}
       <Box
@@ -357,17 +409,41 @@ export default function ChatInterface({
                     : 'rgba(25, 118, 210, 0.95)',
                   borderRadius: 2,
                   backdropFilter: 'blur(5px)',
+                  display: 'flex',
+                  alignItems: 'flex-end',
+                  gap: 1,
+                  flexWrap: 'wrap',
                 }}
               >
+                {/* 訊息文字 */}
                 <Typography
                   sx={{
                     color: message.isBot ? 'black' : 'white',
                     wordBreak: 'break-word',
                     lineHeight: 1.4,
+                    flex: 1,
                   }}
                 >
                   {message.text}
                 </Typography>
+
+                {/* 🔊 AI 語音播放按鈕（不會蓋到文字） */}
+                {message.isBot && (
+                  <IconButton
+                    size="small"
+                    onClick={() => speakText(message.text)}
+                    sx={{
+                      p: 0.5,
+                      color: message.isBot ? 'primary.main' : 'white',
+                      alignSelf: 'flex-end',
+                      '&:hover': {
+                        color: message.isBot ? 'primary.dark' : 'white',
+                      },
+                    }}
+                  >
+                    <VolumeUpIcon fontSize="small" />
+                  </IconButton>
+                )}
               </Paper>
             </Box>
           ))}
@@ -465,16 +541,6 @@ export default function ChatInterface({
           </Paper>
         </Box>
       </Box>
-      {/* Footer
-      <Box
-        component="footer"
-        sx={{ textAlign: 'center', py: 1, bgcolor: 'background.paper' }}
-      >
-        <Typography variant="body2" color="text.secondary">
-       
-        </Typography>
-      </Box>
-       */}
     </Box>
   );
 }
