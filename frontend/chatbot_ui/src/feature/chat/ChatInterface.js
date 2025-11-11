@@ -237,6 +237,12 @@ export default function ChatInterface({
         return;
       }
 
+      // 檢查瀏覽器是否支援 mediaDevices API
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert('您的瀏覽器不支援麥克風功能。請使用最新版本的 Chrome、Firefox 或 Edge，並確保使用 HTTPS。');
+        return;
+      }
+
       // 請求麥克風權限
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
