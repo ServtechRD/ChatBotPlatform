@@ -26,7 +26,7 @@ const MESSAGE_TOP_LIMIT = CHAT_HEIGHT / 2;
 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 const WS_BASE_URL =
   `${protocol}//${process.env.REACT_APP_API_BASE_WS_URL}` ||
-  `${protocol}//192.168.1.234:36100`;
+  `${protocol}//cloud.servtech.com.tw:36100`;
 
 export default function ChatInterface({
   assistantid,
@@ -228,7 +228,7 @@ export default function ChatInterface({
     // 在啟動語音識別前，先請求麥克風權限
     try {
       // 允許的主機名稱白名單（開發環境）
-      const allowedHosts = ['localhost', '127.0.0.1', '192.168.1.234'];
+      const allowedHosts = ['localhost', '127.0.0.1'];
       const isAllowedHost = allowedHosts.includes(window.location.hostname);
 
       // 檢查是否為 HTTPS 或在白名單中
