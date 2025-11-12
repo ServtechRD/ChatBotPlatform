@@ -26,7 +26,7 @@ const MESSAGE_TOP_LIMIT = CHAT_HEIGHT / 2;
 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 const WS_BASE_URL =
   `${protocol}//${process.env.REACT_APP_API_BASE_WS_URL}` ||
-  `${protocol}//192.168.1.234:36100`;
+  `${protocol}//cloud.servtech.com.tw:36100`;
 
 export default function ChatInterface({
   assistantid,

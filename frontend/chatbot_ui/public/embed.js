@@ -10,7 +10,7 @@
   // 主域名，應該是React應用部署的位置
   const getDefaultHost = () => {
     // 可以硬編碼為實際的生產環境域名
-    return '192.168.1.234';
+    return 'cloud.servtech.com.tw';
   };
 
   /**
