@@ -47,10 +47,17 @@ async def process_message_through_llm(data, assistant_uuid, customer_unique_id, 
     llm = ChatOpenAI(openai_api_key=api_key, model=model)
 
     print(f"lang  => {lang}")
-    print(f"data => {data}")
+    
+    # 如果是繁體中文，在用戶訊息前加上 #zh_tw
+    if lang == "Traditional Chinese" or "繁體中文" in str(lang):
+        user_query = f"#zh_tw {data}"
+    else:
+        user_query = data
+    
+    print(f"data => {user_query}")
     # 沒查到
     if not relevant_docs:
-        system_prompt = prompt1.replace("$language", lang).replace("$data", data)
+        system_prompt = prompt1.replace("$language", lang).replace("$data", user_query)
         response = llm(system_prompt)
         print("Response generated without documents.")
         return response
@@ -61,7 +68,7 @@ async def process_message_through_llm(data, assistant_uuid, customer_unique_id, 
     # 创建 PromptTemplate
 
     # qa_chain = RetrievalQA(llm=llm, retriever=retriever)
-    system_prompt = prompt2.replace("$language", lang).replace("$data", data)
+    system_prompt = prompt2.replace("$language", lang).replace("$data", user_query)
     doc_contents = "\n\n".join([doc.page_content for doc in relevant_docs])
     system_prompt = system_prompt.replace("$doc", doc_contents)
 
@@ -84,9 +91,9 @@ async def process_message_through_llm(data, assistant_uuid, customer_unique_id, 
     print("ask llm with data and qa chain")
     # print(f"doc :{doc_contents}")
     print(f"lang: {lang}")
-    print(f"query:{data}")
+    print(f"query:{user_query}")
     # 通过 LLM 处理客户消息，生成回复
-    response = qa_chain.run({"context": "customer service", "query": data})
+    response = qa_chain.run({"context": "customer service", "query": user_query})
 
     print("got response")
     print(response)
