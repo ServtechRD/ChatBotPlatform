@@ -1,11 +1,10 @@
-from langchain.chains import RetrievalQA
-from langchain.chat_models import ChatOpenAI
-from langchain.prompts import PromptTemplate
-from services.vector_service import get_vector_store
-from langchain.schema import Document
+from langchain.chains import RetrievalQA  # pyright: ignore[reportMissingImports]
+from langchain.chat_models import ChatOpenAI  # pyright: ignore[reportMissingImports]
+from langchain.prompts import PromptTemplate  # pyright: ignore[reportMissingImports]
+from services.vector_service import get_vector_store  
 # from langchain.chains.combine_documents import StuffDocumentsChain
 
-from dotenv import load_dotenv
+from dotenv import load_dotenv  # pyright: ignore[reportMissingImports]
 import os
 
 load_dotenv()  # 加载 .env 文件中的环境变量
@@ -44,7 +43,14 @@ async def process_message_through_llm(data, assistant_uuid, customer_unique_id, 
 
     print("create llm")
     # 利用 OpenAI GPT 生成基于检索结果的回复
-    llm = ChatOpenAI(openai_api_key=api_key, model=model)
+    # llm = ChatOpenAI(openai_api_key=api_key, model=model)
+
+    # 利用 Local Ollama (235主機) 生成回覆
+    llm = ChatOpenAI(
+        openai_api_key="ollama",  # 本地端隨意填即可
+        base_url="http://192.168.1.235:11434/v1",  # 指向 235 主機
+        model=model
+    )
 
     print(f"lang  => {lang}")
     

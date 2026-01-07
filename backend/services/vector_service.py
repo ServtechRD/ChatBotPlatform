@@ -1,29 +1,24 @@
 from datetime import datetime
 
-from langchain.embeddings import OpenAIEmbeddings
-from langchain.vectorstores import FAISS
-from langchain.document_loaders import TextLoader, PyPDFLoader, UnstructuredWordDocumentLoader
-from langchain.schema import Document
-from langchain.chat_models import ChatOpenAI
-
-from sqlalchemy.orm import Session
-from fastapi import UploadFile
-from dotenv import load_dotenv
-from models.models import KnowledgeBase
-
-from transformers import pipeline
-
-from rake_nltk import Rake
-from langchain.schema import HumanMessage
-
-import faiss
+# from langchain.embeddings import OpenAIEmbeddings
+from langchain.embeddings import HuggingFaceEmbeddings # pyright: ignore[reportMissingImports]
+from langchain.vectorstores import FAISS # pyright: ignore[reportMissingImports]
+from langchain.document_loaders import TextLoader, PyPDFLoader, UnstructuredWordDocumentLoader # pyright: ignore[reportMissingImports]
+from langchain.schema import Document  # pyright: ignore[reportMissingImports]
+from langchain.chat_models import ChatOpenAI  # pyright: ignore[reportMissingImports]
+from sqlalchemy.orm import Session  # pyright: ignore[reportMissingImports]
+from fastapi import UploadFile  # pyright: ignore[reportMissingImports]
+from dotenv import load_dotenv  # pyright: ignore[reportMissingImports]
+from models.models import KnowledgeBase  # pyright: ignore[reportMissingImports]
+from transformers import pipeline  # pyright: ignore[reportMissingImports]
+from rake_nltk import Rake  # pyright: ignore[reportMissingImports]
+from langchain.schema import HumanMessage  # pyright: ignore[reportMissingImports]
+import faiss # pyright: ignore[reportMissingImports]
 import pickle
 
 import os
-import tiktoken  # 用于计算 token 数量
-import uuid
-
-import langid
+import tiktoken  # pyright: ignore[reportMissingImports] 
+import langid # pyright: ignore[reportMissingImports]
 
 load_dotenv()  # 加载 .env 文件中的环境变量
 
@@ -85,10 +80,18 @@ def generate_summary_and_keywords(text, max_summary_words=150, max_keywords=10):
     )
 
     # 初始化 ChatOpenAI 模型
+    # llm = ChatOpenAI(
+    #     openai_api_key=api_key,  # 替换为你的 API 密钥
+    #     model="gpt-3.5-turbo"  # 使用支持更大上下文的模型
+    # )
+
+    # 利用 Local Ollama (235主機) 生成回覆
     llm = ChatOpenAI(
-        openai_api_key=api_key,  # 替换为你的 API 密钥
-        model="gpt-3.5-turbo"  # 使用支持更大上下文的模型
+        openai_api_key="ollama",      # 本地端隨意填
+        base_url="http://192.168.1.235:11434/v1",  # 指向 235 主機
+        model="gpt-oss:20B"           # 使用指定模型
     )
+    
     response = llm([HumanMessage(content=prompt)])
     result = response.content.strip()
     print(f"summary and keywords :{result}")
@@ -216,7 +219,10 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
     documents = loader.load()
     documents = process_documents_with_id(documents)
 
-    embeddings = OpenAIEmbeddings(openai_api_key=api_key)
+    # embeddings = OpenAIEmbeddings(openai_api_key=api_key)
+
+    # 使用 Jarvis 同款的中文 Embedding 模型
+    embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-base-zh-v1.5")
 
     # 生成向量存储并缓存
     vector_store[assistant_id] = FAISS.from_documents(documents, embeddings)
