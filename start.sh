@@ -6,11 +6,7 @@ echo "wait 5 sec"
 sleep 5
 
 cd /home/chatbot_platform/backend/
-source ./venv/bin/activate
-pip install --upgrade pip
-pip install -r requirements.txt
-python3 init_nltk.py
-export NLTK_DATA=/home/chatbot_platform/nltk_data
+
 
 ./start_server.sh &
 
