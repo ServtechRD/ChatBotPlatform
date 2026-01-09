@@ -227,12 +227,7 @@ class ApiService {
     try {
       const response = await this.axiosInstance.post(
         '/assistant/create',
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        }
+        formData
       );
       return response.data;
     } catch (error) {
@@ -244,12 +239,7 @@ class ApiService {
     try {
       const response = await this.axiosInstance.put(
         `/assistant/${id}`,
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        }
+        formData
       );
       return response.data;
     } catch (error) {
@@ -295,12 +285,7 @@ class ApiService {
     try {
       const response = await this.axiosInstance.post(
         `/assistant/${assistantId}/upload`,
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        }
+        formData
       );
       return response.data;
     } catch (error) {
@@ -355,8 +340,7 @@ class ApiService {
 
       const response = await this.axiosInstance.post(
         `/assistant/${assistantId}/upload`,
-        formData,
-        { headers: { 'Content-Type': 'multipart/form-data' } }
+        formData
       );
       return response.data;
     } catch (error) {
