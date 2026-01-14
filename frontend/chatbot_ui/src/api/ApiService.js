@@ -12,9 +12,9 @@ class ApiService {
     this.axiosInstance = axios.create({
       baseURL: this.baseURL,
       timeout: 10000, // 10 seconds timeout
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      // headers: {
+      //   'Content-Type': 'application/json',
+      // },
     });
 
     // 請求攔截器，用於添加token

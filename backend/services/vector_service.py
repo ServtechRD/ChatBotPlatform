@@ -19,6 +19,7 @@ import pickle
 import os
 import tiktoken  # pyright: ignore[reportMissingImports] 
 import langid # pyright: ignore[reportMissingImports]
+import uuid
 
 load_dotenv()  # 加载 .env 文件中的环境变量
 
@@ -88,8 +89,8 @@ def generate_summary_and_keywords(text, max_summary_words=150, max_keywords=10):
     # 利用 Local Ollama (235主機) 生成回覆
     llm = ChatOpenAI(
         openai_api_key="ollama",      # 本地端隨意填
-        base_url="http://192.168.1.235:11434/v1",  # 指向 235 主機
-        model="gpt-oss:20B"           # 使用指定模型
+        base_url="http://192.168.1.235:11534/v1",  # 指向 235 主機
+        model="gpt-oss:20b"           # 使用指定模型
     )
     
     response = llm([HumanMessage(content=prompt)])
@@ -161,7 +162,8 @@ def load_vector_store(assistant_id: int):
     if os.path.exists(load_path) and os.path.exists(metadata_path):
         # 从磁盘加载 FAISS 索引
         index = faiss.read_index(load_path)
-        embeddings = OpenAIEmbeddings()  # 重新初始化 OpenAIEmbeddings
+        # embeddings = OpenAIEmbeddings()  # 重新初始化 OpenAIEmbeddings
+        embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-base-zh-v1.5")
 
         # 加载 docstore 和 index_to_docstore_id
         with open(metadata_path, "rb") as f:

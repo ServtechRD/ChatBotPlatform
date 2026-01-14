@@ -1,9 +1,13 @@
 #!/bin/bash
 
+echo "Stopping CHATBOT Platform server (Backend & Frontend)..."
+
+pkill -f "uvicorn main:app"
+pkill -f "react-scripts"
+
+# 清理舊的 PID 檔案 (如果有剩的話)
 if [ -f fastapi_app.pid ]; then
-  echo "Stopping CHATBOT Platform server..."
-  kill -9 $(cat fastapi_app.pid) && rm fastapi_app.pid
-  echo "CHATBOT Platform server stopped."
-else
-  echo "No PID file found. Is the server running?"
+  rm fastapi_app.pid
 fi
+
+echo "✅ All services stopped successfully."

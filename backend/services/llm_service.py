@@ -48,7 +48,7 @@ async def process_message_through_llm(data, assistant_uuid, customer_unique_id, 
     # 利用 Local Ollama (235主機) 生成回覆
     llm = ChatOpenAI(
         openai_api_key="ollama",  # 本地端隨意填即可
-        base_url="http://192.168.1.235:11434/v1",  # 指向 235 主機
+        base_url="http://192.168.1.235:11534/v1",  # 指向 235 主機
         model=model
     )
 
