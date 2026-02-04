@@ -99,7 +99,12 @@ async def process_message_through_llm(data, assistant_uuid, customer_unique_id, 
     print(f"lang: {lang}")
     print(f"query:{user_query}")
     # 通过 LLM 处理客户消息，生成回复
-    response = qa_chain.run({"context": "customer service", "query": user_query})
+    try:
+        res = qa_chain.invoke({"context": "customer service", "query": user_query})
+        response = res.get('result', str(res)) # 防呆：如果格式不同，直接轉字串
+    except Exception as e:
+        print(f"Invoke failed, falling back to run. Error: {e}")
+        response = qa_chain.run({"context": "customer service", "query": user_query})
 
     print("got response")
     print(response)
