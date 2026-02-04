@@ -11,6 +11,8 @@ class User(Base):
     email = Column(String(255), unique=True, index=True, nullable=False)
     password = Column(String(100), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    permission_level = Column(Integer, default=1) 
+    is_admin = Column(Boolean, default=False)
 
     # 一个用户可以拥有多个助理
     assistants = relationship("AIAssistant", back_populates="owner")
