@@ -40,6 +40,7 @@ import {
 import FileUploadDialog from './FileUploadDialog';
 import TextInputDialog from './TextInputDialog';
 import ApiService from '../../api/ApiService';
+import useAuth from '../../hook/useAuth';
 
 function IconWrapper({ children }) {
   return (
@@ -78,6 +79,7 @@ function KnowledgeBaseItem({ icon, title, description, onClick }) {
 }
 
 export default function KnowledgeBaseUI({ currentAssistant }) {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('new');
   const [knowledgeItems, setKnowledgeItems] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -323,6 +325,7 @@ export default function KnowledgeBaseUI({ currentAssistant }) {
           onClick={() => handleTabChange('new')}
           startIcon={<AddIcon />}
           sx={{ mr: 2 }}
+          disabled={user?.permission_level < 2}
         >
           新增知識
         </Button>

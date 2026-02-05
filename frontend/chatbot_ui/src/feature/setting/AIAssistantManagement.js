@@ -22,8 +22,10 @@ import {
 } from '@mui/icons-material';
 import EditAIAssistantDialog from './EditAIAssistantDialog';
 import ApiService from '../../api/ApiService';
+import useAuth from '../../hook/useAuth';
 
 const AIAssistantManagement = ({ onRefresh }) => {
+  const { user } = useAuth();
   const [assistants, setAssistants] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState('list');
@@ -119,6 +121,7 @@ const AIAssistantManagement = ({ onRefresh }) => {
             color="primary"
             sx={{ ml: 2 }}
             onClick={() => handleOpenDialog()}
+            disabled={user?.permission_level < 3}
           >
             + 新增AI助理
           </Button>

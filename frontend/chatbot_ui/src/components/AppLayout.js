@@ -41,7 +41,7 @@ import useAuth from '../hook/useAuth';
 
 export default function AppLayout() {
   const navigate = useNavigate();
-  const { logout, isLoading: authLoading } = useAuth();
+  const { logout, user, isLoading: authLoading } = useAuth();
 
   const [isMenuOpen, setIsMenuOpen] = useState(true);
   const [selectedMenuItem, setSelectedMenuItem] = useState('conversations');
@@ -184,18 +184,20 @@ export default function AppLayout() {
               {workspace}'s Workspace
             </Typography>
           </Link>
-          <Button
-            color="inherit"
-            onClick={() => setIsAIManagementDialogOpen(true)}
-            sx={{
-              mr: 2,
-              bgcolor: 'warning.main',
-              color: 'warning.contrastText',
-              '&:hover': { bgcolor: 'warning.dark' },
-            }}
-          >
-            AI助理管理
-          </Button>
+          {user?.permission_level >= 3 && (
+            <Button
+              color="inherit"
+              onClick={() => setIsAIManagementDialogOpen(true)}
+              sx={{
+                mr: 2,
+                bgcolor: 'warning.main',
+                color: 'warning.contrastText',
+                '&:hover': { bgcolor: 'warning.dark' },
+              }}
+            >
+              AI助理管理
+            </Button>
+          )}
           <Select
             value={currentAgentIndex}
             onChange={e => handleSelectAgent(e.target.value)}
@@ -238,11 +240,13 @@ export default function AppLayout() {
         >
           <List>
             <MenuItem icon={<ChatIcon />} label="對話" value="conversations" />
-            <MenuItem
-              icon={<DatasetIcon />}
-              label="知識庫"
-              value="knowledgeBase"
-            />
+            {user?.permission_level >= 2 && (
+              <MenuItem
+                icon={<DatasetIcon />}
+                label="知識庫"
+                value="knowledgeBase"
+              />
+            )}
           </List>
         </Drawer>
         <Box component="main" sx={{ flexGrow: 1, p: 3, overflow: 'auto' }}>
@@ -302,6 +306,6 @@ export default function AppLayout() {
         </AppBar>
         <AIAssistantManagement onRefresh={refreshAgents} />
       </Dialog>
-    </Box>
+    </Box >
   );
 }
