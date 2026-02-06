@@ -133,3 +133,5 @@ wrapt==1.17.0
 yarl==1.15.5
 accelerate==1.12.0
 nltk>=3.8.1,<4.0.0
+pyotp==2.9.0
+qrcode==7.4.2

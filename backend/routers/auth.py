@@ -48,11 +48,43 @@ def login_user(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = D
         )
 
     # 登录成功后生成 Access Token 和 Refresh Token
-    access_token_expires = timedelta(minutes=30)
-    access_token = create_access_token(data={"sub": str(user.user_id)}, expires_delta=access_token_expires)
-    refresh_token = create_refresh_token(data={"sub": str(user.user_id)})
+    # access_token_expires = timedelta(minutes=30)
+    # access_token = create_access_token(data={"sub": str(user.user_id)}, expires_delta=access_token_expires)
+    # refresh_token = create_refresh_token(data={"sub": str(user.user_id)})
 
-    return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
+    # return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
+
+    # MFA Logic
+    temp_token_expires = timedelta(minutes=5)
+    temp_token = create_access_token(data={"sub": str(user.user_id), "type": "temp_mfa"}, expires_delta=temp_token_expires)
+
+    # If MFA is NOT enabled (global override or per user), standard login.
+    # Note: Requirement says "users cannot self-disable" and "default true".
+    # We check the DB flag.
+    if not user.is_totp_enabled:
+         # Standard Login
+        access_token_expires = timedelta(minutes=30)
+        access_token = create_access_token(data={"sub": str(user.user_id)}, expires_delta=access_token_expires)
+        refresh_token = create_refresh_token(data={"sub": str(user.user_id)})
+        return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
+
+    # MFA IS enabled
+    if not user.totp_secret:
+        # Require Setup
+        return {
+            "mfa_setup_required": True,
+            "temp_token": temp_token,
+            "access_token": "", # Placeholder or omit
+            "token_type": "bearer" # Keep compat if possible, or frontend handles this
+        }
+    else:
+        # Require Verify
+        return {
+             "mfa_required": True,
+             "temp_token": temp_token,
+             "access_token": "",
+             "token_type": "bearer"
+        }
 
 
 # 刷新 Access Token

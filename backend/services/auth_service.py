@@ -65,5 +65,20 @@ def verify_refresh_token(token: str):
         if user_id is None or token_type != "refresh":
             return None
         return user_id
+        return None
     except JWTError:
         return None
+
+# MFA / TOTP Utilities
+import pyotp
+
+def generate_totp_secret():
+    return pyotp.random_base32()
+
+def get_totp_uri(secret, email):
+    # Generates the provisioning URI for Google Authenticator
+    return pyotp.totp.TOTP(secret).provisioning_uri(name=email, issuer_name="ChatBotPlatform")
+
+def verify_totp(secret: str, token: str):
+    totp = pyotp.TOTP(secret)
+    return totp.verify(token)

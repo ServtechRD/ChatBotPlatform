@@ -125,10 +125,66 @@ class ApiService {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
       });
+      // Standard Login Success
       if (response.data.access_token) {
         localStorage.setItem('token', response.data.access_token);
       }
       if (response.data.refresh_token) {
+        localStorage.setItem('refreshToken', response.data.refresh_token);
+      }
+      // Return data directly (could be MFA challenge or Tokens)
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // MFA Setup Init - Get Secret & QR
+  async mfaSetupInit(tempToken) {
+    try {
+      const response = await this.axiosInstance.post(
+        '/auth/mfa/setup/init',
+        { temp_token: tempToken }
+      );
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // MFA Setup Verify - Finalize Setup
+  async mfaSetupVerify(tempToken, secret, code) {
+    try {
+      const response = await this.axiosInstance.post(
+        '/auth/mfa/setup/verify',
+        {
+          temp_token: tempToken,
+          secret: secret,
+          code: code
+        }
+      );
+      if (response.data.access_token) {
+        localStorage.setItem('token', response.data.access_token);
+        localStorage.setItem('refreshToken', response.data.refresh_token);
+      }
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // MFA Verify - Login Challenge
+  async verifyMfa(tempToken, code) {
+    try {
+      const response = await this.axiosInstance.post(
+        '/auth/mfa/verify',
+        {
+          temp_token: tempToken,
+          code: code
+        }
+      );
+      if (response.data.access_token) {
+        localStorage.setItem('token', response.data.access_token);
         localStorage.setItem('refreshToken', response.data.refresh_token);
       }
       return response.data;

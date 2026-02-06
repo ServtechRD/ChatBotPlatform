@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from routers import assistant, conversation, websocket, auth, embed
+from routers import assistant, conversation, websocket, auth, embed, mfa
 from models.database import Base, engine
 
 # 初始化数据库
@@ -27,4 +27,5 @@ app.include_router(assistant.router)
 app.include_router(conversation.router)
 app.include_router(websocket.router)
 app.include_router(auth.router, prefix="/auth")
+app.include_router(mfa.router, prefix="/auth/mfa")
 app.include_router(embed.router)
