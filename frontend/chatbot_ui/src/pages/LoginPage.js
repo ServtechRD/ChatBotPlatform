@@ -12,6 +12,7 @@ import {
   DialogContent,
   DialogActions,
   InputAdornment,
+  Alert,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import {
@@ -22,7 +23,6 @@ import {
 
 import useAuth from '../hook/useAuth';
 import ApiService from '../api/ApiService';
-import featureConfig from '../module/featureConfig';
 
 const Logo = styled('img')({
   width: 150,
@@ -64,22 +64,20 @@ export default function LoginPage() {
     try {
       const response = await ApiService.login(email, password);
 
-      // Check for MFA requirements
-      if (featureConfig.userTotpVerify) {
-        if (response.mfa_setup_required) {
-          setTempToken(response.temp_token);
-          // Auto start setup
-          await startMfaSetup(response.temp_token);
-          return;
-        } else if (response.mfa_required) {
-          setTempToken(response.temp_token);
-          setMfaStage('verify');
-          setIsLoading(false);
-          return;
-        }
+      // Check for MFA requirements (decision made by backend based on DB)
+      if (response.mfa_setup_required) {
+        setTempToken(response.temp_token);
+        // Start MFA setup flow
+        await startMfaSetup(response.temp_token);
+        return;
+      } else if (response.mfa_required) {
+        setTempToken(response.temp_token);
+        setMfaStage('verify');
+        setIsLoading(false);
+        return;
       }
 
-      // Standard Login
+      // Standard Login (MFA not required or disabled for this user)
       const token = response.access_token;
       if (token) {
         await login(token);
