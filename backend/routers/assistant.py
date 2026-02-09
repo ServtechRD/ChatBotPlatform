@@ -246,11 +246,19 @@ async def update_assistant(
 ):
     # 验证用户
     user_id = verify_token(token)
-    assistant = db.query(AIAssistant).filter(AIAssistant.assistant_id == assistant_id,
-                                             AIAssistant.owner_id == user_id).first()
+    print(f"DEBUG: update_assistant called. user_id={user_id}, assistant_id={assistant_id}")
 
+    assistant = db.query(AIAssistant).filter(AIAssistant.assistant_id == assistant_id).first()
+    
     if not assistant:
-        raise HTTPException(status_code=404, detail="Assistant not found or access denied")
+        print(f"DEBUG: Assistant {assistant_id} not found in DB.")
+        raise HTTPException(status_code=404, detail="Assistant not found")
+        
+    print(f"DEBUG: Assistant found. Owner: {assistant.owner_id}")
+    
+    if assistant.owner_id != user_id:
+        print(f"DEBUG: Permission denied. user={user_id} != owner={assistant.owner_id}")
+        raise HTTPException(status_code=404, detail="Access denied")
 
     # 更新基础字段
     if name is not None:

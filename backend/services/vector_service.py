@@ -4,6 +4,7 @@ from datetime import datetime
 from langchain.embeddings import HuggingFaceEmbeddings # pyright: ignore[reportMissingImports]
 from langchain.vectorstores import FAISS # pyright: ignore[reportMissingImports]
 from langchain.document_loaders import TextLoader, PyPDFLoader, UnstructuredWordDocumentLoader # pyright: ignore[reportMissingImports]
+from langchain.text_splitter import RecursiveCharacterTextSplitter # pyright: ignore[reportMissingImports]
 from langchain.schema import Document  # pyright: ignore[reportMissingImports]
 from langchain.chat_models import ChatOpenAI  # pyright: ignore[reportMissingImports]
 from sqlalchemy.orm import Session  # pyright: ignore[reportMissingImports]
@@ -238,6 +239,15 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
 
     # 加载文档并生成嵌入
     documents = loader.load()
+
+    # 使用 RecursiveCharacterTextSplitter 进行分块
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=500,
+        chunk_overlap=50,
+        separators=["\n\n", "\n", "。", "！", "？", ".", "!", "?", " ", ""]
+    )
+    documents = text_splitter.split_documents(documents)
+
     documents = process_documents_with_id(documents)
 
     # 使用 Jarvis 同款的中文 Embedding 模型
@@ -454,6 +464,15 @@ async def update_knowledge_base_item(assistant_id: int, knowledge_id: int, new_c
     # 5. Process updated file
     loader = TextLoader(new_file_path, encoding="utf-8")
     documents = loader.load()
+    
+    # 使用 RecursiveCharacterTextSplitter 进行分块
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=500,
+        chunk_overlap=50,
+        separators=["\n\n", "\n", "。", "！", "？", ".", "!", "?", " ", ""]
+    )
+    documents = text_splitter.split_documents(documents)
+
     documents = process_documents_with_id(documents)
     
     embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-base-zh-v1.5")
