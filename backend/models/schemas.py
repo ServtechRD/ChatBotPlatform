@@ -13,6 +13,10 @@ class UserCreate(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
+    refresh_token: Optional[str] = None
+    mfa_setup_required: Optional[bool] = False
+    mfa_required: Optional[bool] = False
+    temp_token: Optional[str] = None
 
 
 # 助理创建模型

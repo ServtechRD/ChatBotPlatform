@@ -88,6 +88,7 @@ export default function KnowledgeBaseUI({ currentAssistant }) {
   const [editingContent, setEditingContent] = useState('');
 
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
 
 
 
@@ -253,17 +254,20 @@ export default function KnowledgeBaseUI({ currentAssistant }) {
                       />
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <IconButton
-                        size="small"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleEditKnowledge(item);
-                        }}
-                        sx={{ mr: 1 }}
-                        title="編輯"
-                      >
-                        <EditIcon />
-                      </IconButton>
+                      {/* Only show Edit button for text files */}
+                      {item.file_name?.toLowerCase().endsWith('.txt') && (
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditKnowledge(item);
+                          }}
+                          sx={{ mr: 1 }}
+                          title="編輯"
+                        >
+                          <EditIcon />
+                        </IconButton>
+                      )}
 
                       <IconButton
                         onClick={e => {
@@ -392,7 +396,7 @@ export default function KnowledgeBaseUI({ currentAssistant }) {
         onSubmitComplete={handleTextSubmitComplete}
         assistantId={currentAssistant?.assistant_id}
         initialContent={uploadType === 'edit_text' ? editingContent : ''}
-        editingContent={editingContent}
+        initialFileName={selectedItem?.file_name || ''}
         isEditMode={uploadType === 'edit_text'}
         knowledgeId={selectedItem?.id}
       />

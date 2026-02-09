@@ -23,18 +23,24 @@ const TextInputDialog = ({
   assistantId,
   initialContent,
   isEditMode,
-  knowledgeId
+  knowledgeId,
+  initialFileName
 }) => {
   const [textContent, setTextContent] = useState('');
+  const [fileName, setFileName] = useState('');
 
   // Update state when initialContent changes (entry into Edit mode)
   React.useEffect(() => {
-    if (isOpen && initialContent !== undefined && initialContent !== null) {
-      setTextContent(initialContent);
-    } else if (isOpen && !isEditMode) {
-      setTextContent('');
+    if (isOpen) {
+      if (isEditMode) {
+        setTextContent(initialContent || '');
+        setFileName(initialFileName || '');
+      } else {
+        setTextContent('');
+        setFileName('');
+      }
     }
-  }, [isOpen, initialContent, isEditMode]);
+  }, [isOpen, initialContent, isEditMode, initialFileName]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState(null); // 'success' | 'error' | null
@@ -43,8 +49,13 @@ const TextInputDialog = ({
     setTextContent(event.target.value);
   };
 
+  const handleFileNameChange = event => {
+    setFileName(event.target.value);
+  };
+
   const resetDialog = () => {
     setTextContent('');
+    setFileName('');
     setSubmitStatus(null);
     setIsSubmitting(false);
   };
@@ -56,8 +67,6 @@ const TextInputDialog = ({
 
   const handleClear = () => {
     setTextContent('');
-    // If edit mode, maybe we want to revert to original? Or just clear?
-    // User might want to clear and paste new text.
   };
 
   const handleSubmit = async () => {
@@ -72,11 +81,11 @@ const TextInputDialog = ({
     try {
       let response;
       if (isEditMode && knowledgeId) {
-        // Edit Mode
+        // Edit Mode: Overwrite existsing
         response = await ApiService.updateKnowledge(assistantId, knowledgeId, textContent);
       } else {
         // Create Mode
-        response = await ApiService.submitText(assistantId, textContent);
+        response = await ApiService.submitText(assistantId, textContent, fileName);
       }
 
       setSubmitStatus('success');
@@ -149,6 +158,19 @@ const TextInputDialog = ({
           </Box>
         ) : (
           <>
+            <Box sx={{ mb: 2 }}>
+              <TextField
+                fullWidth
+                label="檔案名稱"
+                placeholder="預設為 manual_input.txt"
+                value={fileName}
+                onChange={handleFileNameChange}
+                disabled={isEditMode} // Don't change filename when editing existing record
+                variant="outlined"
+                size="small"
+                helperText={isEditMode ? "編輯模式下無法修改檔名" : "請輸入存檔名稱 (如: notes.txt)"}
+              />
+            </Box>
             <TextField
               fullWidth
               multiline

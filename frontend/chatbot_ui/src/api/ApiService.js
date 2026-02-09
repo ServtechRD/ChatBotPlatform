@@ -414,13 +414,24 @@ class ApiService {
     }
   }
 
-  async submitText(assistantId, text) {
+  async submitText(assistantId, text, fileName = '') {
     try {
       const formData = new FormData();
       const blob = new Blob([text], { type: 'text/plain' });
-      // Use timestamp to ensure unique filename
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      formData.append('file', blob, `manual_input_${timestamp}.txt`);
+
+      // Use provided filename, or default to timestamped manual_input
+      let finalFileName = fileName.trim();
+      if (!finalFileName) {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        finalFileName = `manual_input_${timestamp}.txt`;
+      }
+
+      // Ensure .txt extension if not provided
+      if (!finalFileName.toLowerCase().endsWith('.txt')) {
+        finalFileName += '.txt';
+      }
+
+      formData.append('file', blob, finalFileName);
 
       const response = await this.axiosInstance.post(
         `/assistant/${assistantId}/upload`,

@@ -202,6 +202,25 @@ def get_loader(file_path: str, file_type: str):
 
 # 处理并存储文件嵌入到向量数据库
 async def process_and_store_file(assistant_id: int, file: UploadFile, db: Session):
+    # Check for existing entry with same name for this assistant
+    existing_entry = db.query(KnowledgeBase).filter(
+        KnowledgeBase.assistant_id == assistant_id,
+        KnowledgeBase.file_name == file.filename
+    ).first()
+
+    # Get existing vector store or load it
+    vs = get_vector_store(assistant_id)
+
+    # If duplicate, delete old vectors first
+    if existing_entry and vs:
+        old_doc_ids = [did.strip() for did in existing_entry.doc_ids.split(",") if did.strip()]
+        if old_doc_ids:
+            try:
+                print(f"Deleting old vectors for duplicate file {file.filename}: {old_doc_ids}")
+                vs.delete(old_doc_ids)
+            except Exception as e:
+                print(f"Warning deleting old vectors during upload: {e}")
+
     # 设置文件保存路径
     save_directory = f"./uploaded_files/assistant_{assistant_id}"
     if not os.path.exists(save_directory):
@@ -209,7 +228,7 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
 
     file_location = os.path.join(save_directory, file.filename)
 
-    # 保存上传的文件
+    # 保存上传的文件 (overwrites on disk)
     with open(file_location, "wb+") as f:
         f.write(await file.read())
 
@@ -221,16 +240,21 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
     documents = loader.load()
     documents = process_documents_with_id(documents)
 
-    # embeddings = OpenAIEmbeddings(openai_api_key=api_key)
-
     # 使用 Jarvis 同款的中文 Embedding 模型
     embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-base-zh-v1.5")
 
-    # 生成向量存储并缓存
-    vector_store[assistant_id] = FAISS.from_documents(documents, embeddings)
+    # 更新或生成向量存储
+    if vs:
+        print(f"Adding documents to existing vector store for assistant {assistant_id}")
+        vs.add_documents(documents)
+        vector_store[assistant_id] = vs
+    else:
+        print(f"Creating new vector store for assistant {assistant_id}")
+        vector_store[assistant_id] = FAISS.from_documents(documents, embeddings)
+        vs = vector_store[assistant_id]
 
     # 保存向量存储到磁盘
-    save_vector_store(assistant_id, vector_store[assistant_id])
+    save_vector_store(assistant_id, vs)
 
     # 计算 token 数量
     token_count = calculate_token_count(documents)
@@ -243,42 +267,47 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
 
     # 获取 doc_id 列表
     doc_ids = [doc.metadata["doc_id"] for doc in documents]
-    # 用逗号拼接
     doc_ids_string = ", ".join(doc_ids)
 
-    print("save to database")
-
-    # print(f"{summary_keywords}")
-
-    # 保存元信息到数据库
-    new_entry = KnowledgeBase(
-        assistant_id=assistant_id,
-        file_name=file.filename,
-        file_type=f"{file_extension.upper()}",
-        summary=summary,
-        keywords=keyword_lines,
-        doc_ids=doc_ids_string,
-        description=f"Uploaded file {file.filename} by assistant {assistant_id}",
-        token_count=token_count,
-        upload_date=datetime.utcnow()
-    )
-
-    db.add(new_entry)
-    db.commit()
-
-    print("return result")
+    if existing_entry:
+        print(f"Updating existing database entry for {file.filename}")
+        existing_entry.summary = summary
+        existing_entry.keywords = keyword_lines
+        existing_entry.doc_ids = doc_ids_string
+        existing_entry.token_count = token_count
+        existing_entry.upload_date = datetime.utcnow()
+        db.commit()
+        db.refresh(existing_entry)
+        entry_to_return = existing_entry
+    else:
+        print(f"Creating new database entry for {file.filename}")
+        new_entry = KnowledgeBase(
+            assistant_id=assistant_id,
+            file_name=file.filename,
+            file_type=f"{file_extension.upper()}",
+            summary=summary,
+            keywords=keyword_lines,
+            doc_ids=doc_ids_string,
+            description=f"Uploaded file {file.filename} by assistant {assistant_id}",
+            token_count=token_count,
+            upload_date=datetime.utcnow()
+        )
+        db.add(new_entry)
+        db.commit()
+        db.refresh(new_entry)
+        entry_to_return = new_entry
 
     return {
-        "vector_store": vector_store[assistant_id],
+        "vector_store": vs,
         "km": {
-            "file_name": new_entry.file_name,
-            "description": new_entry.description,
-            "token_count": new_entry.token_count,
-            "file_type": new_entry.file_type,
-            "summary": new_entry.summary,
-            "keywords": new_entry.keywords,
-            "doc_ids": new_entry.doc_ids,
-            "upload_date": new_entry.upload_date
+            "file_name": entry_to_return.file_name,
+            "description": entry_to_return.description,
+            "token_count": entry_to_return.token_count,
+            "file_type": entry_to_return.file_type,
+            "summary": entry_to_return.summary,
+            "keywords": entry_to_return.keywords,
+            "doc_ids": entry_to_return.doc_ids,
+            "upload_date": entry_to_return.upload_date
         }
     }
 
@@ -317,6 +346,11 @@ def get_knowledge_content(assistant_id: int, knowledge_id: int, db: Session):
     if not record:
         raise ValueError("Knowledge base item not found")
 
+    # Check if file is editable (only text files can be edited)
+    file_ext = os.path.splitext(record.file_name)[1].lower()
+    if file_ext not in ['.txt']:
+        raise ValueError(f"Only text files (.txt) can be edited. This file is {file_ext}")
+    
     save_directory = f"./uploaded_files/assistant_{assistant_id}"
     file_path = os.path.join(save_directory, record.file_name)
 
@@ -336,33 +370,34 @@ async def update_knowledge_base_item(assistant_id: int, knowledge_id: int, new_c
 
     # 2. Get Vector Store
     vs = get_vector_store(assistant_id)
-    if not vs:
-        # Try to load or init? If not exists, maybe just init with new file
-        # But we are updating, so it should exist if record exists (ideally)
-        pass
-
-    # 3. Delete old vectors
-    old_doc_ids = [did.strip() for did in record.doc_ids.split(",")]
+    
+    # 3. Delete old vectors (best effort - may not exist if store was rebuilt)
+    old_doc_ids = [did.strip() for did in record.doc_ids.split(",") if did.strip()]
     if vs and old_doc_ids:
         try:
+            print(f"Attempting to delete old vectors: {old_doc_ids}")
             vs.delete(old_doc_ids)
+            print(f"Successfully deleted old vectors")
         except Exception as e:
-            print(f"Error deleting old vectors: {e}")
+            # Log but continue - old vectors might not exist if store was rebuilt
+            print(f"Warning: Could not delete old vectors (continuing anyway): {e}")
+    else:
+        print(f"No vector store or no old doc_ids to delete")
 
-    # 4. Create new file (to avoid overwrite/cache issues and ensure clean state)
-    # We will use a new filename to be safe, e.g. manual_{timestamp}_{uuid}.txt
+    # 4. Overwrite existing file
     save_directory = f"./uploaded_files/assistant_{assistant_id}"
     if not os.path.exists(save_directory):
         os.makedirs(save_directory)
     
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    new_filename = f"manual_update_{timestamp}_{uuid.uuid4().hex[:8]}.txt"
+    # Use existing filename to overwrite
+    new_filename = record.file_name
     new_file_path = os.path.join(save_directory, new_filename)
 
+    print(f"Overwriting file: {new_file_path}")
     with open(new_file_path, "w", encoding="utf-8") as f:
         f.write(new_content)
 
-    # 5. Process new file
+    # 5. Process updated file
     loader = TextLoader(new_file_path, encoding="utf-8")
     documents = loader.load()
     documents = process_documents_with_id(documents)
@@ -371,9 +406,11 @@ async def update_knowledge_base_item(assistant_id: int, knowledge_id: int, new_c
     
     # Add new documents to vector store
     if vs:
+        print(f"Adding new vectors for {new_filename}")
         vs.add_documents(documents)
     else:
         # Create new if didn't exist
+        print(f"Creating new vector store for assistant {assistant_id}")
         vector_store[assistant_id] = FAISS.from_documents(documents, embeddings)
         vs = vector_store[assistant_id]
     
@@ -389,7 +426,6 @@ async def update_knowledge_base_item(assistant_id: int, knowledge_id: int, new_c
     # Get new doc_ids
     new_doc_ids = [doc.metadata["doc_id"] for doc in documents]
     
-    record.file_name = new_filename
     record.summary = summary
     record.keywords = keyword_lines
     record.doc_ids = ", ".join(new_doc_ids)
