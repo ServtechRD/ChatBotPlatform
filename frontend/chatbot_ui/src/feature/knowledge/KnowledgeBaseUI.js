@@ -85,9 +85,12 @@ export default function KnowledgeBaseUI({ currentAssistant }) {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedItem, setExpandedItem] = useState(null);
-  const [selectedItem, setSelectedItem] = useState(null);
+  const [editingContent, setEditingContent] = useState('');
 
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
+
+
+
   const [isTextDialogOpen, setIsTextDialogOpen] = useState(false);
   const [uploadType, setUploadType] = useState(null);
 
@@ -251,6 +254,18 @@ export default function KnowledgeBaseUI({ currentAssistant }) {
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                       <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditKnowledge(item);
+                        }}
+                        sx={{ mr: 1 }}
+                        title="編輯"
+                      >
+                        <EditIcon />
+                      </IconButton>
+
+                      <IconButton
                         onClick={e => {
                           e.stopPropagation();
                           handleItemClick(index);
@@ -313,6 +328,24 @@ export default function KnowledgeBaseUI({ currentAssistant }) {
     );
   }
 
+  async function handleEditKnowledge(item) {
+    if (!item.id) return;
+    setIsLoading(true);
+    try {
+      const assistantId = currentAssistant?.assistant_id;
+      const response = await ApiService.getKnowledgeContent(assistantId, item.id);
+      setSelectedItem(item);
+      setEditingContent(response.content);
+      setUploadType('edit_text');
+      setIsTextDialogOpen(true);
+    } catch (err) {
+      console.error('Failed to load content:', err);
+      alert('無法載入文件內容');
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   return (
     <Box sx={{ p: 6 }}>
       <Typography variant="h3" fontWeight="bold" mb={4}>
@@ -351,9 +384,17 @@ export default function KnowledgeBaseUI({ currentAssistant }) {
       />
       <TextInputDialog
         isOpen={isTextDialogOpen}
-        onClose={() => setIsTextDialogOpen(false)}
+        onClose={() => {
+          setIsTextDialogOpen(false);
+          setSelectedItem(null);
+          setUploadType(null);
+        }}
         onSubmitComplete={handleTextSubmitComplete}
         assistantId={currentAssistant?.assistant_id}
+        initialContent={uploadType === 'edit_text' ? editingContent : ''}
+        editingContent={editingContent}
+        isEditMode={uploadType === 'edit_text'}
+        knowledgeId={selectedItem?.id}
       />
     </Box>
   );

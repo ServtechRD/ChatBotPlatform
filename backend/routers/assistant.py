@@ -6,7 +6,7 @@ from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Form
 from sqlalchemy.orm import Session
 from models.database import get_db
 from models.models import AIAssistant, User
-from services.vector_service import process_and_store_file, list_knowledge
+from services.vector_service import process_and_store_file, list_knowledge, get_knowledge_content, update_knowledge_base_item
 from services.auth_service import verify_token
 from models.schemas import AssistantCreate, Assistant, AssistantUpdate
 import os
@@ -140,6 +140,36 @@ async def get_knowlege(assistant_id: int, db: Session = Depends(get_db)):
     knowledge = list_knowledge(assistant_id, db)
 
     return {"status": "success", "message": "", "data": knowledge}
+
+
+@router.get("/assistant/{assistant_id}/knowledge/{knowledge_id}/content")
+def get_knowledge_item_content(assistant_id: int, knowledge_id: int, db: Session = Depends(get_db)):
+    from services.vector_service import get_knowledge_content
+    try:
+        content = get_knowledge_content(assistant_id, knowledge_id, db)
+        return {"status": "success", "content": content}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/assistant/{assistant_id}/knowledge/{knowledge_id}")
+async def update_knowledge_item(
+        assistant_id: int, 
+        knowledge_id: int, 
+        content: str = Form(...), # Expecting plain text content in body or form
+        db: Session = Depends(get_db)
+):
+    from services.vector_service import update_knowledge_base_item
+    try:
+        updated_record = await update_knowledge_base_item(assistant_id, knowledge_id, content, db)
+        return {"status": "success", "message": "Knowledge updated", "data": updated_record}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        print(f"Update error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # 获取助理信息

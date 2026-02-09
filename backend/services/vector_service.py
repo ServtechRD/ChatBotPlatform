@@ -288,6 +288,7 @@ def list_knowledge(assistant_id: int, db: Session):
         KnowledgeBase.upload_date.desc()).all()
     return [
         {
+            "id": record.id,
             "file_name": record.file_name,
             "description": record.description,
             "token_count": record.token_count,
@@ -308,3 +309,102 @@ def get_vector_store(assistant_id: int):
         # raise ValueError("Vector store for this assistant is not initialized.")
 
     return vector_store[assistant_id]
+
+
+def get_knowledge_content(assistant_id: int, knowledge_id: int, db: Session):
+    record = db.query(KnowledgeBase).filter(KnowledgeBase.id == knowledge_id,
+                                            KnowledgeBase.assistant_id == assistant_id).first()
+    if not record:
+        raise ValueError("Knowledge base item not found")
+
+    save_directory = f"./uploaded_files/assistant_{assistant_id}"
+    file_path = os.path.join(save_directory, record.file_name)
+
+    if not os.path.exists(file_path):
+        raise ValueError(f"File not found: {file_path}")
+
+    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+        return f.read()
+
+
+async def update_knowledge_base_item(assistant_id: int, knowledge_id: int, new_content: str, db: Session):
+    # 1. Find record
+    record = db.query(KnowledgeBase).filter(KnowledgeBase.id == knowledge_id,
+                                            KnowledgeBase.assistant_id == assistant_id).first()
+    if not record:
+        raise ValueError("Knowledge base item not found")
+
+    # 2. Get Vector Store
+    vs = get_vector_store(assistant_id)
+    if not vs:
+        # Try to load or init? If not exists, maybe just init with new file
+        # But we are updating, so it should exist if record exists (ideally)
+        pass
+
+    # 3. Delete old vectors
+    old_doc_ids = [did.strip() for did in record.doc_ids.split(",")]
+    if vs and old_doc_ids:
+        try:
+            vs.delete(old_doc_ids)
+        except Exception as e:
+            print(f"Error deleting old vectors: {e}")
+
+    # 4. Create new file (to avoid overwrite/cache issues and ensure clean state)
+    # We will use a new filename to be safe, e.g. manual_{timestamp}_{uuid}.txt
+    save_directory = f"./uploaded_files/assistant_{assistant_id}"
+    if not os.path.exists(save_directory):
+        os.makedirs(save_directory)
+    
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    new_filename = f"manual_update_{timestamp}_{uuid.uuid4().hex[:8]}.txt"
+    new_file_path = os.path.join(save_directory, new_filename)
+
+    with open(new_file_path, "w", encoding="utf-8") as f:
+        f.write(new_content)
+
+    # 5. Process new file
+    loader = TextLoader(new_file_path, encoding="utf-8")
+    documents = loader.load()
+    documents = process_documents_with_id(documents)
+    
+    embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-base-zh-v1.5")
+    
+    # Add new documents to vector store
+    if vs:
+        vs.add_documents(documents)
+    else:
+        # Create new if didn't exist
+        vector_store[assistant_id] = FAISS.from_documents(documents, embeddings)
+        vs = vector_store[assistant_id]
+    
+    save_vector_store(assistant_id, vs)
+
+    # 6. Update DB Record
+    # Calculate new token count
+    token_count = calculate_token_count(documents)
+    
+    # Generate new summary/keywords
+    summary, keyword_lines = generate_summary_and_keywords(new_content)
+    
+    # Get new doc_ids
+    new_doc_ids = [doc.metadata["doc_id"] for doc in documents]
+    
+    record.file_name = new_filename
+    record.summary = summary
+    record.keywords = keyword_lines
+    record.doc_ids = ", ".join(new_doc_ids)
+    record.token_count = token_count
+    record.upload_date = datetime.utcnow() # Update modified time
+    
+    db.commit()
+    db.refresh(record)
+
+    return {
+        "id": record.id,
+        "file_name": record.file_name,
+        "summary": record.summary,
+        "keywords": record.keywords,
+        "doc_ids": record.doc_ids,
+        "token_count": record.token_count,
+        "upload_date": record.upload_date
+    }

@@ -21,8 +21,21 @@ const TextInputDialog = ({
   onClose,
   onSubmitComplete,
   assistantId,
+  initialContent,
+  isEditMode,
+  knowledgeId
 }) => {
   const [textContent, setTextContent] = useState('');
+
+  // Update state when initialContent changes (entry into Edit mode)
+  React.useEffect(() => {
+    if (isOpen && initialContent !== undefined && initialContent !== null) {
+      setTextContent(initialContent);
+    } else if (isOpen && !isEditMode) {
+      setTextContent('');
+    }
+  }, [isOpen, initialContent, isEditMode]);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState(null); // 'success' | 'error' | null
 
@@ -43,6 +56,8 @@ const TextInputDialog = ({
 
   const handleClear = () => {
     setTextContent('');
+    // If edit mode, maybe we want to revert to original? Or just clear?
+    // User might want to clear and paste new text.
   };
 
   const handleSubmit = async () => {
@@ -55,8 +70,14 @@ const TextInputDialog = ({
     setSubmitStatus(null);
 
     try {
-      // 調用 API 提交文字內容
-      const response = await ApiService.submitText(assistantId, textContent);
+      let response;
+      if (isEditMode && knowledgeId) {
+        // Edit Mode
+        response = await ApiService.updateKnowledge(assistantId, knowledgeId, textContent);
+      } else {
+        // Create Mode
+        response = await ApiService.submitText(assistantId, textContent);
+      }
 
       setSubmitStatus('success');
       onSubmitComplete(response.data);

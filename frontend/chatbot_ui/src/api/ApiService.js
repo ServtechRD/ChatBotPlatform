@@ -388,11 +388,39 @@ class ApiService {
     }
   }
 
+  async getKnowledgeContent(assistantId, knowledgeId) {
+    try {
+      const response = await this.axiosInstance.get(
+        `/assistant/${assistantId}/knowledge/${knowledgeId}/content`
+      );
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async updateKnowledge(assistantId, knowledgeId, text) {
+    try {
+      const formData = new FormData();
+      formData.append('content', text); // Backend expects 'content' form field
+
+      const response = await this.axiosInstance.put(
+        `/assistant/${assistantId}/knowledge/${knowledgeId}`,
+        formData
+      );
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
   async submitText(assistantId, text) {
     try {
       const formData = new FormData();
       const blob = new Blob([text], { type: 'text/plain' });
-      formData.append('file', blob, 'manual_input.txt');
+      // Use timestamp to ensure unique filename
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      formData.append('file', blob, `manual_input_${timestamp}.txt`);
 
       const response = await this.axiosInstance.post(
         `/assistant/${assistantId}/upload`,
