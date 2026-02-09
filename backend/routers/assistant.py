@@ -142,6 +142,16 @@ async def get_knowlege(assistant_id: int, db: Session = Depends(get_db)):
     return {"status": "success", "message": "", "data": knowledge}
 
 
+@router.get("/assistant/{assistant_id}/knowledge/stats")
+def get_knowledge_stats(assistant_id: int, db: Session = Depends(get_db)):
+    from services.vector_service import get_vector_store_status
+    try:
+        stats = get_vector_store_status(assistant_id)
+        return stats
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/assistant/{assistant_id}/knowledge/{knowledge_id}/content")
 def get_knowledge_item_content(assistant_id: int, knowledge_id: int, db: Session = Depends(get_db)):
     from services.vector_service import get_knowledge_content

@@ -243,14 +243,23 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
     # 使用 Jarvis 同款的中文 Embedding 模型
     embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-base-zh-v1.5")
 
-    # 更新或生成向量存储
+    # 更新或生成向量存儲
     if vs:
+        # Check for dimension mismatch
+        test_emb = embeddings.embed_query("test")
+        if len(test_emb) != vs.index.d:
+            error_msg = f"Vector store dimension mismatch (Index: {vs.index.d}, Model: {len(test_emb)}). Please reset knowledge base for this assistant."
+            print(f"CRITICAL ERROR: {error_msg}")
+            raise ValueError(error_msg)
+
         print(f"Adding documents to existing vector store for assistant {assistant_id}")
-        vs.add_documents(documents)
+        doc_ids = [doc.metadata["doc_id"] for doc in documents]
+        vs.add_documents(documents, ids=doc_ids)
         vector_store[assistant_id] = vs
     else:
         print(f"Creating new vector store for assistant {assistant_id}")
-        vector_store[assistant_id] = FAISS.from_documents(documents, embeddings)
+        doc_ids = [doc.metadata["doc_id"] for doc in documents]
+        vector_store[assistant_id] = FAISS.from_documents(documents, embeddings, ids=doc_ids)
         vs = vector_store[assistant_id]
 
     # 保存向量存储到磁盘
@@ -309,6 +318,51 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
             "doc_ids": entry_to_return.doc_ids,
             "upload_date": entry_to_return.upload_date
         }
+    }
+
+
+def get_vector_store_status(assistant_id: int):
+    """
+    獲取向量存儲的狀態與統計資訊
+    """
+    vs = get_vector_store(assistant_id)
+    if not vs:
+        return {
+            "status": "not_initialized",
+            "message": "Vector store not found for this assistant"
+        }
+    
+    # FAISS index info
+    index = vs.index
+    doc_count = index.ntotal
+    dimension = index.d
+    
+    # List files from metadata
+    filenames = set()
+    sample_docs = []
+    
+    # Get all doc IDs and metadata
+    try:
+        # LangChain FAISS stores docs in docstore
+        for doc_id, doc in vs.docstore._dict.items():
+            fname = doc.metadata.get("file_name") or os.path.basename(doc.metadata.get("source", "unknown"))
+            filenames.add(fname)
+            if len(sample_docs) < 5:
+                sample_docs.append({
+                    "id": doc_id,
+                    "file": fname,
+                    "content_preview": doc.page_content[:100] + "..."
+                })
+    except Exception as e:
+        print(f"Error reading docstore metadata: {e}")
+
+    return {
+        "status": "ready",
+        "assistant_id": assistant_id,
+        "total_documents": doc_count,
+        "dimension": dimension,
+        "files_indexed": list(filenames),
+        "sample_documents": sample_docs
     }
 
 
@@ -406,12 +460,21 @@ async def update_knowledge_base_item(assistant_id: int, knowledge_id: int, new_c
     
     # Add new documents to vector store
     if vs:
+        # Check for dimension mismatch
+        test_emb = embeddings.embed_query("test")
+        if len(test_emb) != vs.index.d:
+            error_msg = f"Vector store dimension mismatch (Index: {vs.index.d}, Model: {len(test_emb)}). Please reset knowledge base for this assistant."
+            print(f"CRITICAL ERROR: {error_msg}")
+            raise ValueError(error_msg)
+
         print(f"Adding new vectors for {new_filename}")
-        vs.add_documents(documents)
+        doc_ids = [doc.metadata["doc_id"] for doc in documents]
+        vs.add_documents(documents, ids=doc_ids)
     else:
         # Create new if didn't exist
         print(f"Creating new vector store for assistant {assistant_id}")
-        vector_store[assistant_id] = FAISS.from_documents(documents, embeddings)
+        doc_ids = [doc.metadata["doc_id"] for doc in documents]
+        vector_store[assistant_id] = FAISS.from_documents(documents, embeddings, ids=doc_ids)
         vs = vector_store[assistant_id]
     
     save_vector_store(assistant_id, vs)
