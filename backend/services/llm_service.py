@@ -74,15 +74,21 @@ async def process_message_through_llm(data, assistant_uuid, customer_unique_id, 
     # 创建 PromptTemplate
 
     # qa_chain = RetrievalQA(llm=llm, retriever=retriever)
+    
+    # 這裡的 prompt2 應該包含 `{context}` 來讓 LangChain 自動填入 retrieve 到的文件
+    # 我們先處理 prompt2 中的其他變數 ($language, $data)，保留 $doc 給 LangChain 用
     system_prompt = prompt2.replace("$language", lang).replace("$data", user_query)
-    doc_contents = "\n\n".join([doc.page_content for doc in relevant_docs])
-    system_prompt = system_prompt.replace("$doc", doc_contents)
+    
+    # 將 $doc 替換為 {context}，這是 LangChain StuffDocumentsChain 預設的變數名稱
+    system_prompt = system_prompt.replace("$doc", "{context}")
 
-    print(f"prompt => {prompt2}")
+    print(f"prompt => {system_prompt}") # 印出來檢查一下
+    
     prompt_template = PromptTemplate(
-        input_variables=["context"],  # 定义变量
-        template=system_prompt  # 模板内容
+        input_variables=["context"],  # 這裡宣告 context 是變數
+        template=system_prompt        # 模板內容現在包含 {context}
     )
+    
     # 通过 `RetrievalQA.from_chain_type` 方法初始化
     print("crate qa_chain")
 
