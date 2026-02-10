@@ -10,9 +10,16 @@ import time
 
 from utils.logger import get_logger
 
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+
+# Create a thread pool for LLM operations
+executor = ThreadPoolExecutor(max_workers=10)
+
 load_dotenv()  # 加载 .env 文件中的环境变量
 
 api_key = os.getenv("OPENAI_API_KEY")
+
 logger = get_logger(__name__)
 
 
@@ -80,9 +87,17 @@ def _synch_process_llm(data, assistant_uuid, customer_unique_id, lang, model, pr
     system_prompt = prompt2.replace("$language", lang).replace("$data", user_query)
     system_prompt = system_prompt.replace("$doc", "{context}")
 
+    # Ensure context variable exists for StuffDocumentsChain
+    if "{context}" not in system_prompt:
+        system_prompt += "\n\nRelevant context:\n{context}"
+    
+    # Ensure question variable exists, even if we injected it already, to satisfy RetrievalQA expectations
+    if "{question}" not in system_prompt:
+        system_prompt += "\n\nQuestion: {question}"
+
     prompt_template = PromptTemplate(
-        input_variables=["context"],
-        template=system_prompt
+        template=system_prompt,
+        input_variables=["context", "question"]
     )
 
     t_chain_start = time.perf_counter()
@@ -91,7 +106,7 @@ def _synch_process_llm(data, assistant_uuid, customer_unique_id, lang, model, pr
         chain_type="stuff",
         retriever=retriever,
         return_source_documents=False,
-        chain_type_kwargs={"prompt": prompt_template},
+        chain_type_kwargs={"prompt": prompt_template, "document_variable_name": "context"},
     )
     t_chain_ms = (time.perf_counter() - t_chain_start) * 1000
     logger.debug("[LLM] 建立 QA chain (耗時=%.2f ms)", t_chain_ms)
