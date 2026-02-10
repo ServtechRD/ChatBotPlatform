@@ -16,11 +16,16 @@ api_key = os.getenv("OPENAI_API_KEY")
 logger = get_logger(__name__)
 
 
-async def process_message_through_llm(data, assistant_uuid, customer_unique_id, lang, model, prompt1, prompt2, welcome,
-                                      noidea):
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+
+# Create a thread pool for LLM operations
+executor = ThreadPoolExecutor(max_workers=10)
+
+def _synch_process_llm(data, assistant_uuid, customer_unique_id, lang, model, prompt1, prompt2, welcome, noidea):
     t_total_start = time.perf_counter()
     logger.info(
-        "[LLM 開始] assistant_uuid=%s customer_id=%s lang=%s model=%s query_len=%d",
+        "[LLM thread 開始] assistant_uuid=%s customer_id=%s lang=%s model=%s query_len=%d",
         assistant_uuid, customer_unique_id, lang, model, len(data or "")
     )
 
@@ -116,6 +121,20 @@ async def process_message_through_llm(data, assistant_uuid, customer_unique_id, 
     )
     logger.debug("[LLM] 回覆預覽: %s", (response or "")[:200])
     return response
+
+
+async def process_message_through_llm(data, assistant_uuid, customer_unique_id, lang, model, prompt1, prompt2, welcome, noidea):
+    """
+    非阻塞包裝：在 ThreadPoolExecutor 中執行同步的 LLM 操作，
+    避免長時間運算 (如 150s) 卡住 asyncio 事件迴圈導致 WebSocket 斷線。
+    """
+    loop = asyncio.get_running_loop()
+    # 使用 run_in_executor 將同步函式丟到執行緒池
+    return await loop.run_in_executor(
+        executor, 
+        _synch_process_llm,
+        data, assistant_uuid, customer_unique_id, lang, model, prompt1, prompt2, welcome, noidea
+    )
     # print("start to send to ws")
     # 将回复通过 WebSocket 发送给客户
     # await websocket.send_text(response)
