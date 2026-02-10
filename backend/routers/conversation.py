@@ -65,7 +65,7 @@ def get_user_conversations(
                      .options(joinedload(ORMConversation.messages))  # 预加载 messages 避免 N+1 查询问题
                      .all())
     if not conversations:
-        raise HTTPException(status_code=404, detail="No conversations found for this user")
+        return []
 
     return conversations
 
