@@ -408,7 +408,7 @@ const EmbeddableChatInterface = ({
                 bottom: 0,
                 left: 0,
                 right: 0,
-                height: '50%', // 固定高度為容器的一半
+                height: '100%', // 固定高度為容器的一半
                 overflowY: 'auto',
                 p: 2,
                 display: 'flex',
