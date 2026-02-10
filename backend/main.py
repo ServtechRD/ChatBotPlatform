@@ -4,11 +4,21 @@ from fastapi.staticfiles import StaticFiles
 
 from routers import assistant, conversation, websocket, auth, embed, mfa
 from models.database import Base, engine
+from utils.logger import setup_logging, get_logger
+
+# 日誌：寫入 ./log/yyyyMMdd.log
+setup_logging()
+logger = get_logger(__name__)
 
 # 初始化数据库
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
+
+
+@app.on_event("startup")
+def startup_event():
+    logger.info("Application started.")
 
 app.add_middleware(
     CORSMiddleware,
