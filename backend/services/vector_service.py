@@ -91,7 +91,8 @@ def generate_summary_and_keywords(text, max_summary_words=150, max_keywords=10):
     llm = ChatOpenAI(
         openai_api_key="ollama",      # 本地端隨意填
         base_url="http://192.168.1.235:11534/v1",  # 指向 235 主機
-        model="gpt-oss:20b"           # 使用指定模型
+        model="gpt-oss:20b",           # 使用指定模型
+        model_kwargs={"keep_alive": -1} # -1 表示模型常駐
     )
     
     response = llm([HumanMessage(content=prompt)])

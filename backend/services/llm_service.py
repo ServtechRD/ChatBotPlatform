@@ -50,7 +50,8 @@ async def process_message_through_llm(data, assistant_uuid, customer_unique_id, 
     llm = ChatOpenAI(
         openai_api_key="ollama",
         base_url="http://192.168.1.235:11534/v1",
-        model=model
+        model=model,
+        model_kwargs={"keep_alive": -1}  # -1 表示模型常駐記憶體 (不卸載)，也可設為 "60m" 等Duration
     )
     if lang == "Traditional Chinese" or "繁體中文" in str(lang):
         user_query = f"#zh_tw {data}"
