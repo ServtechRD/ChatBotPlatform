@@ -185,6 +185,7 @@ export default function ChatInterface({
     socket.addEventListener('close', () => {
       console.log('🔌 WebSocket closed');
       setIsConnected(false);
+      setIsThinking(false);
     });
 
     return () => {
