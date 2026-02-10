@@ -11,12 +11,14 @@ class User(Base):
     email = Column(String(255), unique=True, index=True, nullable=False)
     password = Column(String(100), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
-    permission_level = Column(Integer, default=1) 
+    permission_level = Column(Integer, default=3) 
+    # permission_level = Column(Integer, default=1) 
     is_admin = Column(Boolean, default=False)
     
     # TOTP MFA fields
     totp_secret = Column(String(255), nullable=True)
-    is_totp_enabled = Column(Boolean, default=True)
+    is_totp_enabled = Column(Boolean, default=False)
+    # is_totp_enabled = Column(Boolean, default=True)
 
     # 一个用户可以拥有多个助理
     assistants = relationship("AIAssistant", back_populates="owner")
