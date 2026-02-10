@@ -132,12 +132,18 @@ class ApiService {
         },
       });
       const data = response?.data;
-      if (!data?.access_token) {
+
+      // MFA 流程時後端會回傳 temp_token，access_token 為空，不需丟錯
+      const isMfaChallenge = data?.mfa_setup_required === true || data?.mfa_required === true;
+      if (!isMfaChallenge && !data?.access_token) {
         throw new Error('登入回應無效：未取得 access_token');
       }
-      localStorage.setItem('token', data.access_token);
-      if (data.refresh_token) {
-        localStorage.setItem('refreshToken', data.refresh_token);
+
+      if (data.access_token) {
+        localStorage.setItem('token', data.access_token);
+        if (data.refresh_token) {
+          localStorage.setItem('refreshToken', data.refresh_token);
+        }
       }
       // Return data directly (could be MFA challenge or Tokens)
       return response.data;
