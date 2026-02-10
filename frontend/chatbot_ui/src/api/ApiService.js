@@ -17,7 +17,7 @@ class ApiService {
       // },
     });
 
-    // 請求攔截器，用於添加token
+    // 請求攔截器，用於新增token
     this.axiosInstance.interceptors.request.use(
       config => {
         const token = localStorage.getItem('token');
@@ -38,17 +38,23 @@ class ApiService {
         const originalRequest = error.config;
 
         // 如果收到 401 錯誤且不是 refresh 請求本身
-        if (error.response && error.response.status === 401 && !originalRequest._retry) {
+        if (
+          error.response &&
+          error.response.status === 401 &&
+          !originalRequest._retry
+        ) {
           if (this.isRefreshing) {
             // 如果正在刷新，將請求加入隊列
             return new Promise((resolve, reject) => {
               this.failedQueue.push({ resolve, reject });
-            }).then(token => {
-              originalRequest.headers['Authorization'] = 'Bearer ' + token;
-              return this.axiosInstance(originalRequest);
-            }).catch(err => {
-              return Promise.reject(err);
-            });
+            })
+              .then(token => {
+                originalRequest.headers['Authorization'] = 'Bearer ' + token;
+                return this.axiosInstance(originalRequest);
+              })
+              .catch(err => {
+                return Promise.reject(err);
+              });
           }
 
           originalRequest._retry = true;
@@ -66,7 +72,7 @@ class ApiService {
           try {
             // 嘗試刷新 token
             const response = await axios.post(`${this.baseURL}/auth/refresh`, {
-              refresh_token: refreshToken
+              refresh_token: refreshToken,
             });
 
             const newAccessToken = response.data.access_token;
@@ -77,7 +83,8 @@ class ApiService {
             this.failedQueue = [];
 
             // 重試原始請求
-            originalRequest.headers['Authorization'] = 'Bearer ' + newAccessToken;
+            originalRequest.headers['Authorization'] =
+              'Bearer ' + newAccessToken;
             return this.axiosInstance(originalRequest);
           } catch (refreshError) {
             // Refresh token 也過期，清除並跳轉到登入頁
@@ -115,22 +122,22 @@ class ApiService {
 
   // 登錄方法
   async login(email, password) {
-    console.log('call login');
     try {
       const formData = new URLSearchParams();
-      formData.append('username', email); // 替换为用户输入的邮箱
-      formData.append('password', password); // 替换为用户输入的密码
+      formData.append('username', email);
+      formData.append('password', password);
       const response = await this.axiosInstance.post('/auth/login', formData, {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
       });
-      // Standard Login Success
-      if (response.data.access_token) {
-        localStorage.setItem('token', response.data.access_token);
+      const data = response?.data;
+      if (!data?.access_token) {
+        throw new Error('登入回應無效：未取得 access_token');
       }
-      if (response.data.refresh_token) {
-        localStorage.setItem('refreshToken', response.data.refresh_token);
+      localStorage.setItem('token', data.access_token);
+      if (data.refresh_token) {
+        localStorage.setItem('refreshToken', data.refresh_token);
       }
       // Return data directly (could be MFA challenge or Tokens)
       return response.data;
@@ -142,10 +149,9 @@ class ApiService {
   // MFA Setup Init - Get Secret & QR
   async mfaSetupInit(tempToken) {
     try {
-      const response = await this.axiosInstance.post(
-        '/auth/mfa/setup/init',
-        { temp_token: tempToken }
-      );
+      const response = await this.axiosInstance.post('/auth/mfa/setup/init', {
+        temp_token: tempToken,
+      });
       return response.data;
     } catch (error) {
       throw error;
@@ -155,14 +161,11 @@ class ApiService {
   // MFA Setup Verify - Finalize Setup
   async mfaSetupVerify(tempToken, secret, code) {
     try {
-      const response = await this.axiosInstance.post(
-        '/auth/mfa/setup/verify',
-        {
-          temp_token: tempToken,
-          secret: secret,
-          code: code
-        }
-      );
+      const response = await this.axiosInstance.post('/auth/mfa/setup/verify', {
+        temp_token: tempToken,
+        secret: secret,
+        code: code,
+      });
       if (response.data.access_token) {
         localStorage.setItem('token', response.data.access_token);
         localStorage.setItem('refreshToken', response.data.refresh_token);
@@ -176,13 +179,10 @@ class ApiService {
   // MFA Verify - Login Challenge
   async verifyMfa(tempToken, code) {
     try {
-      const response = await this.axiosInstance.post(
-        '/auth/mfa/verify',
-        {
-          temp_token: tempToken,
-          code: code
-        }
-      );
+      const response = await this.axiosInstance.post('/auth/mfa/verify', {
+        temp_token: tempToken,
+        code: code,
+      });
       if (response.data.access_token) {
         localStorage.setItem('token', response.data.access_token);
         localStorage.setItem('refreshToken', response.data.refresh_token);
@@ -201,7 +201,7 @@ class ApiService {
     return null;
   }
 
-  // 獲取用戶郵箱
+  // 取得使用者信箱
   getUserEmail() {
     const userData = localStorage.getItem('userData');
     if (userData) {
@@ -210,7 +210,7 @@ class ApiService {
     return null;
   }
 
-  // 獲取用戶的assistants
+  // 取得使用者的assistants
   getUserAssistants() {
     const userData = localStorage.getItem('userData');
     if (userData) {
@@ -219,7 +219,7 @@ class ApiService {
     return null;
   }
 
-  // 獲取用assistants
+  // 取得用assistants
   getAssistatns() {
     const assistantsData = localStorage.getItem('assistantsData');
     if (assistantsData) {
@@ -244,10 +244,10 @@ class ApiService {
   // 登出方法
   logout() {
     this.clearAuthData();
-    // 可以在這裡添加其他清理操作
+    // 可以在這裡新增其他清理操作
   }
 
-  // 獲取用戶資料
+  // 取得使用者資料
   // MARK: 這個有噴錯
   async fetchUserData() {
     try {
@@ -257,9 +257,11 @@ class ApiService {
       localStorage.setItem('userData', JSON.stringify(userData));
 
       // 觸發自定義事件，通知其他組件 userData 已更新
-      window.dispatchEvent(new CustomEvent('userDataUpdated', {
-        detail: userData
-      }));
+      window.dispatchEvent(
+        new CustomEvent('userDataUpdated', {
+          detail: userData,
+        })
+      );
 
       return userData;
     } catch (error) {
@@ -268,7 +270,7 @@ class ApiService {
     }
   }
 
-  // 更新用戶資料
+  // 更新使用者資料
   async updateUserProfile(userData) {
     try {
       const response = await this.axiosInstance.put('/user/profile', userData);
@@ -303,7 +305,7 @@ class ApiService {
     }
   }
 
-  // 獲取用戶資料
+  // 取得使用者資料
   async fetchAssistants() {
     try {
       const user_id = this.getUserId();
@@ -314,9 +316,11 @@ class ApiService {
       localStorage.setItem('assistantsData', JSON.stringify(assistants));
 
       // 觸發自定義事件，通知其他組件 assistantsData 已更新
-      window.dispatchEvent(new CustomEvent('assistantsDataUpdated', {
-        detail: assistants
-      }));
+      window.dispatchEvent(
+        new CustomEvent('assistantsDataUpdated', {
+          detail: assistants,
+        })
+      );
 
       return assistants;
     } catch (error) {
@@ -325,7 +329,7 @@ class ApiService {
     }
   }
 
-  // 獲取知識庫列表
+  // 取得知識庫列表
   async getKnowledgeBases(assistantId) {
     try {
       const response = await this.axiosInstance.get(
@@ -361,7 +365,7 @@ class ApiService {
     }
   }
 
-  // 創建新的知識庫
+  // 新增新的知識庫
   async createKnowledgeBase(knowledgeBaseData) {
     try {
       const response = await this.axiosInstance.post(
@@ -374,7 +378,7 @@ class ApiService {
     }
   }
 
-  // 獲取使用者的對話列表
+  // 取得使用者的對話列表
   async fetchUserConversations(assistantId) {
     try {
       const response = await this.axiosInstance.get(

@@ -123,7 +123,7 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
       });
       reader.readAsDataURL(file);*/
       reader.addEventListener('load', () => {
-        // 創建新的 Image 對象來獲取圖片尺寸
+        // 新增新的 Image 對象來取得圖片尺寸
         const img = new Image();
         img.onload = () => {
           // 計算縮放比例
@@ -274,7 +274,7 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
       formData.append('welcome', welcomeText);
       formData.append('noidea', unableToRespondText);
 
-      // 如果有裁剪後的圖片，轉換為文件並添加到表單
+      // 如果有裁剪後的圖片，轉換為文件並新增到表單
       if (hasNewImage && croppedImageUrl) {
         //const response = await fetch(croppedImageUrl);
         //const blob = await response.blob();
@@ -289,7 +289,7 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
         );
       }
 
-      // 如果有影片，添加到表單
+      // 如果有影片，新增到表單
       if (video1) {
         formData.append('video_1', video1);
       }
@@ -515,7 +515,7 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
         </Box>
         <Box sx={{ mb: 3 }}>
           <Typography variant="caption" color="textSecondary">
-            AI助理將優先使用所設語系進行回覆。若無法使用預設語系，中文用戶可使用中文來詢問繁體中文。
+            AI助理將優先使用所設語系進行回覆。若無法使用預設語系，中文使用者可使用中文來詢問繁體中文。
           </Typography>
           <FormControl fullWidth variant="outlined" margin="normal">
             <InputLabel>預設回覆語系</InputLabel>

@@ -86,7 +86,8 @@ export default function ChatInterface({
       let errorMessage = '語音辨識發生錯誤';
       switch (err.error) {
         case 'not-allowed':
-          errorMessage = '麥克風權限被拒絕。請在瀏覽器設定中允許使用麥克風，或確保網站使用 HTTPS。';
+          errorMessage =
+            '麥克風權限被拒絕。請在瀏覽器設定中允許使用麥克風，或確保網站使用 HTTPS。';
           break;
         case 'no-speech':
           errorMessage = '未偵測到語音，請再試一次。';
@@ -98,7 +99,7 @@ export default function ChatInterface({
           errorMessage = '網路錯誤，請檢查網路連線。';
           break;
         case 'aborted':
-          // 用戶主動停止，不顯示錯誤
+          // 使用者主動停止，不顯示錯誤
           return;
         default:
           errorMessage = `語音辨識錯誤: ${err.error}`;
@@ -126,7 +127,7 @@ export default function ChatInterface({
       loadVoices();
       // 某些瀏覽器需監聽 voiceschanged 事件
       synth.onvoiceschanged = loadVoices;
-    } else {
+    } else { 
       console.warn('此瀏覽器不支援語音播放');
     }
 
@@ -233,13 +234,17 @@ export default function ChatInterface({
 
       // 檢查是否為 HTTPS 或在白名單中
       if (window.location.protocol !== 'https:' && !isAllowedHost) {
-        alert('語音功能需要在 HTTPS 環境下使用。請使用 HTTPS 或在本地環境（localhost）測試。');
+        alert(
+          '語音功能需要在 HTTPS 環境下使用。請使用 HTTPS 或在本地環境（localhost）測試。'
+        );
         return;
       }
 
       // 檢查瀏覽器是否支援 mediaDevices API
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        alert('您的瀏覽器不支援麥克風功能。請使用最新版本的 Chrome、Firefox 或 Edge，並確保使用 HTTPS。');
+        alert(
+          '您的瀏覽器不支援麥克風功能。請使用最新版本的 Chrome、Firefox 或 Edge，並確保使用 HTTPS。'
+        );
         return;
       }
 
@@ -256,7 +261,8 @@ export default function ChatInterface({
 
       let errorMessage = '無法使用麥克風';
       if (error.name === 'NotAllowedError') {
-        errorMessage = '麥克風權限被拒絕。請點擊網址列旁的鎖頭圖示，允許使用麥克風。';
+        errorMessage =
+          '麥克風權限被拒絕。請點選網址列旁的鎖頭圖示，允許使用麥克風。';
       } else if (error.name === 'NotFoundError') {
         errorMessage = '找不到麥克風設備。請確認麥克風已正確連接。';
       } else if (error.name === 'NotSupportedError') {
@@ -548,7 +554,7 @@ export default function ChatInterface({
             <TextField
               fullWidth
               variant="standard"
-              placeholder="請輸入文字或點擊語音輸入..."
+              placeholder="請輸入文字或點選語音輸入..."
               value={inputMessage}
               onChange={e => setInputMessage(e.target.value)}
               onKeyPress={e => e.key === 'Enter' && handleSendMessage()}

@@ -161,7 +161,7 @@ const FileUploadDialog = ({
             <>
               <CloudUploadIcon sx={{ fontSize: 48, color: 'text.secondary' }} />
               <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                點擊或拖曳上傳
+                點選或拖曳上傳
                 <br />
                 (文件大小限制：&lt; 200KB)
               </Typography>

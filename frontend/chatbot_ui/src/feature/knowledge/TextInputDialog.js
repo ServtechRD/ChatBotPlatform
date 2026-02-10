@@ -24,7 +24,7 @@ const TextInputDialog = ({
   initialContent,
   isEditMode,
   knowledgeId,
-  initialFileName
+  initialFileName,
 }) => {
   const [textContent, setTextContent] = useState('');
   const [fileName, setFileName] = useState('');
@@ -82,10 +82,18 @@ const TextInputDialog = ({
       let response;
       if (isEditMode && knowledgeId) {
         // Edit Mode: Overwrite existsing
-        response = await ApiService.updateKnowledge(assistantId, knowledgeId, textContent);
+        response = await ApiService.updateKnowledge(
+          assistantId,
+          knowledgeId,
+          textContent
+        );
       } else {
         // Create Mode
-        response = await ApiService.submitText(assistantId, textContent, fileName);
+        response = await ApiService.submitText(
+          assistantId,
+          textContent,
+          fileName
+        );
       }
 
       setSubmitStatus('success');
@@ -154,7 +162,7 @@ const TextInputDialog = ({
             }}
           >
             <CircularProgress size={48} />
-            <Typography sx={{ mt: 2 }}>提交中...</Typography>
+            <Typography sx={{ mt: 2 }}>送出中...</Typography>
           </Box>
         ) : (
           <>
@@ -168,7 +176,11 @@ const TextInputDialog = ({
                 disabled={isEditMode} // Don't change filename when editing existing record
                 variant="outlined"
                 size="small"
-                helperText={isEditMode ? "編輯模式下無法修改檔名" : "請輸入存檔名稱 (如: notes.txt)"}
+                helperText={
+                  isEditMode
+                    ? '編輯模式下無法修改檔名'
+                    : '請輸入存檔名稱 (如: notes.txt)'
+                }
               />
             </Box>
             <TextField
@@ -203,7 +215,7 @@ const TextInputDialog = ({
 
         {submitStatus === 'error' && (
           <Typography color="error" sx={{ mt: 2 }}>
-            提交失敗，請稍後再試
+            送出失敗，請稍後再試
           </Typography>
         )}
       </DialogContent>
