@@ -16,13 +16,12 @@ api_key = os.getenv("OPENAI_API_KEY")
 logger = get_logger(__name__)
 
 
-import asyncio
-from concurrent.futures import ThreadPoolExecutor
-
-# Create a thread pool for LLM operations
-executor = ThreadPoolExecutor(max_workers=10)
 
 def _synch_process_llm(data, assistant_uuid, customer_unique_id, lang, model, prompt1, prompt2, welcome, noidea):
+    """
+    同步版本的 LLM 處理邏輯，包含向量檢索與 QA Chain 呼叫。
+    此函數將被丟入 ThreadPoolExecutor 中執行，以免阻塞主要 Event Loop。
+    """
     t_total_start = time.perf_counter()
     logger.info(
         "[LLM thread 開始] assistant_uuid=%s customer_id=%s lang=%s model=%s query_len=%d",
