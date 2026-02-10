@@ -220,7 +220,8 @@ export default function ConversationManagement({ currentAssistant }) {
                 />
               </Box>
               <Typography variant="caption" color="text.secondary">
-                建立時間: {new Date(conversation.created_at).toLocaleString()}
+                建立時間:{' '}
+                {new Date(conversation.created_at + 'Z').toLocaleString()}
               </Typography>
             </Box>
           ))}

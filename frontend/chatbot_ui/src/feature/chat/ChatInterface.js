@@ -127,7 +127,7 @@ export default function ChatInterface({
       loadVoices();
       // 某些瀏覽器需監聽 voiceschanged 事件
       synth.onvoiceschanged = loadVoices;
-    } else { 
+    } else {
       console.warn('此瀏覽器不支援語音播放');
     }
 
@@ -426,8 +426,8 @@ export default function ChatInterface({
               }}
             >
               {assistantname || '智能助理'}
-              {isConnected ? 'Connected' : 'Disconnected'} | ID:{' '}
-              {customerIdRef.current.slice(0, 8)}
+              {isConnected ? 'Connected' : 'Disconnected'}
+              {/* | ID: {customerIdRef.current.slice(0, 8)} */}
             </Typography>
           </Paper>
         </Box>
