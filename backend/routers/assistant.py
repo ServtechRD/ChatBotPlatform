@@ -185,7 +185,7 @@ async def update_knowledge_item(
 # 获取助理信息
 @router.get("/assistant/{assistant_id}")
 def get_assistant(assistant_id: int, db: Session = Depends(get_db)):
-    # 查找助理信息
+    # 查找助理訊息
     assistant = db.query(AIAssistant).filter(AIAssistant.assistant_id == assistant_id).first()
     if not assistant:
         raise HTTPException(status_code=404, detail="Assistant not found")

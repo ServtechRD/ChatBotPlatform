@@ -90,7 +90,7 @@ def finalize_conversation(
     if not messages:
         raise HTTPException(status_code=400, detail="No messages found in this conversation")
 
-    # 处理完成的对话（比如可以添加一些后续逻辑）
+    # 处理完成的对话（比如可以新增一些后续逻辑）
     # 标记为完成
     conversation.completed = True
     conversation.completed_at = datetime.utcnow()

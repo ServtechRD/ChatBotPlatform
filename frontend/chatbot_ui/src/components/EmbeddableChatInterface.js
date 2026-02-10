@@ -48,16 +48,16 @@ const EmbeddableChatInterface = ({
   const videoRef = useRef(null);
   const welcomeMessageShownRef = useRef(false);
 
-  // 獲取助手信息
+  // 取得助手訊息
   useEffect(() => {
-    // 添加一個標誌來防止重複請求
+    // 新增一個標誌來防止重複請求
     let isMounted = true;
 
     const fetchAssistant = async () => {
       try {
         console.log('fetch Assistant');
         const baseURL = `${window.location.protocol}//${window.location.hostname}:36100`;
-        // 從API獲取助手信息
+        // 從API取得助手訊息
         console.log(`fetch api ${baseURL}/api/embed/assistant/${assistantUrl}`);
         const response = await fetch(
           `${baseURL}/api/embed/assistant/${assistantUrl}`
@@ -248,7 +248,7 @@ const EmbeddableChatInterface = ({
       // 发送消息到WebSocket
       socketRef.current.send(inputMessage);
 
-      // 添加用户消息到聊天界面
+      // 新增用户消息到聊天界面
       setMessages(prevMessages => [
         ...prevMessages,
         { id: Date.now(), text: inputMessage, isBot: false },
@@ -372,7 +372,7 @@ const EmbeddableChatInterface = ({
               right: 0,
               height: '50%',
               zIndex: 2, // 確保在消息上方
-              pointerEvents: 'none', // 防止干擾滾動和點擊
+              pointerEvents: 'none', // 防止干擾滾動和點選
             }}
           />
           {/* 消息區域 */}

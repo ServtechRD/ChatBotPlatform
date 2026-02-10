@@ -59,6 +59,7 @@ export default function LoginPage() {
   async function handleLogin(e) {
     if (e) e.preventDefault();
     setError('');
+    if (isLoading) return; // 防止重複送出
     setIsLoading(true);
 
     try {
@@ -91,7 +92,8 @@ export default function LoginPage() {
     } catch (err) {
       console.error('Login failed:', err);
       // Check for specific error message if available
-      const errMsg = err.response?.data?.detail || '登入失敗，請檢查您的帳號和密碼';
+      const errMsg =
+        err.response?.data?.detail || '登入失敗，請檢查您的帳號和密碼';
       setError(errMsg);
     } finally {
       if (mfaStage === 'login') {
@@ -100,14 +102,14 @@ export default function LoginPage() {
     }
   }
 
-  const startMfaSetup = async (token) => {
+  const startMfaSetup = async token => {
     try {
       const data = await ApiService.mfaSetupInit(token);
       setQrCode(data.qr_code);
       setMfaSecret(data.secret);
       setMfaStage('setup');
     } catch (err) {
-      console.error("MFA Setup Init Error", err);
+      console.error('MFA Setup Init Error', err);
       setError('MFA 初始化失敗');
       setMfaStage('login');
     } finally {
@@ -121,7 +123,11 @@ export default function LoginPage() {
     try {
       let response;
       if (mfaStage === 'setup') {
-        response = await ApiService.mfaSetupVerify(tempToken, mfaSecret, mfaCode);
+        response = await ApiService.mfaSetupVerify(
+          tempToken,
+          mfaSecret,
+          mfaCode
+        );
       } else {
         response = await ApiService.verifyMfa(tempToken, mfaCode);
       }
@@ -131,7 +137,6 @@ export default function LoginPage() {
       await ApiService.fetchUserData();
       await ApiService.fetchAssistants();
       navigate('/', { replace: true });
-
     } catch (err) {
       console.error('MFA Verify failed:', err);
       setError('驗證碼錯誤，請重新輸入');
@@ -161,13 +166,26 @@ export default function LoginPage() {
       >
         <Logo src="/assets/images/logo.png" alt="System Logo" />
         <Typography component="h1" variant="h5">
-          {mfaStage === 'login' ? '登入' : mfaStage === 'setup' ? 'MFA 設定' : '兩步驟驗證'}
+          {mfaStage === 'login'
+            ? '登入'
+            : mfaStage === 'setup'
+              ? 'MFA 設定'
+              : '兩步驟驗證'}
         </Typography>
 
         {mfaStage === 'login' && (
-          <Box component="form" onSubmit={handleLogin} noValidate sx={{ mt: 1 }}>
+          <Box
+            component="form"
+            onSubmit={handleLogin}
+            noValidate
+            sx={{ mt: 1 }}
+          >
             {/* Display Error if any (shared for all stages if needed, but primarily login) */}
-            {error && <Alert severity="error" sx={{ width: '100%', mb: 2 }}>{error}</Alert>}
+            {error && (
+              <Alert severity="error" sx={{ width: '100%', mb: 2 }}>
+                {error}
+              </Alert>
+            )}
 
             <TextField
               margin="normal"
@@ -229,20 +247,46 @@ export default function LoginPage() {
 
         {(mfaStage === 'setup' || mfaStage === 'verify') && (
           <Box sx={{ mt: 2, width: '100%' }}>
-            {error && <Alert severity="error" sx={{ width: '100%', mb: 2 }}>{error}</Alert>}
+            {error && (
+              <Alert severity="error" sx={{ width: '100%', mb: 2 }}>
+                {error}
+              </Alert>
+            )}
 
             {mfaStage === 'setup' && (
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
-                <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  mb: 2,
+                }}
+              >
+                <Typography
+                  variant="body2"
+                  color="textSecondary"
+                  sx={{ mb: 2 }}
+                >
                   為了確保您的帳號安全，請設定兩步驟驗證。
-                  <br />請使用 Google Authenticator 掃描下方 QR Code。
+                  <br />
+                  請使用 Google Authenticator 掃描下方 QR Code。
                 </Typography>
-                {qrCode && <img src={qrCode} alt="MFA QR Code" style={{ width: 200, height: 200 }} />}
+                {qrCode && (
+                  <img
+                    src={qrCode}
+                    alt="MFA QR Code"
+                    style={{ width: 200, height: 200 }}
+                  />
+                )}
               </Box>
             )}
 
             {mfaStage === 'verify' && (
-              <Typography variant="body2" color="textSecondary" sx={{ mb: 2, textAlign: 'center' }}>
+              <Typography
+                variant="body2"
+                color="textSecondary"
+                sx={{ mb: 2, textAlign: 'center' }}
+              >
                 請輸入 Google Authenticator 上的 6 位數驗證碼。
               </Typography>
             )}
@@ -282,7 +326,6 @@ export default function LoginPage() {
             </Button>
           </Box>
         )}
-
       </Box>
 
       <Dialog open={openRegister} onClose={() => setOpenRegister(false)}>

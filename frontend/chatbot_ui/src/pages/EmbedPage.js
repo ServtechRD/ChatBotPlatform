@@ -11,7 +11,7 @@ const EmbedPage = () => {
   const { assistantId } = useParams(); // 如果使用路由參數
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
-  const idFromQuery = queryParams.get('id'); // 從查詢參數獲取ID
+  const idFromQuery = queryParams.get('id'); // 從查詢參數取得ID
 
   console.log('ID from URL:', idFromQuery); // 應該顯示 "assistant-d8e4190a"
 
@@ -95,7 +95,7 @@ const EmbedPage = () => {
             zIndex: 9999,
           }}
         >
-          <Typography>載入錯誤: {error}</Typography>
+          <Typography>讀取錯誤: {error}</Typography>
         </Box>
       )}
     </Box>

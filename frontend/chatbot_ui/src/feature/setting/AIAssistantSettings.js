@@ -14,13 +14,13 @@ import {
 
 import ApiService from '../../api/ApiService';
 
-// 獲取用戶ID
+// 取得使用者ID
 const userId = ApiService.getUserId();
 
-// 獲取用戶郵箱
+// 取得使用者信箱
 const userEmail = ApiService.getUserEmail();
 
-// 獲取用戶的assistants
+// 取得使用者的assistants
 const userAssistants = ApiService.getUserAssistants();
 
 const AIAssistantSettings = () => {

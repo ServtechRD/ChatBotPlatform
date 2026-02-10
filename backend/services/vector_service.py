@@ -68,7 +68,7 @@ def generate_summary_and_keywords(text, max_summary_words=150, max_keywords=10):
         "zh-cn": "Chinese",
         "zh-tw": "Traditional Chinese",
         "zh": "Traditional Chinese",
-        # 添加其他语言映射
+        # 新增其他语言映射
     }
     lang_code, _ = langid.classify(text)
     language = LANGUAGE_MAP.get(lang_code, "English")
