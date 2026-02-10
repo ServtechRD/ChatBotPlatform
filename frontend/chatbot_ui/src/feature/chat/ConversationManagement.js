@@ -8,6 +8,9 @@ import {
   CircularProgress,
   Chip,
   Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -16,11 +19,92 @@ import {
 } from '@mui/icons-material';
 import ApiService from '../../api/ApiService';
 
+function ConversationDialog({ open, conversation, onClose }) {
+  return (
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+      <DialogTitle>
+        對話紀錄 - 客戶 ID: {conversation?.customer_id}
+      </DialogTitle>
+      <DialogContent>
+        <Box
+          sx={{
+            maxHeight: 400,
+            overflowY: 'auto',
+            bgcolor: '#f5f5f5',
+            p: 2,
+            borderRadius: 1,
+          }}
+        >
+          {conversation?.messages?.map(message => {
+            const isAssistant = message.sender === '助理';
+            return (
+              <Box
+                key={message.message_id}
+                sx={{
+                  display: 'flex',
+                  justifyContent: isAssistant ? 'flex-start' : 'flex-end',
+                  mb: 1.5,
+                }}
+              >
+                <Box
+                  sx={{
+                    maxWidth: '80%',
+                    bgcolor: isAssistant ? 'white' : 'primary.main',
+                    color: isAssistant ? 'text.primary' : 'primary.contrastText',
+                    p: 1.5,
+                    borderRadius: 2,
+                    boxShadow: 1,
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    color={isAssistant ? 'text.secondary' : 'inherit'}
+                    sx={{ display: 'block', mb: 0.5 }}
+                  >
+                    {message.sender}
+                  </Typography>
+                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                    {message.content}
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    color={isAssistant ? 'text.secondary' : 'inherit'}
+                    sx={{ display: 'block', mt: 0.5, textAlign: 'right' }}
+                  >
+                    {new Date(message.timestamp + 'Z').toLocaleString()}
+                  </Typography>
+                </Box>
+              </Box>
+            );
+          })}
+          {!conversation?.messages?.length && (
+            <Typography color="text.secondary" align="center">
+              目前沒有對話訊息
+            </Typography>
+          )}
+        </Box>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function ConversationManagement({ currentAssistant }) {
   const [conversations, setConversations] = useState([]);
   const [isLoadingConversations, setIsLoadingConversations] = useState(false);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedConversation, setSelectedConversation] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  function handleOpenConversation(conversation) {
+    setSelectedConversation(conversation);
+    setIsModalOpen(true);
+  }
+
+  function handleCloseModal() {
+    setIsModalOpen(false);
+    setSelectedConversation(null);
+  }
 
   useEffect(() => {
     if (currentAssistant?.assistant_id) {
@@ -196,11 +280,13 @@ export default function ConversationManagement({ currentAssistant }) {
           {getFilteredConversations().map(conversation => (
             <Box
               key={conversation.conversation_id}
+              onClick={() => handleOpenConversation(conversation)}
               sx={{
                 p: 2,
                 borderRadius: 1,
                 border: '1px solid',
                 borderColor: 'divider',
+                cursor: 'pointer',
                 '&:hover': {
                   bgcolor: 'action.hover',
                 },
@@ -227,6 +313,11 @@ export default function ConversationManagement({ currentAssistant }) {
           ))}
         </Box>
       )}
+      <ConversationDialog
+        open={isModalOpen}
+        conversation={selectedConversation}
+        onClose={handleCloseModal}
+      />
     </Box>
   );
 }
