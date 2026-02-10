@@ -43,6 +43,7 @@
       height: options.height || DEFAULT_HEIGHT,
       position: options.position || DEFAULT_POSITION,
       host: options.host || getDefaultHost(),
+      port: options.port || '36100',
       protocol: options.protocol || window.location.protocol,
       minimizable: Boolean(options.minimizable),
       theme: options.theme || 'light',
@@ -53,7 +54,9 @@
     const iframe = document.createElement('iframe');
 
     // 設置iframe的src，指向React應用的嵌入頁面
-    iframe.src = `${config.protocol}//${config.host}:36000/embed?id=${assistantId}`;
+    // iframe.src = `${config.protocol}//${config.host}:36000/embed?id=${assistantId}`;
+    // 設置iframe的src，指向React應用的嵌入頁面
+    iframe.src = `${config.protocol}//${config.host}:${config.port}/embed?id=${assistantId}`;
 
     // 設置iframe的樣式
     iframe.style.width =
@@ -101,8 +104,10 @@
           toggleButton.innerHTML = '&#x1F4AC;';
         };
 
+        // // 設置圖片源
+        // imgElement.src = `${config.protocol}//${config.host}:36100/api/embed/assistant/${assistantId}/image`;
         // 設置圖片源
-        imgElement.src = `${config.protocol}//${config.host}:36100/api/embed/assistant/${assistantId}/image`;
+        imgElement.src = `${config.protocol}//${config.host}:${config.port}/api/embed/assistant/${assistantId}/image`;
 
         // 先清空按鈕內容，然後添加圖片
         toggleButton.innerHTML = '';
