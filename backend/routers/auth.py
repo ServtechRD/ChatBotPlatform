@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from models.database import get_db
@@ -8,6 +10,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from datetime import timedelta
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 # OAuth2 密码流机制
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
@@ -33,6 +36,7 @@ def register_user(user_data: UserCreate, db: Session = Depends(get_db)):
     access_token = create_access_token(data={"sub": str(new_user.user_id)}, expires_delta=access_token_expires)
     refresh_token = create_refresh_token(data={"sub": str(new_user.user_id)})
 
+    logger.info("register success user_id=%s", new_user.user_id)
     return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
 
 
@@ -52,6 +56,7 @@ def login_user(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = D
     access_token = create_access_token(data={"sub": str(user.user_id)}, expires_delta=access_token_expires)
     refresh_token = create_refresh_token(data={"sub": str(user.user_id)})
 
+    logger.info("login success user_id=%s", user.user_id)
     return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
 
 

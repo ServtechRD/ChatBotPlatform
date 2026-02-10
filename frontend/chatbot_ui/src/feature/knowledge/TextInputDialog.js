@@ -55,7 +55,7 @@ const TextInputDialog = ({
     setSubmitStatus(null);
 
     try {
-      // 調用 API 提交文字內容
+      // 調用 API 送出文字內容
       const response = await ApiService.submitText(assistantId, textContent);
 
       setSubmitStatus('success');
@@ -124,7 +124,7 @@ const TextInputDialog = ({
             }}
           >
             <CircularProgress size={48} />
-            <Typography sx={{ mt: 2 }}>提交中...</Typography>
+            <Typography sx={{ mt: 2 }}>送出中...</Typography>
           </Box>
         ) : (
           <>
@@ -160,7 +160,7 @@ const TextInputDialog = ({
 
         {submitStatus === 'error' && (
           <Typography color="error" sx={{ mt: 2 }}>
-            提交失敗，請稍後再試
+            送出失敗，請稍後再試
           </Typography>
         )}
       </DialogContent>

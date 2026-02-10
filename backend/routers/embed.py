@@ -12,17 +12,17 @@ from sqlalchemy.orm import Session
 
 from fastapi.responses import FileResponse
 
-# 創建路由器
+# 新增路由器
 router = APIRouter(tags=["embed"])
 
 
 @router.get("/api/embed/assistant/{assistant_link}/image")
 async def get_assistant_image(assistant_link: str, db: Session = Depends(get_db)):
     """
-    根據助手連結獲取其圖片
+    根據助手連結取得其圖片
     """
     try:
-        # 查詢助手信息
+        # 查詢助手訊息
         assistant = db.query(AIAssistant).filter(AIAssistant.link == assistant_link).first()
 
         if not assistant:
@@ -30,18 +30,18 @@ async def get_assistant_image(assistant_link: str, db: Session = Depends(get_db)
 
         # 檢查圖片路徑是否存在
         if not assistant.image_crop:
-            # 返回默認圖片
+            # 返回預設圖片
             default_image_path = "public/images/default_assistant.png"
             if os.path.exists(default_image_path):
                 return FileResponse(default_image_path)
             else:
                 raise HTTPException(status_code=404, detail="找不到圖片")
 
-        # 根據數據庫中儲存的路徑獲取圖片
+        # 根據數據庫中儲存的路徑取得圖片
         image_path = assistant.image_crop
 
-        # 如果路徑是相對路徑，添加基礎路徑
-        # 如果路徑不是以/public開頭，添加前綴
+        # 如果路徑是相對路徑，新增基礎路徑
+        # 如果路徑不是以/public開頭，新增前綴
         if image_path.startswith("/public/"):
             # 去除開頭的斜槓（如果有）
             if image_path.startswith("/"):
@@ -53,21 +53,21 @@ async def get_assistant_image(assistant_link: str, db: Session = Depends(get_db)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"伺服器錯誤: {str(e)}")
 
-# 獲取助手嵌入信息API
+# 取得助手嵌入訊息API
 @router.get("/api/embed/assistant/{assistant_link}")
 async def get_embed_assistant_info(assistant_link: str, db: Session = Depends(get_db)):
     """
-    根據ID獲取用於嵌入的助手信息
+    根據ID取得用於嵌入的助手訊息
     """
     try:
-        # 查詢助手信息
+        # 查詢助手訊息
         assistant = db.query(AIAssistant).filter(AIAssistant.link == assistant_link).first()
 
 
         if not assistant:
             raise HTTPException(status_code=404, detail="找不到指定ID的助手")
 
-        # 返回必要的助手信息
+        # 返回必要的助手訊息
         return {
             "id": assistant.assistant_id,
             "name": assistant.name,

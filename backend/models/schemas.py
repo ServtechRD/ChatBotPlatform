@@ -13,6 +13,7 @@ class UserCreate(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
+    refresh_token: Optional[str] = None  # 登入/註冊時回傳，/refresh 不回傳
 
 
 # 助理创建模型

@@ -1,5 +1,5 @@
 (function () {
-  // 默認配置
+  // 預設配置
   const DEFAULT_WIDTH = 400;
   const DEFAULT_HEIGHT = 600;
   const DEFAULT_POSITION = 'inline';
@@ -25,7 +25,7 @@
       return;
     }
 
-    // 獲取容器元素
+    // 取得容器元素
     const container = document.getElementById(containerId);
     if (!container) {
       console.error(`找不到ID為${containerId}的容器元素`);
@@ -49,7 +49,7 @@
       ...options,
     };
 
-    // 創建iframe
+    // 新增iframe
     const iframe = document.createElement('iframe');
 
     // 設置iframe的src，指向React應用的嵌入頁面
@@ -82,11 +82,11 @@
           document.body.removeChild(existingButton);
         }
 
-        // 創建最小化按鈕
+        // 新增最小化按鈕
         const toggleButton = document.createElement('button');
         toggleButton.id = `toggle-button-${containerId}`;
 
-        // 默認使用文本，但我們會嘗試加載助手圖片
+        // 預設使用文本，但我們會嘗試加載助手圖片
         toggleButton.innerHTML = '&#x1F4AC;'; // 對話泡泡符號
 
         // 嘗試加載助手圖片
@@ -97,14 +97,14 @@
         imgElement.style.objectFit = 'cover';
         imgElement.alt = 'Chat';
         imgElement.onerror = () => {
-          // 圖片加載失敗時顯示默認符號
+          // 圖片加載失敗時顯示預設符號
           toggleButton.innerHTML = '&#x1F4AC;';
         };
 
         // 設置圖片源
         imgElement.src = `${config.protocol}//${config.host}:36100/api/embed/assistant/${assistantId}/image`;
 
-        // 先清空按鈕內容，然後添加圖片
+        // 先清空按鈕內容，然後新增圖片
         toggleButton.innerHTML = '';
         toggleButton.appendChild(imgElement);
 
@@ -127,7 +127,7 @@
         toggleButton.style.fontSize = '16px';
         toggleButton.style.padding = '0'; // 移除內邊距，以便圖片能充滿按鈕
 
-        // 創建X按鈕的文本內容
+        // 新增X按鈕的文本內容
         const closeText = document.createElement('span');
         closeText.innerHTML = '&#x2715;'; // X符號
         closeText.style.display = 'none'; // 初始隱藏
@@ -136,12 +136,12 @@
         let isMinimized = true; // 預設是最小化的
         iframe.style.display = 'none'; // 初始隱藏iframe
 
-        // 先加載默認圖片符號
+        // 先加載預設圖片符號
         toggleButton.innerHTML = '';
         toggleButton.appendChild(imgElement);
         toggleButton.appendChild(closeText);
 
-        // 點擊事件
+        // 點選事件
         toggleButton.addEventListener('click', function () {
           if (isMinimized) {
             // 展開聊天 - 顯示X符號
@@ -178,7 +178,7 @@
           }
         });
 
-        // 添加按鈕到頁面
+        // 新增按鈕到頁面
         document.body.appendChild(toggleButton);
 
         // 在iframe卸載時也移除按鈕
@@ -188,7 +188,7 @@
           }
         };
 
-        // 添加卸載事件
+        // 新增卸載事件
         if (container) {
           const originalRemoveChild = container.removeChild;
           container.removeChild = function (child) {
@@ -202,7 +202,7 @@
       }
     }
 
-    // 添加到容器
+    // 新增到容器
     container.appendChild(iframe);
 
     // 標記此容器為已初始化
@@ -238,7 +238,7 @@
   window.AssistantChat = {
     init: initChat,
     destroy: destroyChat,
-    // 添加檢查方法
+    // 新增檢查方法
     isInitialized: containerId => initializedContainers.has(containerId),
   };
 })();

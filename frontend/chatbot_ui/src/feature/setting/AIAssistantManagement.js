@@ -38,7 +38,7 @@ const AIAssistantManagement = ({ onRefresh }) => {
       setAssistants(data);
     } catch (error) {
       console.error('Failed to fetch assistants data:', error);
-      alert('獲取助理列表失敗');
+      alert('取得助理列表失敗');
     } finally {
       setIsLoading(false);
     }
@@ -83,7 +83,7 @@ const AIAssistantManagement = ({ onRefresh }) => {
       setAssistants([...assistants, { ...updatedAssistant, id: Date.now() }]);
     }
     handleCloseDialog();*/
-    // 重新獲取列表數據
+    // 重新取得列表數據
     await fetchAssistants();
     if (onRefresh) {
       onRefresh();
@@ -125,7 +125,7 @@ const AIAssistantManagement = ({ onRefresh }) => {
         </Box>
       </Box>
       {isLoading ? (
-        <Typography>載入中...</Typography>
+        <Typography>讀取中...</Typography>
       ) : (
         <TableContainer component={Paper}>
           <Table>

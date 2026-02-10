@@ -71,7 +71,7 @@ def generate_summary_and_keywords(text, max_summary_words=150, max_keywords=10):
         "zh-cn": "Chinese",
         "zh-tw": "Traditional Chinese",
         "zh": "Traditional Chinese",
-        # 添加其他语言映射
+        # 新增其他语言映射
     }
     lang_code, _ = langid.classify(text)
     language = LANGUAGE_MAP.get(lang_code, "English")
@@ -242,7 +242,7 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
 
     # print(f"{summary_keywords}")
 
-    # 保存元信息到数据库
+    # 保存元訊息到数据库
     new_entry = KnowledgeBase(
         assistant_id=assistant_id,
         file_name=file.filename,

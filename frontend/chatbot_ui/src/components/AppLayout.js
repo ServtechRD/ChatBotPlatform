@@ -105,7 +105,7 @@ export default function AppLayout() {
     initializeData();
 
     // 監聽 storage 變化，當 userData 或 assistantsData 更新時重新讀取
-    const handleStorageChange = (e) => {
+    const handleStorageChange = e => {
       if (e.key === 'userData' || e.type === 'userDataUpdated') {
         const newEmail = ApiService.getUserEmail();
         if (newEmail) {
@@ -114,7 +114,7 @@ export default function AppLayout() {
       }
     };
 
-    const handleAssistantsChange = (e) => {
+    const handleAssistantsChange = e => {
       const assistants = e.detail || ApiService.getAssistatns() || [];
       setAgents(assistants);
       if (assistants.length > 0 && !currentAgent) {
@@ -132,7 +132,10 @@ export default function AppLayout() {
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('userDataUpdated', handleStorageChange);
-      window.removeEventListener('assistantsDataUpdated', handleAssistantsChange);
+      window.removeEventListener(
+        'assistantsDataUpdated',
+        handleAssistantsChange
+      );
     };
   }, []);
 

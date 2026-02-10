@@ -38,7 +38,7 @@ export default function ConversationManagement({ currentAssistant }) {
       setConversations(data);
     } catch (err) {
       console.error('Error fetching conversations:', err);
-      setError('無法載入對話列表，請稍後再試');
+      setError('無法讀取對話列表，請稍後再試');
       setConversations([]);
       handleApiError(err);
     } finally {

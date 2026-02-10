@@ -92,7 +92,7 @@ async def websocket_endpoint(
             print("recv :" + data)
             # 開始思考
             await manager.send_message("@@@", assistant_uuid, customer_id)
-            # 再次添加一个延时，确保 "###" 的发送是分离的
+            # 再次新增一个延时，确保 "###" 的发送是分离的
             await asyncio.sleep(0.1)
 
             # 将收到的消息保存为对话记录
@@ -118,7 +118,7 @@ async def websocket_endpoint(
             db.commit()
             # 停止思考
             await manager.send_message("###", assistant_uuid, customer_id)
-            # 再次添加一个延时，确保 "###" 的发送是分离的
+            # 再次新增一个延时，确保 "###" 的发送是分离的
             await asyncio.sleep(0.1)
 
             # 将助理回复发送给客户

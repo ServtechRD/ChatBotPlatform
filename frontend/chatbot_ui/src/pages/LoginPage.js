@@ -53,20 +53,26 @@ export default function LoginPage() {
   async function handleLogin(e) {
     e.preventDefault();
     setError('');
+    if (isLoading) return; // 防止重複送出
     setIsLoading(true);
 
     try {
       const response = await ApiService.login(email, password);
-      const token = response.access_token;
+      const token = response?.access_token;
+
+      if (!token) {
+        setError('登入失敗：未取得憑證，請稍後再試');
+        return;
+      }
 
       await login(token);
       await ApiService.fetchUserData();
-      await ApiService.fetchAssistants();  // 登入後獲取助理列表
+      await ApiService.fetchAssistants(); // 登入後取得助理列表
 
       navigate('/', { replace: true });
     } catch (err) {
       console.error('Login failed:', err);
-      setError('登入失敗，請檢查您的帳號和密碼');
+      setError(err?.response?.data?.detail || '登入失敗，請檢查您的帳號和密碼');
     } finally {
       setIsLoading(false);
     }
@@ -106,6 +112,11 @@ export default function LoginPage() {
         <Typography component="h1" variant="h5">
           登入
         </Typography>
+        {error ? (
+          <Alert severity="error" sx={{ mt: 2, width: '100%' }} onClose={() => setError('')}>
+            {error}
+          </Alert>
+        ) : null}
         <Box component="form" onSubmit={handleLogin} noValidate sx={{ mt: 1 }}>
           <TextField
             margin="normal"
@@ -148,13 +159,14 @@ export default function LoginPage() {
             type="submit"
             fullWidth
             variant="contained"
-            color="primary" // 使用 primary color
+            color="primary"
+            disabled={isLoading}
             sx={{
               mt: 3,
               mb: 2,
             }}
           >
-            登入
+            {isLoading ? '登入中…' : '登入'}
           </Button>
           <Button
             fullWidth

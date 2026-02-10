@@ -221,7 +221,7 @@ export default function KnowledgeBaseUI({ currentAssistant }) {
 
         <List>
           {isLoading ? (
-            <Typography>載入中...</Typography>
+            <Typography>讀取中...</Typography>
           ) : (
             filteredItems.map((item, index) => (
               <Paper key={index} elevation={1} sx={{ mb: 2 }}>
