@@ -28,10 +28,11 @@ export const formatImageUrl = url => {
   }
 
   // 優先使用靜態資源專用 URL,如果沒有則使用 API URL
-  const staticBaseUrl =
-    process.env.REACT_APP_STATIC_BASE_URL ||
-    process.env.REACT_APP_API_BASE_URL ||
-    '';
+  // const staticBaseUrl =
+  //   process.env.REACT_APP_STATIC_BASE_URL ||
+  //   process.env.REACT_APP_API_BASE_URL ||
+  //   '';
+  const staticBaseUrl = process.env.REACT_APP_API_BASE_URL || '';
 
   // 如果有設定基礎網址,就加上去
   if (staticBaseUrl) {
