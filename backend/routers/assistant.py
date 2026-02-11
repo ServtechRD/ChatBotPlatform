@@ -10,6 +10,7 @@ from services.vector_service import process_and_store_file, list_knowledge, get_
 from services.auth_service import verify_token
 from models.schemas import AssistantCreate, Assistant, AssistantUpdate
 from utils.logger import get_logger
+import asyncio
 import os
 import uuid
 
@@ -116,9 +117,9 @@ def create_assistant(  # assistant_data: AssistantCreate,
     }
 
 
-# 上传文件并处理
+# 上传文件并处理（同步 def，由 FastAPI 在 thread pool 執行，避免阻塞主事件迴圈）
 @router.post("/assistant/{assistant_id}/upload")
-async def upload_file(assistant_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
+def upload_file(assistant_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
     logger.info("[upload_file] 收到上傳請求 assistant_id=%s filename=%s", assistant_id, file.filename)
     # 验证助理是否存在
     assistant = db.query(AIAssistant).filter(AIAssistant.assistant_id == assistant_id).first()
@@ -126,8 +127,8 @@ async def upload_file(assistant_id: int, file: UploadFile = File(...), db: Sessi
         raise HTTPException(status_code=404, detail="Assistant not found")
 
     try:
-        # 处理上传的文件，生成嵌入并存储到向量数据库
-        result = await process_and_store_file(assistant_id, file, db)
+        # 处理上传的文件，生成嵌入并存储到向量数据库（在 thread 內用 asyncio.run 執行，不阻塞主迴圈）
+        result = asyncio.run(process_and_store_file(assistant_id, file, db))
         print(type(result), result)
         logger.info("[upload_file] process_and_store_file 已完成，即將回傳 200 給瀏覽器 assistant_id=%s filename=%s", assistant_id, file.filename)
         return {"message": "File uploaded and embeddings stored in vector database.", "data": result["km"]}
