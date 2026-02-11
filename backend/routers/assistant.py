@@ -119,22 +119,22 @@ def create_assistant(  # assistant_data: AssistantCreate,
 
 # 上传文件并处理（同步 def，由 FastAPI 在 thread pool 執行，避免阻塞主事件迴圈）
 @router.post("/assistant/{assistant_id}/upload")
-def upload_file(assistant_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
-    logger.info("[upload_file] 收到上傳請求 assistant_id=%s filename=%s", assistant_id, file.filename)
-    # 验证助理是否存在
+async def upload_file(
+    assistant_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
     assistant = db.query(AIAssistant).filter(AIAssistant.assistant_id == assistant_id).first()
     if not assistant:
-        raise HTTPException(status_code=404, detail="Assistant not found")
+        raise HTTPException(404, "Assistant not found")
 
     try:
-        # 处理上传的文件，生成嵌入并存储到向量数据库（在 thread 內用 asyncio.run 執行，不阻塞主迴圈）
-        result = asyncio.run(process_and_store_file(assistant_id, file, db))
-        print(type(result), result)
-        logger.info("[upload_file] process_and_store_file 已完成，即將回傳 200 給瀏覽器 assistant_id=%s filename=%s", assistant_id, file.filename)
+        result = await run_in_threadpool(process_and_store_file, assistant_id, file, db)
         return {"message": "File uploaded and embeddings stored in vector database.", "data": result["km"]}
     except HTTPException:
-        raise
+        raise  # 保留原本可能抛出的 HTTPException
     except Exception as e:
+        logger.exception("[upload_file] 上傳處理失敗 assistant_id=%s filename=%s", assistant_id, file.filename)
         raise HTTPException(status_code=500, detail=str(e))
 
 
