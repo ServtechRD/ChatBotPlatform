@@ -71,70 +71,93 @@ def generate_summary_and_keywords(text, max_summary_words=150, max_keywords=10):
         "fr": "French",
         "es": "Spanish",
         "de": "German",
-        "zh-cn": "Chinese",
+        "zh-cn": "Simplified Chinese",
         "zh-tw": "Traditional Chinese",
         "zh": "Traditional Chinese",
         # 新增其他语言映射
     }
     lang_code, _ = langid.classify(text)
-    language = LANGUAGE_MAP.get(lang_code, "English")
+    language = LANGUAGE_MAP.get(lang_code, "Traditional Chinese")
     print(f"language code = {lang_code}, lang = {language}")
 
+    # 構建更明確的 Prompt，強制要求特定格式輸出
     prompt = (
-        f"Summarize the following text in {language}, ensuring the summary is less than {max_summary_words} words. "
-        f"Also, provide up to {max_keywords} keywords in {language}. "
-        f"The keywords should be comma-separated.\n\n"
-        f"Text:\n{text}"
+        f"Please act as a professional document summarizer. Analyze the following text and provide a summary and keywords in {language}.\n\n"
+        f"Requirements:\n"
+        f"1. Summary: Concise and comprehensive, under {max_summary_words} words.\n"
+        f"2. Keywords: Up to {max_keywords} relevant keywords, separated by commas.\n"
+        f"3. Output Format: You MUST strictly follow the format below:\n\n"
+        f"Summary: [Your summary here]\n"
+        f"Keywords: [Keyword1, Keyword2, ...]\n\n"
+        f"Text Content (truncated if too long):\n{text[:15000]}"  # 避免 context window 爆炸導致亂碼
     )
 
     # 初始化 ChatOpenAI 模型
-    # llm = ChatOpenAI(
-    #     openai_api_key=api_key,  # 替换为你的 API 密钥
-    #     model="gpt-3.5-turbo"  # 使用支持更大上下文的模型
-    # )
-
-    # 利用 Local Ollama (235主機) 生成回覆
+    # 加入 temperature 參數以減少幻覺與亂碼
     llm = ChatOpenAI(
         openai_api_key="ollama",      # 本地端隨意填
         base_url="http://192.168.1.235:11534/v1",  # 指向 235 主機
         model="gpt-oss:20b",           # 使用指定模型
+        temperature=0.2,               # 低溫度讓輸出更穩定
         model_kwargs={"extra_body": {"keep_alive": -1}}
     )
     
-    response = llm([HumanMessage(content=prompt)])
-    result = response.content.strip()
-    print(f"summary and keywords :{result}")
-    # 分隔 summary 和 keywords
     try:
+        response = llm([HumanMessage(content=prompt)])
+        result = response.content.strip()
+        print(f"summary and keywords raw result: {result}")
+        
+        summary = ""
+        keywords_line = ""
 
-        keyword_marker = "Keywords"
-        if lang_code == "zh-cn":
-            keyword_marker = "关键词"
-        elif lang_code.startswith("zh"):
-            keyword_marker = "關鍵詞"
+        # 增強解析邏輯
+        lines = result.split('\n')
+        current_section = None
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+                
+            # 檢查標記
+            lower_line = line.lower()
+            if lower_line.startswith("summary:") or lower_line.startswith("摘要:") or lower_line.startswith("summary：") or lower_line.startswith("摘要："):
+                current_section = "summary"
+                # 移除標記後取出內容
+                content = line.split(':', 1)[-1].split('：', 1)[-1].strip()
+                if content:
+                    summary += content + " "
+            elif lower_line.startswith("keywords:") or lower_line.startswith("关键词:") or lower_line.startswith("關鍵詞:") or lower_line.startswith("keywords："):
+                current_section = "keywords"
+                content = line.split(':', 1)[-1].split('：', 1)[-1].strip()
+                if content:
+                    keywords_line += content + " "
+            elif current_section == "summary":
+                summary += line + " "
+            elif current_section == "keywords":
+                keywords_line += line + " "
 
-        # 查找关键词标志的位置
-        marker_index = result.find(keyword_marker)
+        # 如果解析失敗，使用回退邏輯
+        if not summary and not keywords_line:
+             print("Parsing failed, using fallback logic")
+             # 回退到簡單分割
+             if "Keywords:" in result:
+                 parts = result.split("Keywords:")
+                 summary = parts[0].replace("Summary:", "").strip()
+                 keywords_line = parts[1].strip()
+             elif "關鍵詞:" in result:
+                 parts = result.split("關鍵詞:")
+                 summary = parts[0].replace("摘要:", "").strip()
+                 keywords_line = parts[1].strip()
+             else:
+                 summary = result  # 無法區分，全當摘要
+        
+        return summary.strip(), keywords_line.strip()
 
-        if marker_index != -1:
-            # 提取摘要和关键词部分
-            print(f"find  {keyword_marker} => {marker_index}")
-            summary = result[:marker_index].strip()
-            keywords_line = result[marker_index + len(keyword_marker):].strip()
-        else:
-            print("use last line")
-            lines = result.strip().split("\n")
-
-            if len(lines) > 1:
-                summary = "\n".join(lines[:-1])  # 除最后一行外，其他行作为摘要
-                keywords_line = lines[-1]  # 最后一行为关键词
-            else:
-                print("no last line")
-                summary = result.strip()
-                keywords_line = ""
-        return summary, keywords_line
-    except ValueError:
-        raise ValueError("The response format is incorrect. Ensure the delimiter '---' is present.")
+    except Exception as e:
+        print(f"Error generating summary: {e}")
+        # 出錯時回傳空值以免中斷流程
+        return "Summary generation unavailable", ""
 
 
 # 计算文档的 token 数量
