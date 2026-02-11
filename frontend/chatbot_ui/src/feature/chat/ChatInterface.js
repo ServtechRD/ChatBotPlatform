@@ -350,6 +350,21 @@ export default function ChatInterface({
     sendMessage(inputMessage);
   }
 
+  // 追蹤語音播放序列，用於取消舊的播放
+  const currentSpeechIdRef = useRef(0);
+  const speechTimeoutRef = useRef(null);
+
+  function cleanText(text) {
+    return text
+      // 移除 emoji
+      .replace(/[\p{Extended_Pictographic}]/gu, '')
+      // 移除各種特殊符號 (保留文字、數字、空白)
+      .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+      // 合併多餘空白
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
   function speakText(text) {
     if (!text) return;
 
@@ -358,42 +373,71 @@ export default function ChatInterface({
       speechSynthesisRef.current.cancel();
     }
 
-    setIsSpeaking(true);
-
-    // 1. 將 $ 替換為 "台幣"
-    let cleanText = text.replace(/\$/g, '台幣');
-
-    // 2. 移除所有標點符號和特殊字元，只保留文字 (中英文) 和數字
-    // 使用 Unicode Property Escapes: 
-    // \p{L} = 任何語言的字母 (包含中文)
-    // \p{N} = 任何數字
-    // \s = 空白字元
-    cleanText = cleanText.replace(/[^\p{L}\p{N}\s]/gu, ' ');
-
-    // 3. 移除多餘的連續空白
-    cleanText = cleanText.replace(/\s+/g, ' ').trim();
-
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    if (voiceRef.current) {
-      utterance.voice = voiceRef.current;
+    // 清除任何等待中的計時器
+    if (speechTimeoutRef.current) {
+      clearTimeout(speechTimeoutRef.current);
+      speechTimeoutRef.current = null;
     }
 
-    // 設置語速 (1 為正常速度, 1.25 微快)
-    utterance.rate = 1.25;
+    // 更新 Speech ID 以無效化舊的播放序列
+    currentSpeechIdRef.current += 1;
+    const speechId = currentSpeechIdRef.current;
 
-    // 設置音高
-    utterance.pitch = 1;
+    setIsSpeaking(true);
 
-    utterance.onend = () => {
-      setIsSpeaking(false);
-    };
+    // 切割句子：以標點符號為界
+    const sentences = text.split(/[。！？!?，,]/);
+    let index = 0;
 
-    utterance.onerror = err => {
-      console.error('語音播放錯誤:', err);
-      setIsSpeaking(false);
-    };
+    function speakNext() {
+      // 檢查此播放序列是否仍有效
+      if (speechId !== currentSpeechIdRef.current) return;
 
-    speechSynthesisRef.current.speak(utterance);
+      if (index >= sentences.length) {
+        setIsSpeaking(false);
+        return;
+      }
+
+      const segment = sentences[index];
+      const cleaned = cleanText(segment);
+
+      if (!cleaned) {
+        // 如果清理後是空字串，則跳過並繼續
+        index++;
+        Promise.resolve().then(speakNext);
+        return;
+      }
+
+      const utterance = new SpeechSynthesisUtterance(cleaned);
+
+      if (voiceRef.current) {
+        utterance.voice = voiceRef.current;
+      }
+      utterance.lang = "zh-TW";
+      utterance.rate = 1; // 正常語速
+      utterance.pitch = 1;
+
+      utterance.onend = () => {
+        if (speechId !== currentSpeechIdRef.current) return;
+
+        // 句子之間的停頓 (500ms)
+        speechTimeoutRef.current = setTimeout(() => {
+          if (speechId !== currentSpeechIdRef.current) return;
+          index++;
+          speakNext();
+        }, 500);
+      };
+
+      utterance.onerror = (err) => {
+        console.error('語音播放錯誤:', err);
+        if (speechId !== currentSpeechIdRef.current) return;
+        setIsSpeaking(false);
+      };
+
+      speechSynthesisRef.current.speak(utterance);
+    }
+
+    speakNext();
   }
 
   function safeSend(msg) {
