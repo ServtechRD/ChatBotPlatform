@@ -382,6 +382,20 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
         file_extension = heavy_result["file_extension"]
 
         # DB 寫入僅在主線程執行（Session 非線程安全）
+        # 安全截斷 summary 和 keywords 以防止 DB 欄位長度溢位 (Data too long)
+        # 假設 summary 欄位可能是 TEXT (65535) 或 LONGTEXT，但為了安全起見，限制在合理範圍
+        # 錯誤日誌顯示 summary 有 150k+ 字元，這明顯是模型產生了重複迴圈
+        MAX_SUMMARY_LEN = 10000  
+        MAX_KEYWORDS_LEN = 1000
+
+        if len(summary) > MAX_SUMMARY_LEN:
+             logger.warning("[上傳檔案] Summary 過長 (%d chars)，進行截斷。", len(summary))
+             summary = summary[:MAX_SUMMARY_LEN] + "...(truncated)"
+        
+        if len(keyword_lines) > MAX_KEYWORDS_LEN:
+             logger.warning("[上傳檔案] Keywords 過長 (%d chars)，進行截斷。", len(keyword_lines))
+             keyword_lines = keyword_lines[:MAX_KEYWORDS_LEN]
+
         if existing_entry:
             logger.info("[上傳檔案] 更新既有 DB 紀錄 filename=%s", filename)
             existing_entry.summary = summary
