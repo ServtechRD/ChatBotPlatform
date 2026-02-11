@@ -29,9 +29,10 @@ app.add_middleware(
     expose_headers=["Content-Disposition"]
 )
 
-# 配置静态文件路由
+# 配置靜態檔案：/public 與 /images（相容舊連結 /images/xxx.jpg）
 app.mount("/public", StaticFiles(directory="public"), name="public")
-
+app.mount("/images", StaticFiles(directory="public/images"), name="images")
+app.mount("/videos", StaticFiles(directory="public/videos"), name="videos")
 # 包含助理、对话、WebSocket路由
 app.include_router(assistant.router)
 app.include_router(conversation.router)
