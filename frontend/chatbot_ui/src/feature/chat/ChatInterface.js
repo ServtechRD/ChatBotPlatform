@@ -360,7 +360,20 @@ export default function ChatInterface({
 
     setIsSpeaking(true);
 
-    const utterance = new SpeechSynthesisUtterance(text);
+    // 1. 將 $ 替換為 "台幣"
+    let cleanText = text.replace(/\$/g, '台幣');
+
+    // 2. 移除所有標點符號和特殊字元，只保留文字 (中英文) 和數字
+    // 使用 Unicode Property Escapes: 
+    // \p{L} = 任何語言的字母 (包含中文)
+    // \p{N} = 任何數字
+    // \s = 空白字元
+    cleanText = cleanText.replace(/[^\p{L}\p{N}\s]/gu, ' ');
+
+    // 3. 移除多餘的連續空白
+    cleanText = cleanText.replace(/\s+/g, ' ').trim();
+
+    const utterance = new SpeechSynthesisUtterance(cleanText);
     if (voiceRef.current) {
       utterance.voice = voiceRef.current;
     }
