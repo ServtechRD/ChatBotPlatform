@@ -9,10 +9,12 @@ from models.models import AIAssistant, User
 from services.vector_service import process_and_store_file, list_knowledge, get_knowledge_content, update_knowledge_base_item
 from services.auth_service import verify_token
 from models.schemas import AssistantCreate, Assistant, AssistantUpdate
+from utils.logger import get_logger
 import os
 import uuid
 
 router = APIRouter()
+logger = get_logger(__name__)
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
@@ -117,15 +119,16 @@ def create_assistant(  # assistant_data: AssistantCreate,
 # 上传文件并处理
 @router.post("/assistant/{assistant_id}/upload")
 async def upload_file(assistant_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    logger.info("[upload_file] 收到上傳請求 assistant_id=%s filename=%s", assistant_id, file.filename)
     # 验证助理是否存在
     assistant = db.query(AIAssistant).filter(AIAssistant.assistant_id == assistant_id).first()
     if not assistant:
         raise HTTPException(status_code=404, detail="Assistant not found")
 
-    # 处理上传的文件，生成嵌入并存储到向量数据库
+    # 處理完成前不會 return，故瀏覽器要等此 await 結束後才會收到 200
     result = await process_and_store_file(assistant_id, file, db)
-    print(type(result), result)
 
+    logger.info("[upload_file] process_and_store_file 已完成，即將回傳 200 給瀏覽器 assistant_id=%s filename=%s", assistant_id, file.filename)
     return {"message": "File uploaded and embeddings stored in vector database.", "data": result["km"]}
 
 

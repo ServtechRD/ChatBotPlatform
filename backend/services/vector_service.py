@@ -424,6 +424,7 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
             "[上傳檔案 完成] assistant_id=%s filename=%s chunks=%d token_count=%d 總耗時=%.2f ms",
             assistant_id, filename, len(documents), token_count, t_total_ms
         )
+        logger.info("[上傳檔案] process_and_store_file 即將 return，之後 API 才會回傳 200 給瀏覽器")
         return {
             "vector_store": vs,
             "km": {
