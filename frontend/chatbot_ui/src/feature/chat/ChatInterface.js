@@ -71,9 +71,9 @@ export default function ChatInterface({
     recognition.onresult = event => {
       const transcript = event.results[0][0].transcript;
       console.log('辨識結果:', transcript);
-      setInputMessage(transcript);
+      // setInputMessage(transcript);
       // 自動送出
-      setTimeout(() => handleSendMessage(), 300);
+      sendMessage(transcript);
     };
 
     recognition.onstart = () => setIsListening(true);
@@ -318,14 +318,18 @@ export default function ChatInterface({
     );
   }
 
-  function handleSendMessage() {
-    if (!inputMessage.trim()) return;
-    safeSend(inputMessage);
+  function sendMessage(text) {
+    if (!text || !text.trim()) return;
+    safeSend(text);
     setMessages(prev => [
       ...prev,
-      { id: Date.now(), text: inputMessage, isBot: false },
+      { id: Date.now(), text: text, isBot: false },
     ]);
     setInputMessage('');
+  }
+
+  function handleSendMessage() {
+    sendMessage(inputMessage);
   }
 
   async function speakText(text) {
@@ -339,7 +343,7 @@ export default function ChatInterface({
     if (!text) return;
 
     // 2. 文字預處理 (過濾 $ 等符號)
-    let cleanText = text.replace(/\$/g, '新台幣');
+    let cleanText = text.replace(/\$/g, '台幣');
 
     // (選用) 去除表情符號，避免語音朗讀奇怪的編碼
     cleanText = cleanText.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '');
