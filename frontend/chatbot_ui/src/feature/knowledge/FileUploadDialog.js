@@ -191,7 +191,7 @@ const FileUploadDialog = ({
           )}
         </Box>
 
-        <DialogContentText sx={{ mb: 2 }}>
+        {/* <DialogContentText sx={{ mb: 2 }}>
           或者直接貼貼一個網站URL到這裡：
         </DialogContentText>
         <TextField
@@ -201,7 +201,7 @@ const FileUploadDialog = ({
           value={url}
           onChange={e => setUrl(e.target.value)}
           sx={{ mb: 2 }}
-        />
+        /> */}
 
         <FormControlLabel
           control={

@@ -90,8 +90,6 @@ export default function KnowledgeBaseUI({ currentAssistant }) {
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
 
-
-
   const [isTextDialogOpen, setIsTextDialogOpen] = useState(false);
   const [uploadType, setUploadType] = useState(null);
 
@@ -115,7 +113,7 @@ export default function KnowledgeBaseUI({ currentAssistant }) {
 
   function handleKnowledgeItemClick(type) {
     setUploadType(type);
-    if (type === '上傳文件或網址') setIsUploadDialogOpen(true);
+    if (type === '上傳文件') setIsUploadDialogOpen(true);
     else setIsTextDialogOpen(true);
   }
 
@@ -151,7 +149,7 @@ export default function KnowledgeBaseUI({ currentAssistant }) {
         items: [
           {
             icon: <FileTextIcon />,
-            title: '上傳文件或網址',
+            title: '上傳文件',
             description: '支援 pdf / docx / txt',
           },
         ],
@@ -250,7 +248,7 @@ export default function KnowledgeBaseUI({ currentAssistant }) {
                       </ListItemIcon>
                       <ListItemText
                         primary={item.file_name}
-                        secondary={`${item.token_count} Tokens`}
+                        // secondary={`${item.token_count} Tokens`}
                       />
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -258,7 +256,7 @@ export default function KnowledgeBaseUI({ currentAssistant }) {
                       {item.file_name?.toLowerCase().endsWith('.txt') && (
                         <IconButton
                           size="small"
-                          onClick={(e) => {
+                          onClick={e => {
                             e.stopPropagation();
                             handleEditKnowledge(item);
                           }}
@@ -337,7 +335,10 @@ export default function KnowledgeBaseUI({ currentAssistant }) {
     setIsLoading(true);
     try {
       const assistantId = currentAssistant?.assistant_id;
-      const response = await ApiService.getKnowledgeContent(assistantId, item.id);
+      const response = await ApiService.getKnowledgeContent(
+        assistantId,
+        item.id
+      );
       setSelectedItem(item);
       setEditingContent(response.content);
       setUploadType('edit_text');
