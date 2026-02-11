@@ -118,7 +118,6 @@ def create_assistant(  # assistant_data: AssistantCreate,
     }
 
 
-# 上传文件并处理（同步 def，由 FastAPI 在 thread pool 執行，避免阻塞主事件迴圈）
 @router.post("/assistant/{assistant_id}/upload")
 async def upload_file(assistant_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
     # 验证助理是否存在
