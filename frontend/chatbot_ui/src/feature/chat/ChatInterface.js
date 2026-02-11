@@ -18,6 +18,8 @@ import {
 } from '@mui/icons-material';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import { v4 as uuidv4 } from 'uuid';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { formatImageUrl } from '../../utils/urlUtils';
 
 const CHAT_WIDTH = 398;
@@ -140,7 +142,6 @@ export default function ChatInterface({
       );
     };
   }, []);
-
 
   // 聊天室 ws 初始化
   useEffect(() => {
@@ -508,7 +509,8 @@ export default function ChatInterface({
                 }}
               >
                 {/* 訊息文字 */}
-                <Typography
+                <Box
+                  component="div"
                   sx={{
                     color: message.isBot ? 'black' : 'white',
                     wordBreak: 'break-word',
@@ -516,8 +518,10 @@ export default function ChatInterface({
                     flex: 1,
                   }}
                 >
-                  {message.text}
-                </Typography>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {message.text ?? ''}
+                  </ReactMarkdown>
+                </Box>
 
                 {/* 🔊 AI 語音播放按鈕（不會蓋到文字） */}
                 {message.isBot && (

@@ -37,6 +37,8 @@ import {
   ExpandLess as ExpandLessIcon,
 } from '@mui/icons-material';
 
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import FileUploadDialog from './FileUploadDialog';
 import TextInputDialog from './TextInputDialog';
 import ApiService from '../../api/ApiService';
@@ -70,9 +72,16 @@ function KnowledgeBaseItem({ icon, title, description, onClick }) {
             {title}
           </Typography>
         </Box>
-        <Typography variant="body2" color="text.secondary">
-          {description}
-        </Typography>
+        <Box
+          sx={{
+            color: 'text.secondary',
+            fontSize: '0.875rem',
+          }}
+        >
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {description ?? ''}
+          </ReactMarkdown>
+        </Box>
       </CardContent>
     </Card>
   );
@@ -302,9 +311,11 @@ export default function KnowledgeBaseUI({ currentAssistant }) {
                       >
                         摘要
                       </Typography>
-                      <Typography variant="body2" paragraph>
-                        {item.summary}
-                      </Typography>
+                      <Box>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {item.summary ?? ''}
+                        </ReactMarkdown>
+                      </Box>
                       {item.keywords && (
                         <>
                           <Typography
@@ -314,9 +325,11 @@ export default function KnowledgeBaseUI({ currentAssistant }) {
                           >
                             關鍵字
                           </Typography>
-                          <Typography variant="body2">
-                            {item.keywords}
-                          </Typography>
+                          <Box>
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                              {item.keywords ?? ''}
+                            </ReactMarkdown>
+                          </Box>
                         </>
                       )}
                     </Box>

@@ -17,14 +17,14 @@ import {
   Refresh as RefreshIcon,
   Download as DownloadIcon,
 } from '@mui/icons-material';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import ApiService from '../../api/ApiService';
 
 function ConversationDialog({ open, conversation, onClose }) {
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>
-        對話紀錄 - 客戶 ID: {conversation?.customer_id}
-      </DialogTitle>
+      <DialogTitle>對話紀錄 - 客戶 ID: {conversation?.customer_id}</DialogTitle>
       <DialogContent>
         <Box
           sx={{
@@ -50,7 +50,9 @@ function ConversationDialog({ open, conversation, onClose }) {
                   sx={{
                     maxWidth: '80%',
                     bgcolor: isAssistant ? 'white' : 'primary.main',
-                    color: isAssistant ? 'text.primary' : 'primary.contrastText',
+                    color: isAssistant
+                      ? 'text.primary'
+                      : 'primary.contrastText',
                     p: 1.5,
                     borderRadius: 2,
                     boxShadow: 1,
@@ -63,9 +65,11 @@ function ConversationDialog({ open, conversation, onClose }) {
                   >
                     {message.sender}
                   </Typography>
-                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                    {message.content}
-                  </Typography>
+                  <Box>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {message.content ?? ''}
+                    </ReactMarkdown>
+                  </Box>
                   <Typography
                     variant="caption"
                     color={isAssistant ? 'text.secondary' : 'inherit'}
