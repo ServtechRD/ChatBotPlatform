@@ -8,13 +8,14 @@ router = APIRouter()
 
 class TTSRequest(BaseModel):
     text: str
+    rate: str = "+0%"
 
 @router.post("/tts/edge")
 async def edge_tts_endpoint(request: TTSRequest):
     try:
         # 使用微軟台灣男聲
         voice = "zh-TW-YunJheNeural" 
-        communicate = edge_tts.Communicate(request.text, voice)
+        communicate = edge_tts.Communicate(request.text, voice, rate=request.rate)
         
         # 將音訊寫入記憶體或暫存檔
         # 這裡示範簡單寫入暫存檔後讀取
