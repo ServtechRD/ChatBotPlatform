@@ -125,11 +125,17 @@ async def upload_file(assistant_id: int, file: UploadFile = File(...), db: Sessi
     if not assistant:
         raise HTTPException(status_code=404, detail="Assistant not found")
 
-    # 處理完成前不會 return，故瀏覽器要等此 await 結束後才會收到 200
-    result = await process_and_store_file(assistant_id, file, db)
+    try:
+        # 处理上传的文件，生成嵌入并存储到向量数据库
+        result = await process_and_store_file(assistant_id, file, db)
+        print(type(result), result)
+        logger.info("[upload_file] process_and_store_file 已完成，即將回傳 200 給瀏覽器 assistant_id=%s filename=%s", assistant_id, file.filename)
+        return {"message": "File uploaded and embeddings stored in vector database.", "data": result["km"]}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-    logger.info("[upload_file] process_and_store_file 已完成，即將回傳 200 給瀏覽器 assistant_id=%s filename=%s", assistant_id, file.filename)
-    return {"message": "File uploaded and embeddings stored in vector database.", "data": result["km"]}
 
 
 @router.get("/assistant/{assistant_id}/knowledge")
