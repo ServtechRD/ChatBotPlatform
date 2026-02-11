@@ -327,10 +327,26 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
             old_doc_ids = [did.strip() for did in (existing_entry.doc_ids or "").split(",") if did.strip()]
             if old_doc_ids:
                 try:
-                    vs.delete(old_doc_ids)
-                    logger.info("[上傳檔案] 刪除舊向量 完成 filename=%s old_doc_count=%d", filename, len(old_doc_ids))
+                    # 避免 FAISS 報錯 "ValueError: Some specified ids do not exist"
+                    # 先過濾出真正存在於向量庫的 ID
+                    # vs.index_to_docstore_id 是一個 dict: int_index -> doc_id
+                    # 注意：如果向量庫很大，這裡可能會有性能開銷，但對於一般知識庫應無問題
+                    if hasattr(vs, 'index_to_docstore_id'):
+                        current_doc_ids = set(vs.index_to_docstore_id.values())
+                        ids_to_delete = [did for did in old_doc_ids if did in current_doc_ids]
+                    else:
+                        # Fallback if internal structure changes (though unlikely for this version of LangChain)
+                        ids_to_delete = old_doc_ids
+
+                    if ids_to_delete:
+                        vs.delete(ids_to_delete)
+                        logger.info("[上傳檔案] 刪除舊向量 完成 filename=%s removed_count=%d (original_db_count=%d)", 
+                                    filename, len(ids_to_delete), len(old_doc_ids))
+                    else:
+                        logger.info("[上傳檔案] 無舊向量需刪除 (舊 ID 不存在於向量庫，可能是庫已重置) filename=%s", filename)
+
                 except Exception as e:
-                    logger.warning("[上傳檔案] 刪除舊向量失敗（繼續上傳） filename=%s error=%s", filename, e, exc_info=True)
+                    logger.warning("[上傳檔案] 刪除舊向量失敗（非致命，繼續上傳） filename=%s error=%s", filename, e)
 
         save_directory = f"./uploaded_files/assistant_{assistant_id}"
         os.makedirs(save_directory, exist_ok=True)
