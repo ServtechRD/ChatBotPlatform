@@ -208,6 +208,8 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
   const generateCroppedImage = useCallback(() => {
     const image = imageRef.current;
     if (!image || !completedCrop?.width || !completedCrop?.height) return;
+    // 若圖片未載入成功（broken 或尚未載入），不畫 canvas，避免拋錯
+    if (!image.complete || image.naturalWidth === 0) return;
 
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
