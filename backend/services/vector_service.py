@@ -18,11 +18,16 @@ import faiss # pyright: ignore[reportMissingImports]
 import pickle
 
 import os
-import tiktoken  # pyright: ignore[reportMissingImports] 
-import langid # pyright: ignore[reportMissingImports]
+import time
+import tiktoken  # pyright: ignore[reportMissingImports]
+import langid  # pyright: ignore[reportMissingImports]
 import uuid
 
+from utils.logger import get_logger
+
 load_dotenv()  # 加载 .env 文件中的环境变量
+
+logger = get_logger(__name__)
 
 api_key = os.getenv("OPENAI_API_KEY")
 
@@ -204,132 +209,242 @@ def get_loader(file_path: str, file_type: str):
 
 # 处理并存储文件嵌入到向量数据库
 async def process_and_store_file(assistant_id: int, file: UploadFile, db: Session):
-    # Check for existing entry with same name for this assistant
-    existing_entry = db.query(KnowledgeBase).filter(
-        KnowledgeBase.assistant_id == assistant_id,
-        KnowledgeBase.file_name == file.filename
-    ).first()
-
-    # Get existing vector store or load it
-    vs = get_vector_store(assistant_id)
-
-    # If duplicate, delete old vectors first
-    if existing_entry and vs:
-        old_doc_ids = [did.strip() for did in existing_entry.doc_ids.split(",") if did.strip()]
-        if old_doc_ids:
-            try:
-                print(f"Deleting old vectors for duplicate file {file.filename}: {old_doc_ids}")
-                vs.delete(old_doc_ids)
-            except Exception as e:
-                print(f"Warning deleting old vectors during upload: {e}")
-
-    # 设置文件保存路径
-    save_directory = f"./uploaded_files/assistant_{assistant_id}"
-    if not os.path.exists(save_directory):
-        os.makedirs(save_directory)
-
-    file_location = os.path.join(save_directory, file.filename)
-
-    # 保存上传的文件 (overwrites on disk)
-    with open(file_location, "wb+") as f:
-        f.write(await file.read())
-
-    # 根据文件类型选择相应的文档加载器
-    file_extension = file.filename.split(".")[-1].lower()
-    loader = get_loader(file_location, file_extension)
-
-    # 加载文档并生成嵌入
-    documents = loader.load()
-
-    # 使用 RecursiveCharacterTextSplitter 进行分块
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=500,
-        chunk_overlap=50,
-        separators=["\n\n", "\n", "。", "！", "？", ".", "!", "?", " ", ""]
+    t_start = time.perf_counter()
+    filename = file.filename or "(unnamed)"
+    logger.info(
+        "[上傳檔案 開始] assistant_id=%s filename=%s content_type=%s",
+        assistant_id, filename, getattr(file, "content_type", None)
     )
-    documents = text_splitter.split_documents(documents)
 
-    documents = process_documents_with_id(documents)
-
-    # 使用 Jarvis 同款的中文 Embedding 模型
-    embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-base-zh-v1.5")
-
-    # 更新或生成向量存儲
-    if vs:
-        # Check for dimension mismatch
-        test_emb = embeddings.embed_query("test")
-        if len(test_emb) != vs.index.d:
-            error_msg = f"Vector store dimension mismatch (Index: {vs.index.d}, Model: {len(test_emb)}). Please reset knowledge base for this assistant."
-            print(f"CRITICAL ERROR: {error_msg}")
-            raise ValueError(error_msg)
-
-        print(f"Adding documents to existing vector store for assistant {assistant_id}")
-        doc_ids = [doc.metadata["doc_id"] for doc in documents]
-        vs.add_documents(documents, ids=doc_ids)
-        vector_store[assistant_id] = vs
-    else:
-        print(f"Creating new vector store for assistant {assistant_id}")
-        doc_ids = [doc.metadata["doc_id"] for doc in documents]
-        vector_store[assistant_id] = FAISS.from_documents(documents, embeddings, ids=doc_ids)
-        vs = vector_store[assistant_id]
-
-    # 保存向量存储到磁盘
-    save_vector_store(assistant_id, vs)
-
-    # 计算 token 数量
-    token_count = calculate_token_count(documents)
-
-    # 提取所有文本内容
-    full_text = " ".join([doc.page_content for doc in documents])
-
-    # 生成摘要和關鍵詞
-    summary, keyword_lines = generate_summary_and_keywords(full_text)
-
-    # 获取 doc_id 列表
-    doc_ids = [doc.metadata["doc_id"] for doc in documents]
-    doc_ids_string = ", ".join(doc_ids)
-
-    if existing_entry:
-        print(f"Updating existing database entry for {file.filename}")
-        existing_entry.summary = summary
-        existing_entry.keywords = keyword_lines
-        existing_entry.doc_ids = doc_ids_string
-        existing_entry.token_count = token_count
-        existing_entry.upload_date = datetime.utcnow()
-        db.commit()
-        db.refresh(existing_entry)
-        entry_to_return = existing_entry
-    else:
-        print(f"Creating new database entry for {file.filename}")
-        new_entry = KnowledgeBase(
-            assistant_id=assistant_id,
-            file_name=file.filename,
-            file_type=f"{file_extension.upper()}",
-            summary=summary,
-            keywords=keyword_lines,
-            doc_ids=doc_ids_string,
-            description=f"Uploaded file {file.filename} by assistant {assistant_id}",
-            token_count=token_count,
-            upload_date=datetime.utcnow()
+    try:
+        # Check for existing entry with same name for this assistant
+        t_q = time.perf_counter()
+        existing_entry = db.query(KnowledgeBase).filter(
+            KnowledgeBase.assistant_id == assistant_id,
+            KnowledgeBase.file_name == filename
+        ).first()
+        vs = get_vector_store(assistant_id)
+        t_q_ms = (time.perf_counter() - t_q) * 1000
+        logger.info(
+            "[上傳檔案] 查詢既有知識庫與向量庫 完成 existing=%s vs_exists=%s (耗時=%.2f ms)",
+            existing_entry is not None, vs is not None, t_q_ms
         )
-        db.add(new_entry)
-        db.commit()
-        db.refresh(new_entry)
-        entry_to_return = new_entry
 
-    return {
-        "vector_store": vs,
-        "km": {
-            "file_name": entry_to_return.file_name,
-            "description": entry_to_return.description,
-            "token_count": entry_to_return.token_count,
-            "file_type": entry_to_return.file_type,
-            "summary": entry_to_return.summary,
-            "keywords": entry_to_return.keywords,
-            "doc_ids": entry_to_return.doc_ids,
-            "upload_date": entry_to_return.upload_date
+        # If duplicate, delete old vectors first
+        if existing_entry and vs:
+            old_doc_ids = [did.strip() for did in (existing_entry.doc_ids or "").split(",") if did.strip()]
+            if old_doc_ids:
+                try:
+                    t_del = time.perf_counter()
+                    vs.delete(old_doc_ids)
+                    t_del_ms = (time.perf_counter() - t_del) * 1000
+                    logger.info(
+                        "[上傳檔案] 刪除舊向量 完成 filename=%s old_doc_count=%d (耗時=%.2f ms)",
+                        filename, len(old_doc_ids), t_del_ms
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "[上傳檔案] 刪除舊向量失敗（繼續上傳） filename=%s old_doc_ids=%s error=%s",
+                        filename, old_doc_ids[:5], e,
+                        exc_info=True
+                    )
+
+        # 设置文件保存路径並寫入磁碟
+        save_directory = f"./uploaded_files/assistant_{assistant_id}"
+        if not os.path.exists(save_directory):
+            os.makedirs(save_directory)
+            logger.debug("[上傳檔案] 建立目錄 %s", save_directory)
+
+        file_location = os.path.join(save_directory, filename)
+
+        t_read = time.perf_counter()
+        try:
+            content = await file.read()
+            file_size = len(content)
+        except Exception as e:
+            logger.error("[上傳檔案] 讀取上傳內容失敗 assistant_id=%s filename=%s error=%s", assistant_id, filename, e, exc_info=True)
+            raise
+        t_read_ms = (time.perf_counter() - t_read) * 1000
+        logger.info("[上傳檔案] 讀取上傳內容 完成 size=%d bytes (耗時=%.2f ms)", file_size, t_read_ms)
+
+        t_write = time.perf_counter()
+        try:
+            with open(file_location, "wb+") as f:
+                f.write(content)
+        except Exception as e:
+            logger.error("[上傳檔案] 寫入磁碟失敗 path=%s error=%s", file_location, e, exc_info=True)
+            raise
+        t_write_ms = (time.perf_counter() - t_write) * 1000
+        logger.info("[上傳檔案] 寫入磁碟 完成 path=%s (耗時=%.2f ms)", file_location, t_write_ms)
+
+        # 根据文件类型选择相应的文档加载器
+        file_extension = filename.split(".")[-1].lower() if "." in filename else ""
+        if not file_extension:
+            logger.error("[上傳檔案] 無法取得副檔名 filename=%s", filename)
+            raise ValueError("File must have an extension")
+
+        try:
+            loader = get_loader(file_location, file_extension)
+        except ValueError as e:
+            logger.error("[上傳檔案] 不支援的檔案類型 assistant_id=%s filename=%s ext=%s error=%s", assistant_id, filename, file_extension, e)
+            raise
+
+        t_load = time.perf_counter()
+        try:
+            documents = loader.load()
+        except Exception as e:
+            logger.error(
+                "[上傳檔案] 載入文件失敗（可能檔案損壞或格式錯誤） path=%s ext=%s error=%s",
+                file_location, file_extension, e,
+                exc_info=True
+            )
+            raise
+        if not documents:
+            logger.warning("[上傳檔案] 載入後無文件內容 path=%s ext=%s", file_location, file_extension)
+        t_load_ms = (time.perf_counter() - t_load) * 1000
+        logger.info("[上傳檔案] loader.load 完成 doc_count=%d (耗時=%.2f ms)", len(documents), t_load_ms)
+
+        # 使用 RecursiveCharacterTextSplitter 进行分块
+        t_split = time.perf_counter()
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=500,
+            chunk_overlap=50,
+            separators=["\n\n", "\n", "。", "！", "？", ".", "!", "?", " ", ""]
+        )
+        documents = text_splitter.split_documents(documents)
+        t_split_ms = (time.perf_counter() - t_split) * 1000
+        logger.info("[上傳檔案] 分塊完成 chunks=%d (耗時=%.2f ms)", len(documents), t_split_ms)
+
+        documents = process_documents_with_id(documents)
+
+        # 使用 Jarvis 同款的中文 Embedding 模型
+        t_emb_init = time.perf_counter()
+        embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-base-zh-v1.5")
+        t_emb_init_ms = (time.perf_counter() - t_emb_init) * 1000
+        logger.debug("[上傳檔案] Embeddings 初始化 (耗時=%.2f ms)", t_emb_init_ms)
+
+        # 更新或生成向量存儲
+        if vs:
+            test_emb = embeddings.embed_query("test")
+            if len(test_emb) != vs.index.d:
+                error_msg = (
+                    f"Vector store dimension mismatch (Index: {vs.index.d}, Model: {len(test_emb)}). "
+                    "Please reset knowledge base for this assistant."
+                )
+                logger.error("[上傳檔案] 向量維度不符 assistant_id=%s index_dim=%d model_dim=%d", assistant_id, vs.index.d, len(test_emb))
+                raise ValueError(error_msg)
+
+            t_add = time.perf_counter()
+            try:
+                doc_ids = [doc.metadata["doc_id"] for doc in documents]
+                vs.add_documents(documents, ids=doc_ids)
+            except Exception as e:
+                logger.error("[上傳檔案] 加入文件至既有向量庫失敗 assistant_id=%s doc_count=%d error=%s", assistant_id, len(documents), e, exc_info=True)
+                raise
+            vector_store[assistant_id] = vs
+            t_add_ms = (time.perf_counter() - t_add) * 1000
+            logger.info("[上傳檔案] 加入既有向量庫 完成 doc_count=%d (耗時=%.2f ms)", len(doc_ids), t_add_ms)
+        else:
+            t_create = time.perf_counter()
+            try:
+                doc_ids = [doc.metadata["doc_id"] for doc in documents]
+                vector_store[assistant_id] = FAISS.from_documents(documents, embeddings, ids=doc_ids)
+                vs = vector_store[assistant_id]
+            except Exception as e:
+                logger.error("[上傳檔案] 建立新向量庫失敗 assistant_id=%s doc_count=%d error=%s", assistant_id, len(documents), e, exc_info=True)
+                raise
+            t_create_ms = (time.perf_counter() - t_create) * 1000
+            logger.info("[上傳檔案] 建立新向量庫 完成 doc_count=%d (耗時=%.2f ms)", len(doc_ids), t_create_ms)
+
+        # 保存向量存储到磁盘
+        t_save = time.perf_counter()
+        try:
+            save_vector_store(assistant_id, vs)
+        except Exception as e:
+            logger.error("[上傳檔案] 寫入向量庫至磁碟失敗 assistant_id=%s error=%s", assistant_id, e, exc_info=True)
+            raise
+        t_save_ms = (time.perf_counter() - t_save) * 1000
+        logger.info("[上傳檔案] save_vector_store 完成 (耗時=%.2f ms)", t_save_ms)
+
+        # 计算 token 数量
+        token_count = calculate_token_count(documents)
+        logger.debug("[上傳檔案] token_count=%d", token_count)
+
+        # 提取所有文本内容並生成摘要和關鍵詞
+        full_text = " ".join([doc.page_content for doc in documents])
+        t_summary = time.perf_counter()
+        try:
+            summary, keyword_lines = generate_summary_and_keywords(full_text)
+        except Exception as e:
+            logger.error("[上傳檔案] 生成摘要與關鍵詞失敗（LLM 可能逾時或失敗） assistant_id=%s filename=%s error=%s", assistant_id, filename, e, exc_info=True)
+            raise
+        t_summary_ms = (time.perf_counter() - t_summary) * 1000
+        logger.info("[上傳檔案] 摘要與關鍵詞 完成 (耗時=%.2f ms)", t_summary_ms)
+
+        doc_ids_string = ", ".join(doc_ids)
+
+        if existing_entry:
+            logger.info("[上傳檔案] 更新既有 DB 紀錄 filename=%s", filename)
+            existing_entry.summary = summary
+            existing_entry.keywords = keyword_lines
+            existing_entry.doc_ids = doc_ids_string
+            existing_entry.token_count = token_count
+            existing_entry.upload_date = datetime.utcnow()
+            try:
+                db.commit()
+                db.refresh(existing_entry)
+            except Exception as e:
+                logger.error("[上傳檔案] DB commit/refresh 失敗（更新） filename=%s error=%s", filename, e, exc_info=True)
+                raise
+            entry_to_return = existing_entry
+        else:
+            logger.info("[上傳檔案] 新增 DB 紀錄 filename=%s", filename)
+            new_entry = KnowledgeBase(
+                assistant_id=assistant_id,
+                file_name=filename,
+                file_type=f"{file_extension.upper()}",
+                summary=summary,
+                keywords=keyword_lines,
+                doc_ids=doc_ids_string,
+                description=f"Uploaded file {filename} by assistant {assistant_id}",
+                token_count=token_count,
+                upload_date=datetime.utcnow()
+            )
+            db.add(new_entry)
+            try:
+                db.commit()
+                db.refresh(new_entry)
+            except Exception as e:
+                logger.error("[上傳檔案] DB commit/refresh 失敗（新增） filename=%s error=%s", filename, e, exc_info=True)
+                raise
+            entry_to_return = new_entry
+
+        t_total_ms = (time.perf_counter() - t_start) * 1000
+        logger.info(
+            "[上傳檔案 完成] assistant_id=%s filename=%s chunks=%d token_count=%d 總耗時=%.2f ms",
+            assistant_id, filename, len(documents), token_count, t_total_ms
+        )
+        return {
+            "vector_store": vs,
+            "km": {
+                "file_name": entry_to_return.file_name,
+                "description": entry_to_return.description,
+                "token_count": entry_to_return.token_count,
+                "file_type": entry_to_return.file_type,
+                "summary": entry_to_return.summary,
+                "keywords": entry_to_return.keywords,
+                "doc_ids": entry_to_return.doc_ids,
+                "upload_date": entry_to_return.upload_date
+            }
         }
-    }
+
+    except Exception as e:
+        t_total_ms = (time.perf_counter() - t_start) * 1000
+        logger.exception(
+            "[上傳檔案 失敗] assistant_id=%s filename=%s 總耗時=%.2f ms error=%s",
+            assistant_id, filename, t_total_ms, e
+        )
+        raise
 
 
 def get_vector_store_status(assistant_id: int):
