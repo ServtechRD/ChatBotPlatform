@@ -111,29 +111,16 @@ export default function ChatInterface({
     recognitionRef.current = recognition;
   }, []);
 
-  // 語音播放初始化
-  useEffect(() => {
-    if ('speechSynthesis' in window) {
-      const synth = window.speechSynthesis;
-      const loadVoices = () => {
-        const voices = synth.getVoices();
-        // 優先找繁體中文（zh-TW），找不到就用英文
-        voiceRef.current =
-          voices.find(v => v.lang.includes('zh-TW')) ||
-          voices.find(v => v.lang.includes('zh-CN')) ||
-          voices.find(v => v.lang.includes('en')) ||
-          null;
-      };
-      loadVoices();
-      // 某些瀏覽器需監聽 voiceschanged 事件
-      synth.onvoiceschanged = loadVoices;
-    } else {
-      console.warn('此瀏覽器不支援語音播放');
-    }
+  // 語音播放初始化 (改用後端 TTS)
+  const audioPlayerRef = useRef(new Audio());
 
+  // 清理 Audio 物件
+  useEffect(() => {
     return () => {
-      if (window.speechSynthesis.speaking) {
-        window.speechSynthesis.cancel();
+      const audio = audioPlayerRef.current;
+      if (audio) {
+        audio.pause();
+        audio.src = '';
       }
     };
   }, []);
@@ -341,24 +328,65 @@ export default function ChatInterface({
     setInputMessage('');
   }
 
-  function speakText(text) {
-    if (!('speechSynthesis' in window)) return;
+  async function speakText(text) {
+    // 1. 停止目前的播放
+    const audio = audioPlayerRef.current;
+    if (!audio.paused) {
+      audio.pause();
+      audio.currentTime = 0;
+    }
 
-    const synth = speechSynthesisRef.current;
-    synth.cancel(); // 停止前一次播放
+    if (!text) return;
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'zh-TW';
-    utterance.pitch = 1.0;
-    utterance.rate = 1.0;
-    utterance.volume = 1.0;
+    // 2. 文字預處理 (過濾 $ 等符號)
+    let cleanText = text.replace(/\$/g, '新台幣');
 
-    if (voiceRef.current) utterance.voice = voiceRef.current;
+    // (選用) 去除表情符號，避免語音朗讀奇怪的編碼
+    cleanText = cleanText.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '');
 
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
+    // (選用) 去除 Markdown 符號 (*, #) 避免干擾
+    cleanText = cleanText.replace(/[\#\*]/g, '');
 
-    synth.speak(utterance);
+
+    try {
+      setIsSpeaking(true); // 設定狀態為說話中
+
+      // 3. 呼叫後端 API
+      // 使用方案二 (Edge)
+      const response = await fetch(`${WS_BASE_URL.replace('ws', 'http')}/api/tts/edge`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text: cleanText }),
+      });
+
+      if (!response.ok) throw new Error('TTS API request failed');
+
+      // 4. 將回傳的 Blob 轉為音訊 URL
+      const blob = await response.blob();
+      const audioUrl = URL.createObjectURL(blob);
+
+      // 5. 播放
+      audio.src = audioUrl;
+      audio.onended = () => {
+        setIsSpeaking(false);
+        URL.revokeObjectURL(audioUrl); // 釋放記憶體
+      };
+
+      // 處理播放錯誤 (例如使用者沒互動過瀏覽器擋自動播放)
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(error => {
+          console.error("Audio playback failed:", error);
+          setIsSpeaking(false);
+        });
+      }
+
+    } catch (error) {
+      console.error('TTS Error:', error);
+      setIsSpeaking(false);
+    }
   }
 
   function safeSend(msg) {
