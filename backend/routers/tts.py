@@ -30,5 +30,24 @@ async def edge_tts_endpoint(request: TTSRequest):
         
         return Response(content=audio_content, media_type="audio/mpeg")
     except Exception as e:
-        print(f"Edge TTS Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback
+        traceback.print_exc()
+        print(f"Edge TTS Error: {e}, attempting gTTS fallback...")
+        
+        # Fallback to gTTS (Google Translate TTS)
+        # Note: gTTS usually provides a standard voice (often female/robotic), 
+        # but it ensures the service remains available.
+        try:
+            from gtts import gTTS
+            import io
+            
+            # gTTS save to memory
+            tts = gTTS(text=request.text, lang='zh-tw')
+            fp = io.BytesIO()
+            tts.write_to_fp(fp)
+            fp.seek(0)
+            
+            return Response(content=fp.read(), media_type="audio/mpeg")
+        except Exception as gtts_e:
+            print(f"gTTS Fallback Error: {gtts_e}")
+            raise HTTPException(status_code=500, detail=f"TTS failed: {e} and Fallback failed: {gtts_e}")
