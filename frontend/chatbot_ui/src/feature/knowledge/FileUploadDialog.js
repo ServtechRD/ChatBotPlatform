@@ -127,6 +127,16 @@ const FileUploadDialog = ({
     >
       <DialogTitle>讓我們為AI助理建立一個知識</DialogTitle>
       <DialogContent>
+        {uploadStatus === 'error' && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            上傳失敗（可能逾時或網路錯誤），請稍後再試。若後端已處理完成，重整頁面後知識庫會顯示新資料。
+          </Alert>
+        )}
+        {uploadStatus === 'success' && (
+          <Alert severity="success" sx={{ mb: 2 }}>
+            上傳成功，正在關閉...
+          </Alert>
+        )}
         <DialogContentText sx={{ mb: 2 }}>
           你可以在此拖放一個小文件
         </DialogContentText>

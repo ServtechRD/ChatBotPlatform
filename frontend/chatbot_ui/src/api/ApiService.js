@@ -349,9 +349,11 @@ class ApiService {
 
   async uploadFile(assistantId, formData) {
     try {
+      // 上傳與 embedding 較耗時，使用較長 timeout（2 分鐘）
       const response = await this.axiosInstance.post(
         `/assistant/${assistantId}/upload`,
-        formData
+        formData,
+        { timeout: 120000 }
       );
       return response.data;
     } catch (error) {
@@ -363,7 +365,8 @@ class ApiService {
     try {
       const response = await this.axiosInstance.post(
         `/assistant/${assistantId}/upload`,
-        { url }
+        { url },
+        { timeout: 120000 }
       );
       return response.data;
     } catch (error) {
