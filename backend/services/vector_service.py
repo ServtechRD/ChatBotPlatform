@@ -114,7 +114,7 @@ def generate_summary_and_keywords(text, max_summary_words=150, max_keywords=10):
         temperature=0.1,  
         model_kwargs={
             "extra_body": {"keep_alive": -1},
-            "response_format": {"type": "json_object"}  # 強制 JSON 模式
+            # "response_format": {"type": "json_object"}  # REMOVED: Caused empty response on this backend
         }
     )
     
