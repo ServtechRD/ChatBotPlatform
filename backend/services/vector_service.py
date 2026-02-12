@@ -59,76 +59,87 @@ def process_documents_with_id(documents):
 
 def generate_summary_and_keywords(text, max_summary_words=150, max_keywords=10):
     """
-    Generate summary and keywords using ChatOpenAI with enforced JSON mode.
+    Generate summary and keywords with AGGRESSIVE truncation (First 500 chars).
     """
-    # 1. Language Detection & Normalization
-    # Simplified logic: Always target Traditional Chinese (Taiwan) per user request.
-    target_language = "Traditional Chinese (Taiwan)"
+    
+    # 1. 語言設定
+    LANGUAGE_MAP = {
+        "en": "English",
+        "fr": "French",
+        "es": "Spanish",
+        "de": "German",
+        "zh-cn": "Simplified Chinese",
+        "zh-tw": "Traditional Chinese",
+        "zh": "Traditional Chinese",
+    }
+    lang_code, _ = langid.classify(text)
+    target_language = LANGUAGE_MAP.get(lang_code, "Traditional Chinese")
+    
+    if "Chinese" in target_language:
+        target_language = "Traditional Chinese (Taiwan)"
 
     logger.info(f"Generating summary. Target Output Lang = {target_language}")
 
-    # 2. Construct Prompts (Sandwich Method)
-    # Note: The word "JSON" must appear in the prompt for Ollama's json_object mode to work.
-    
+    # 2. ⚠️ 關鍵修正：極限縮減至前 500 字 ⚠️
+    # 這能確保 Prompt 絕對完整，彻底杜絕幻覺與亂碼
+    SAFE_TEXT_LIMIT = 500 
+    truncated_text = text[:SAFE_TEXT_LIMIT]
+
     system_instruction = (
         f"You are a professional summarizer API. "
         f"Your task is to analyze the text and return a valid JSON response in {target_language}. "
         f"NO explaining, NO chatting, just raw JSON."
     )
 
-    # Context truncation to 500 chars as requested to save context window.
-    truncated_text = text[:500]
-
+    # 3. 三明治提示法 (Sandwich Prompt)
     user_prompt = (
         f"### INSTRUCTIONS ###\n"
-        f"1. **Language**: The output MUST be in {target_language}.\n"
-        f"2. **Summary**: Summarize the text in under {max_summary_words} words. Capture the main ideas accurately.\n"
-        f"3. **Keywords**: Extract up to {max_keywords} important keywords.\n"
+        # f"1. **Language**: Output MUST be in {target_language}.\n"
+        f"#zh_tw 1. **Language**: Output MUST be in Traditional Chinese (Taiwan).\n"
+        f"2. **Summary**: Summarize the text in under {max_summary_words} words based on the provided snippet.\n"
+        f"3. **Keywords**: Extract 3-5 keywords.\n"
         f"4. **Format**: Return ONLY a JSON object with keys 'summary' and 'keywords'.\n\n"
-        f"### INPUT TEXT (Truncated to first 500 chars) ###\n"
+        f"### INPUT TEXT (Truncated) ###\n"
         f"{truncated_text}\n\n"
         f"### REMINDER ###\n"
-        f"Please output valid JSON only. Ensure the content is in {target_language}.\n"
-        f"Example format: {{\"summary\": \"Your summary here...\", \"keywords\": [\"keyword1\", \"keyword2\"]}}"
+        f"Please output valid JSON only. "
+        f"Example: {{\"summary\": \"摘要內容...\", \"keywords\": [\"k1\", \"k2\"]}}"
     )
 
-    # 3. Initialize LLM with JSON Mode
+    # 4. 初始化 LLM (啟用 JSON 模式)
     llm = ChatOpenAI(
         openai_api_key="ollama",      
         base_url="http://192.168.1.235:11534/v1",
         model="gpt-oss:20b",           
-        temperature=0.1,  # Lower temperature for deterministic output
+        temperature=0.1,  
         model_kwargs={
             "extra_body": {"keep_alive": -1},
-            "response_format": {"type": "json_object"}  # CRITICAL: Enforce JSON mode
+            "response_format": {"type": "json_object"}  # 強制 JSON 模式
         }
     )
     
     try:
         from langchain.schema import SystemMessage, HumanMessage
         
-        # 4. Invoke LLM
         response = llm([
             SystemMessage(content=system_instruction),
             HumanMessage(content=user_prompt)
         ])
         
         result_text = response.content.strip()
-        logger.info(f"LLM Raw Output: {result_text}")
+        logger.info(f"LLM Raw Output (len={len(result_text)}): {result_text[:100]}...")
         
-        # 5. Parse Response
+        # 5. 解析 JSON
         summary = ""
         keywords_line = ""
 
         try:
-            # Clean markdown code blocks if present
             clean_json = result_text.replace("```json", "").replace("```", "").strip()
             data = json.loads(clean_json)
             
             summary = data.get("summary", "")
             keywords = data.get("keywords", [])
             
-            # Normalize keywords to string
             if isinstance(keywords, list):
                 keywords_line = ", ".join([str(k) for k in keywords])
             else:
@@ -136,17 +147,14 @@ def generate_summary_and_keywords(text, max_summary_words=150, max_keywords=10):
 
         except json.JSONDecodeError:
             logger.warning("JSON parsing failed, attempting regex fallback.")
-            # Fallback: Regex extraction
             sum_match = re.search(r'"summary"\s*:\s*"(.*?)"', result_text, re.DOTALL)
             key_match = re.search(r'"keywords"\s*:\s*\[(.*?)\]', result_text, re.DOTALL)
             
             if sum_match:
                 summary = sum_match.group(1)
             if key_match:
-                # Basic cleanup for list string
                 keywords_line = key_match.group(1).replace('"', '').replace("'", "")
             
-            # Final fallback if regex also fails
             if not summary:
                  summary = result_text[:max_summary_words]
 
@@ -155,7 +163,6 @@ def generate_summary_and_keywords(text, max_summary_words=150, max_keywords=10):
     except Exception as e:
         logger.error(f"Error generating summary: {e}")
         return "Summary generation unavailable", ""
-
 
 # 计算文档的 token 数量
 def calculate_token_count(documents):
