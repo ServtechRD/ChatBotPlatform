@@ -78,7 +78,7 @@ def generate_summary_and_keywords(text, max_summary_words=150, max_keywords=10):
     }
     lang_code, _ = langid.classify(text)
     language = LANGUAGE_MAP.get(lang_code, "Traditional Chinese")
-    print(f"language code = {lang_code}, lang = {language}")
+    logger.info(f"language code = {lang_code}, lang = {language}")
 
     # 構建更明確的 Prompt，強制要求特定格式輸出
     prompt = (
@@ -105,7 +105,7 @@ def generate_summary_and_keywords(text, max_summary_words=150, max_keywords=10):
     try:
         response = llm([HumanMessage(content=prompt)])
         result = response.content.strip()
-        print(f"summary and keywords raw result: {result}")
+        logger.info(f"summary and keywords raw result: {result}")
         
         summary = ""
         keywords_line = ""
@@ -139,7 +139,7 @@ def generate_summary_and_keywords(text, max_summary_words=150, max_keywords=10):
 
         # 如果解析失敗，使用回退邏輯
         if not summary and not keywords_line:
-             print("Parsing failed, using fallback logic")
+             logger.warning("Parsing failed, using fallback logic")
              # 回退到簡單分割
              if "Keywords:" in result:
                  parts = result.split("Keywords:")
@@ -155,7 +155,7 @@ def generate_summary_and_keywords(text, max_summary_words=150, max_keywords=10):
         return summary.strip(), keywords_line.strip()
 
     except Exception as e:
-        print(f"Error generating summary: {e}")
+        logger.error(f"Error generating summary: {e}")
         # 出錯時回傳空值以免中斷流程
         return "Summary generation unavailable", ""
 
@@ -486,7 +486,7 @@ def get_vector_store_status(assistant_id: int):
                     "content_preview": doc.page_content[:100] + "..."
                 })
     except Exception as e:
-        print(f"Error reading docstore metadata: {e}")
+        logger.error(f"Error reading docstore metadata: {e}")
 
     return {
         "status": "ready",
@@ -561,14 +561,14 @@ async def update_knowledge_base_item(assistant_id: int, knowledge_id: int, new_c
     old_doc_ids = [did.strip() for did in record.doc_ids.split(",") if did.strip()]
     if vs and old_doc_ids:
         try:
-            print(f"Attempting to delete old vectors: {old_doc_ids}")
+            logger.info(f"Attempting to delete old vectors: {old_doc_ids}")
             vs.delete(old_doc_ids)
-            print(f"Successfully deleted old vectors")
+            logger.info(f"Successfully deleted old vectors")
         except Exception as e:
             # Log but continue - old vectors might not exist if store was rebuilt
-            print(f"Warning: Could not delete old vectors (continuing anyway): {e}")
+            logger.warning(f"Warning: Could not delete old vectors (continuing anyway): {e}")
     else:
-        print(f"No vector store or no old doc_ids to delete")
+        logger.info(f"No vector store or no old doc_ids to delete")
 
     # 4. Overwrite existing file
     save_directory = f"./uploaded_files/assistant_{assistant_id}"
@@ -579,7 +579,7 @@ async def update_knowledge_base_item(assistant_id: int, knowledge_id: int, new_c
     new_filename = record.file_name
     new_file_path = os.path.join(save_directory, new_filename)
 
-    print(f"Overwriting file: {new_file_path}")
+    logger.info(f"Overwriting file: {new_file_path}")
     with open(new_file_path, "w", encoding="utf-8") as f:
         f.write(new_content)
 
@@ -605,15 +605,15 @@ async def update_knowledge_base_item(assistant_id: int, knowledge_id: int, new_c
         test_emb = embeddings.embed_query("test")
         if len(test_emb) != vs.index.d:
             error_msg = f"Vector store dimension mismatch (Index: {vs.index.d}, Model: {len(test_emb)}). Please reset knowledge base for this assistant."
-            print(f"CRITICAL ERROR: {error_msg}")
+            logger.error(f"CRITICAL ERROR: {error_msg}")
             raise ValueError(error_msg)
 
-        print(f"Adding new vectors for {new_filename}")
+        logger.info(f"Adding new vectors for {new_filename}")
         doc_ids = [doc.metadata["doc_id"] for doc in documents]
         vs.add_documents(documents, ids=doc_ids)
     else:
         # Create new if didn't exist
-        print(f"Creating new vector store for assistant {assistant_id}")
+        logger.info(f"Creating new vector store for assistant {assistant_id}")
         doc_ids = [doc.metadata["doc_id"] for doc in documents]
         vector_store[assistant_id] = FAISS.from_documents(documents, embeddings, ids=doc_ids)
         vs = vector_store[assistant_id]
