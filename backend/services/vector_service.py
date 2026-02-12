@@ -23,6 +23,8 @@ import time
 import tiktoken  # pyright: ignore[reportMissingImports]
 import langid  # pyright: ignore[reportMissingImports]
 import uuid
+import json
+import re
 
 from utils.logger import get_logger
 
@@ -57,106 +59,101 @@ def process_documents_with_id(documents):
 
 def generate_summary_and_keywords(text, max_summary_words=150, max_keywords=10):
     """
-    使用 ChatOpenAI 一次生成摘要和关键词
-    :param llm: ChatOpenAI 模型实例
-    :param text: 输入文本
-    :param max_summary_words: 摘要的最大字数限制
-    :param max_keywords: 关键词的最大数量
-    :return: 包含摘要和关键词的字典
+    Generate summary and keywords using ChatOpenAI with enforced JSON mode.
     """
+    # 1. Language Detection & Normalization
+    # Simplified logic: Always target Traditional Chinese (Taiwan) per user request.
+    target_language = "Traditional Chinese (Taiwan)"
 
-    # 语言代码与名称映射
-    LANGUAGE_MAP = {
-        "en": "English",
-        "fr": "French",
-        "es": "Spanish",
-        "de": "German",
-        "zh-cn": "Simplified Chinese",
-        "zh-tw": "Traditional Chinese",
-        "zh": "Traditional Chinese",
-        # 新增其他语言映射
-    }
-    lang_code, _ = langid.classify(text)
-    language = LANGUAGE_MAP.get(lang_code, "Traditional Chinese")
-    logger.info(f"language code = {lang_code}, lang = {language}")
+    logger.info(f"Generating summary. Target Output Lang = {target_language}")
 
-    # 構建更明確的 Prompt，強制要求特定格式輸出
-    prompt = (
-        f"Please act as a professional document summarizer. Analyze the following text and provide a summary and keywords in {language}.\n\n"
-        f"Requirements:\n"
-        f"1. Summary: Concise and comprehensive, under {max_summary_words} words.\n"
-        f"2. Keywords: Up to {max_keywords} relevant keywords, separated by commas.\n"
-        f"3. Output Format: You MUST strictly follow the format below:\n\n"
-        f"Summary: [Your summary here]\n"
-        f"Keywords: [Keyword1, Keyword2, ...]\n\n"
-        f"Text Content (truncated if too long):\n{text[:15000]}"  # 避免 context window 爆炸導致亂碼
+    # 2. Construct Prompts (Sandwich Method)
+    # Note: The word "JSON" must appear in the prompt for Ollama's json_object mode to work.
+    
+    system_instruction = (
+        f"You are a professional summarizer API. "
+        f"Your task is to analyze the text and return a valid JSON response in {target_language}. "
+        f"NO explaining, NO chatting, just raw JSON."
     )
 
-    # 初始化 ChatOpenAI 模型
-    # 加入 temperature 參數以減少幻覺與亂碼
+    # Context truncation to 500 chars as requested to save context window.
+    truncated_text = text[:500]
+
+    user_prompt = (
+        f"### INSTRUCTIONS ###\n"
+        f"1. **Language**: The output MUST be in {target_language}.\n"
+        f"2. **Summary**: Summarize the text in under {max_summary_words} words. Capture the main ideas accurately.\n"
+        f"3. **Keywords**: Extract up to {max_keywords} important keywords.\n"
+        f"4. **Format**: Return ONLY a JSON object with keys 'summary' and 'keywords'.\n\n"
+        f"### INPUT TEXT (Truncated to first 500 chars) ###\n"
+        f"{truncated_text}\n\n"
+        f"### REMINDER ###\n"
+        f"Please output valid JSON only. Ensure the content is in {target_language}.\n"
+        f"Example format: {{\"summary\": \"Your summary here...\", \"keywords\": [\"keyword1\", \"keyword2\"]}}"
+    )
+
+    # 3. Initialize LLM with JSON Mode
     llm = ChatOpenAI(
-        openai_api_key="ollama",      # 本地端隨意填
-        base_url="http://192.168.1.235:11534/v1",  # 指向 235 主機
-        model="gpt-oss:20b",           # 使用指定模型
-        temperature=0.2,               # 低溫度讓輸出更穩定
-        model_kwargs={"extra_body": {"keep_alive": -1}}
+        openai_api_key="ollama",      
+        base_url="http://192.168.1.235:11534/v1",
+        model="gpt-oss:20b",           
+        temperature=0.1,  # Lower temperature for deterministic output
+        model_kwargs={
+            "extra_body": {"keep_alive": -1},
+            "response_format": {"type": "json_object"}  # CRITICAL: Enforce JSON mode
+        }
     )
     
     try:
-        response = llm([HumanMessage(content=prompt)])
-        result = response.content.strip()
-        logger.info(f"summary and keywords raw result: {result}")
+        from langchain.schema import SystemMessage, HumanMessage
         
+        # 4. Invoke LLM
+        response = llm([
+            SystemMessage(content=system_instruction),
+            HumanMessage(content=user_prompt)
+        ])
+        
+        result_text = response.content.strip()
+        logger.info(f"LLM Raw Output: {result_text}")
+        
+        # 5. Parse Response
         summary = ""
         keywords_line = ""
 
-        # 增強解析邏輯
-        lines = result.split('\n')
-        current_section = None
-        
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-                
-            # 檢查標記
-            lower_line = line.lower()
-            if lower_line.startswith("summary:") or lower_line.startswith("摘要:") or lower_line.startswith("summary：") or lower_line.startswith("摘要："):
-                current_section = "summary"
-                # 移除標記後取出內容
-                content = line.split(':', 1)[-1].split('：', 1)[-1].strip()
-                if content:
-                    summary += content + " "
-            elif lower_line.startswith("keywords:") or lower_line.startswith("关键词:") or lower_line.startswith("關鍵詞:") or lower_line.startswith("keywords："):
-                current_section = "keywords"
-                content = line.split(':', 1)[-1].split('：', 1)[-1].strip()
-                if content:
-                    keywords_line += content + " "
-            elif current_section == "summary":
-                summary += line + " "
-            elif current_section == "keywords":
-                keywords_line += line + " "
+        try:
+            # Clean markdown code blocks if present
+            clean_json = result_text.replace("```json", "").replace("```", "").strip()
+            data = json.loads(clean_json)
+            
+            summary = data.get("summary", "")
+            keywords = data.get("keywords", [])
+            
+            # Normalize keywords to string
+            if isinstance(keywords, list):
+                keywords_line = ", ".join([str(k) for k in keywords])
+            else:
+                keywords_line = str(keywords)
 
-        # 如果解析失敗，使用回退邏輯
-        if not summary and not keywords_line:
-             logger.warning("Parsing failed, using fallback logic")
-             # 回退到簡單分割
-             if "Keywords:" in result:
-                 parts = result.split("Keywords:")
-                 summary = parts[0].replace("Summary:", "").strip()
-                 keywords_line = parts[1].strip()
-             elif "關鍵詞:" in result:
-                 parts = result.split("關鍵詞:")
-                 summary = parts[0].replace("摘要:", "").strip()
-                 keywords_line = parts[1].strip()
-             else:
-                 summary = result  # 無法區分，全當摘要
-        
+        except json.JSONDecodeError:
+            logger.warning("JSON parsing failed, attempting regex fallback.")
+            # Fallback: Regex extraction
+            sum_match = re.search(r'"summary"\s*:\s*"(.*?)"', result_text, re.DOTALL)
+            key_match = re.search(r'"keywords"\s*:\s*\[(.*?)\]', result_text, re.DOTALL)
+            
+            if sum_match:
+                summary = sum_match.group(1)
+            if key_match:
+                # Basic cleanup for list string
+                keywords_line = key_match.group(1).replace('"', '').replace("'", "")
+            
+            # Final fallback if regex also fails
+            if not summary:
+                 summary = result_text[:max_summary_words]
+
         return summary.strip(), keywords_line.strip()
 
     except Exception as e:
         logger.error(f"Error generating summary: {e}")
-        # 出錯時回傳空值以免中斷流程
         return "Summary generation unavailable", ""
 
 
