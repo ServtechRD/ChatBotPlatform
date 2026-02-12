@@ -492,10 +492,21 @@ const EmbeddableChatInterface = ({
 
   // 抽出 sendMessage 邏輯以便語音輸入也能使用
   const sendMessage = (text) => {
-    if (!text || !text.trim() || !isConnected) return;
+    // 使用 socketRef 來檢查連線狀態，避免閉包問題導致讀取到舊的 isConnected 狀態
+    const socket = socketRef.current;
+    const isSocketConnected = socket && socket.readyState === WebSocket.OPEN;
+
+    if (!text || !text.trim() || !isSocketConnected) {
+      console.warn('無法發送訊息: 文字為空或 WebSocket 未連線', {
+        text,
+        isSocketConnected,
+        readyState: socket?.readyState
+      });
+      return;
+    }
 
     // 发送消息到WebSocket
-    socketRef.current.send(text);
+    socket.send(text);
 
     // 新增用户消息到聊天界面
     setMessages(prevMessages => [
