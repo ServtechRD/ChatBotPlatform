@@ -192,6 +192,14 @@ const EmbeddableChatInterface = ({
 
       if (index >= sentences.length) {
         setIsSpeaking(false);
+        // Modify: Auto-restart microphone after bot finishes speaking
+        console.log('Bot finished speaking, restarting microphone...');
+        // Small delay to avoid capturing the end of the bot's speech if using speakers
+        setTimeout(() => {
+          if (speechId === currentSpeechIdRef.current) { // Ensure we haven't started speaking something else
+            handleVoiceInput();
+          }
+        }, 500);
         return;
       }
 
@@ -294,6 +302,20 @@ const EmbeddableChatInterface = ({
       alert(errorMessage);
     }
   }
+
+  // 自動啟動語音輸入
+  useEffect(() => {
+    // 延遲一點時間確保組件完全加載
+    const timer = setTimeout(() => {
+      // 只有在還沒開始監聽且 recognitionRef 已初始化時才啟動
+      if (recognitionRef.current && !isListening) {
+        console.log('嘗試自動啟動語音輸入...');
+        handleVoiceInput();
+      }
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   // 取得助手訊息
   useEffect(() => {
