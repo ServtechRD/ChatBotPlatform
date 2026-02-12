@@ -206,7 +206,9 @@ export default function KnowledgeBaseUI({ currentAssistant }) {
   function renderExistingKnowledge() {
     const filteredItems = knowledgeItems.filter(
       item =>
-        (item.file_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (item.file_name || '')
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
         (item.summary || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (item.keywords || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -257,12 +259,14 @@ export default function KnowledgeBaseUI({ currentAssistant }) {
                       </ListItemIcon>
                       <ListItemText
                         primary={item.file_name}
-                      // secondary={`${item.token_count} Tokens`}
+                        // secondary={`${item.token_count} Tokens`}
                       />
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                       {/* Only show Edit button for text files */}
-                      {(item.file_name || '').toLowerCase().endsWith('.txt') && (
+                      {(item.file_name || '')
+                        .toLowerCase()
+                        .endsWith('.txt') && (
                         <IconButton
                           size="small"
                           onClick={e => {
@@ -289,12 +293,15 @@ export default function KnowledgeBaseUI({ currentAssistant }) {
                           <ExpandMoreIcon />
                         )}
                       </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={e => e.stopPropagation()}
-                      >
-                        <MoreVertIcon />
-                      </IconButton>
+                      {/* TODO: 先隱藏列表選單 */}
+                      {false && (
+                        <IconButton
+                          size="small"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <MoreVertIcon />
+                        </IconButton>
+                      )}
                     </Box>
                   </Box>
 
