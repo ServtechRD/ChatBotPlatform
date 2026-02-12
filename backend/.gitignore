@@ -23,6 +23,8 @@ docs.zip
 archive.zip
 
 public/
+vector_stores/
+uploaded_files/
 
 # vim temporary files
 *~
