@@ -217,12 +217,12 @@ const EmbeddableChatInterface = ({
       utterance.onend = () => {
         if (speechId !== currentSpeechIdRef.current) return;
 
-        // 句子之間的停頓 (500ms)
+        // 句子之間的停頓 (80ms)
         speechTimeoutRef.current = setTimeout(() => {
           if (speechId !== currentSpeechIdRef.current) return;
           index++;
           speakNext();
-        }, 500);
+        }, 80);
       };
 
       utterance.onerror = (err) => {
