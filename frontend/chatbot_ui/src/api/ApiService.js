@@ -134,7 +134,8 @@ class ApiService {
       const data = response?.data;
 
       // MFA 流程時後端會回傳 temp_token，access_token 為空，不需丟錯
-      const isMfaChallenge = data?.mfa_setup_required === true || data?.mfa_required === true;
+      const isMfaChallenge =
+        data?.mfa_setup_required === true || data?.mfa_required === true;
       if (!isMfaChallenge && !data?.access_token) {
         throw new Error('登入回應無效：未取得 access_token');
       }
@@ -353,7 +354,7 @@ class ApiService {
       const response = await this.axiosInstance.post(
         `/assistant/${assistantId}/upload`,
         formData,
-        { timeout: 120000 }
+        { timeout: 600000 }
       );
       return response.data;
     } catch (error) {
