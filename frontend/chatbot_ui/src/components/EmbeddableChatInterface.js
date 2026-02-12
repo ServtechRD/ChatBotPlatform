@@ -15,6 +15,7 @@ import {
   MoreVert as MoreVertIcon,
   Send as SendIcon,
   Mic as MicIcon,
+  VolumeUp as VolumeUpIcon,
 } from '@mui/icons-material';
 import { v4 as uuidv4 } from 'uuid';
 import { formatImageUrl } from '../utils/urlUtils';
@@ -45,6 +46,11 @@ const EmbeddableChatInterface = ({
   // 語音辨識狀態
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef(null);
+
+  // 語音播放設定
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const speechSynthesisRef = useRef(window.speechSynthesis);
+  const voiceRef = useRef(null);
 
   const socketRef = useRef(null);
   const customerIdRef = useRef(uuidv4());
@@ -108,6 +114,128 @@ const EmbeddableChatInterface = ({
 
     recognitionRef.current = recognition;
   }, []);
+
+  // 語音播放初始化
+  useEffect(() => {
+    const handleVoicesChanged = () => {
+      const voices = speechSynthesisRef.current.getVoices();
+      // 優先選擇中文語音
+      const zhVoice = voices.find(
+        v =>
+          v.lang.includes('zh-TW') ||
+          v.name.includes('Google 國語') ||
+          v.name.includes('Microsoft Hanhan')
+      );
+      if (zhVoice) {
+        voiceRef.current = zhVoice;
+      }
+    };
+
+    speechSynthesisRef.current.addEventListener(
+      'voiceschanged',
+      handleVoicesChanged
+    );
+    handleVoicesChanged(); // 初始載入
+
+    return () => {
+      speechSynthesisRef.current.removeEventListener(
+        'voiceschanged',
+        handleVoicesChanged
+      );
+    };
+  }, []);
+
+  // 追蹤語音播放序列，用於取消舊的播放
+  const currentSpeechIdRef = useRef(0);
+  const speechTimeoutRef = useRef(null);
+
+  function cleanText(text) {
+    return text
+      // 替換 % 為 percent
+      .replace(/%/g, 'percent')
+      // 移除 emoji
+      .replace(/[\p{Extended_Pictographic}]/gu, '')
+      // 移除各種特殊符號 (保留文字、數字、空白)
+      .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+      // 合併多餘空白
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function speakText(text) {
+    if (!text) return;
+
+    // 停止目前的播放
+    if (speechSynthesisRef.current.speaking) {
+      speechSynthesisRef.current.cancel();
+    }
+
+    // 清除任何等待中的計時器
+    if (speechTimeoutRef.current) {
+      clearTimeout(speechTimeoutRef.current);
+      speechTimeoutRef.current = null;
+    }
+
+    // 更新 Speech ID 以無效化舊的播放序列
+    currentSpeechIdRef.current += 1;
+    const speechId = currentSpeechIdRef.current;
+
+    setIsSpeaking(true);
+
+    // 切割句子：以標點符號為界
+    const sentences = text.split(/[。！？!?，,]/);
+    let index = 0;
+
+    function speakNext() {
+      // 檢查此播放序列是否仍有效
+      if (speechId !== currentSpeechIdRef.current) return;
+
+      if (index >= sentences.length) {
+        setIsSpeaking(false);
+        return;
+      }
+
+      const segment = sentences[index];
+      const cleaned = cleanText(segment);
+
+      if (!cleaned) {
+        // 如果清理後是空字串，則跳過並繼續
+        index++;
+        Promise.resolve().then(speakNext);
+        return;
+      }
+
+      const utterance = new SpeechSynthesisUtterance(cleaned);
+
+      if (voiceRef.current) {
+        utterance.voice = voiceRef.current;
+      }
+      utterance.lang = "zh-TW";
+      utterance.rate = 1; // 正常語速
+      utterance.pitch = 1;
+
+      utterance.onend = () => {
+        if (speechId !== currentSpeechIdRef.current) return;
+
+        // 句子之間的停頓 (500ms)
+        speechTimeoutRef.current = setTimeout(() => {
+          if (speechId !== currentSpeechIdRef.current) return;
+          index++;
+          speakNext();
+        }, 500);
+      };
+
+      utterance.onerror = (err) => {
+        console.error('語音播放錯誤:', err);
+        if (speechId !== currentSpeechIdRef.current) return;
+        setIsSpeaking(false);
+      };
+
+      speechSynthesisRef.current.speak(utterance);
+    }
+
+    speakNext();
+  }
 
   async function handleVoiceInput() {
     if (!recognitionRef.current) {
@@ -229,7 +357,6 @@ const EmbeddableChatInterface = ({
       });
     }
     /*
-
     if (messagesContainerRef.current) {
       const container = messagesContainerRef.current;
       const scrollHeight = container.scrollHeight;
@@ -289,6 +416,7 @@ const EmbeddableChatInterface = ({
           ...prevMessages,
           { id: Date.now(), text: message, isBot: true },
         ]);
+        speakText(message);
       }
     };
 
@@ -569,6 +697,10 @@ const EmbeddableChatInterface = ({
                       : 'rgba(25, 118, 210, 0.95)',
                     borderRadius: 2,
                     backdropFilter: 'blur(5px)',
+                    display: 'flex',
+                    alignItems: 'flex-end',
+                    gap: 1,
+                    flexWrap: 'wrap',
                   }}
                 >
                   <Typography
@@ -576,10 +708,29 @@ const EmbeddableChatInterface = ({
                       color: message.isBot ? 'black' : 'white',
                       wordBreak: 'break-word',
                       lineHeight: 1.4,
+                      flex: 1,
                     }}
                   >
                     {message.text}
                   </Typography>
+
+                  {/* 🔊 AI 語音播放按鈕 */}
+                  {message.isBot && (
+                    <IconButton
+                      size="small"
+                      onClick={() => speakText(message.text)}
+                      sx={{
+                        p: 0.5,
+                        color: message.isBot ? 'primary.main' : 'white',
+                        alignSelf: 'flex-end',
+                        '&:hover': {
+                          color: message.isBot ? 'primary.dark' : 'white',
+                        },
+                      }}
+                    >
+                      <VolumeUpIcon fontSize="small" />
+                    </IconButton>
+                  )}
                 </Paper>
               </Box>
             ))}
