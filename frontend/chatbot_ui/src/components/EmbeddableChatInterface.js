@@ -14,6 +14,7 @@ import {
 import {
   MoreVert as MoreVertIcon,
   Send as SendIcon,
+  Mic as MicIcon,
 } from '@mui/icons-material';
 import { v4 as uuidv4 } from 'uuid';
 import { formatImageUrl } from '../utils/urlUtils';
@@ -28,8 +29,8 @@ const EmbeddableChatInterface = ({
   //assistantName = null, // 可選參數
   //apiBaseUrl = '', // API基礎URL，方便跨域使用
   containerStyle = {}, // 容器樣式自定義
-  onLoad = () => {}, // 加載完成回調
-  onError = () => {}, // 錯誤回調
+  onLoad = () => { }, // 加載完成回調
+  onError = () => { }, // 錯誤回調
 }) => {
   const [assistantId, setAssistantId] = useState([]);
   const [assistantName, setAssistantName] = useState([]);
@@ -41,12 +42,130 @@ const EmbeddableChatInterface = ({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // 語音辨識狀態
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef(null);
+
   const socketRef = useRef(null);
   const customerIdRef = useRef(uuidv4());
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const videoRef = useRef(null);
   const welcomeMessageShownRef = useRef(false);
+
+  // 語音輸入初始化
+  useEffect(() => {
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      console.warn('此瀏覽器不支援語音辨識功能');
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'zh-TW'; // 語音輸入語言
+    recognition.interimResults = false; // 只要最終結果
+    recognition.maxAlternatives = 1;
+
+    recognition.onresult = event => {
+      const transcript = event.results[0][0].transcript;
+      console.log('辨識結果:', transcript);
+      // 自動送出
+      sendMessage(transcript);
+    };
+
+    recognition.onstart = () => setIsListening(true);
+    recognition.onend = () => setIsListening(false);
+    recognition.onerror = err => {
+      console.error('語音辨識錯誤:', err);
+      setIsListening(false);
+
+      // 提供更詳細的錯誤訊息
+      let errorMessage = '語音辨識發生錯誤';
+      switch (err.error) {
+        case 'not-allowed':
+          errorMessage =
+            '麥克風權限被拒絕。請在瀏覽器設定中允許使用麥克風，或確保網站使用 HTTPS。';
+          break;
+        case 'no-speech':
+          errorMessage = '未偵測到語音，請再試一次。';
+          break;
+        case 'audio-capture':
+          errorMessage = '找不到麥克風設備，請檢查麥克風是否已連接。';
+          break;
+        case 'network':
+          errorMessage = '網路錯誤，請檢查網路連線。';
+          break;
+        case 'aborted':
+          // 使用者主動停止，不顯示錯誤
+          return;
+        default:
+          errorMessage = `語音辨識錯誤: ${err.error}`;
+      }
+
+      alert(errorMessage);
+    };
+
+    recognitionRef.current = recognition;
+  }, []);
+
+  async function handleVoiceInput() {
+    if (!recognitionRef.current) {
+      alert('此瀏覽器不支援語音辨識功能');
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current.stop();
+      return;
+    }
+
+    // 在啟動語音識別前，先請求麥克風權限
+    try {
+      // 允許的主機名稱白名單（開發環境）
+      const allowedHosts = ['localhost', '127.0.0.1'];
+      const isAllowedHost = allowedHosts.includes(window.location.hostname);
+
+      // 檢查是否為 HTTPS 或在白名單中
+      if (window.location.protocol !== 'https:' && !isAllowedHost) {
+        alert(
+          '語音功能需要在 HTTPS 環境下使用。請使用 HTTPS 或在本地環境（localhost）測試。'
+        );
+        return;
+      }
+
+      // 檢查瀏覽器是否支援 mediaDevices API
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert(
+          '您的瀏覽器不支援麥克風功能。請使用最新版本的 Chrome、Firefox 或 Edge，並確保使用 HTTPS。'
+        );
+        return;
+      }
+
+      // 請求麥克風權限
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      // 獲得權限後，停止 stream（我們只是用來檢查權限）
+      stream.getTracks().forEach(track => track.stop());
+
+      // 啟動語音識別
+      recognitionRef.current.start();
+    } catch (error) {
+      console.error('無法取得麥克風權限:', error);
+
+      let errorMessage = '無法使用麥克風';
+      if (error.name === 'NotAllowedError') {
+        errorMessage =
+          '麥克風權限被拒絕。請點選網址列旁的鎖頭圖示，允許使用麥克風。';
+      } else if (error.name === 'NotFoundError') {
+        errorMessage = '找不到麥克風設備。請確認麥克風已正確連接。';
+      } else if (error.name === 'NotSupportedError') {
+        errorMessage = '您的瀏覽器不支援麥克風功能，或網站未使用 HTTPS。';
+      }
+
+      alert(errorMessage);
+    }
+  }
 
   // 取得助手訊息
   useEffect(() => {
@@ -243,18 +362,23 @@ const EmbeddableChatInterface = ({
     );
   };
 
-  const handleSendMessage = () => {
-    if (inputMessage.trim() && isConnected) {
-      // 发送消息到WebSocket
-      socketRef.current.send(inputMessage);
+  // 抽出 sendMessage 邏輯以便語音輸入也能使用
+  const sendMessage = (text) => {
+    if (!text || !text.trim() || !isConnected) return;
 
-      // 新增用户消息到聊天界面
-      setMessages(prevMessages => [
-        ...prevMessages,
-        { id: Date.now(), text: inputMessage, isBot: false },
-      ]);
-      setInputMessage('');
-    }
+    // 发送消息到WebSocket
+    socketRef.current.send(text);
+
+    // 新增用户消息到聊天界面
+    setMessages(prevMessages => [
+      ...prevMessages,
+      { id: Date.now(), text: text, isBot: false },
+    ]);
+  };
+
+  const handleSendMessage = () => {
+    sendMessage(inputMessage);
+    setInputMessage('');
   };
 
   // 加載中顯示
@@ -513,6 +637,19 @@ const EmbeddableChatInterface = ({
                 },
               }}
             />
+            <IconButton
+              onClick={handleVoiceInput}
+              sx={{
+                m: 0.5,
+                bgcolor: isListening ? 'error.main' : 'secondary.main',
+                color: 'white',
+                '&:hover': {
+                  bgcolor: isListening ? 'error.dark' : 'secondary.dark',
+                },
+              }}
+            >
+              <MicIcon />
+            </IconButton>
             <IconButton
               onClick={handleSendMessage}
               sx={{
