@@ -62,7 +62,8 @@ def _synch_process_llm(data, assistant_uuid, customer_unique_id, lang, model, pr
         openai_api_key="ollama",
         base_url="http://192.168.1.235:11534/v1",
         model=model,
-        model_kwargs={"extra_body": {"keep_alive": -1}}
+        temperature=0.5,
+        model_kwargs={"top_p": 0.9, "extra_body": {"keep_alive": -1}}
     )
     if lang == "Traditional Chinese" or "繁體中文" in str(lang):
         user_query = f"#zh_tw {data}"
