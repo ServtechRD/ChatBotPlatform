@@ -43,6 +43,7 @@ export default function ChatInterface({
   // 語音辨識狀態
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef(null);
+  const recognitionActiveRef = useRef(false); // 防止重複 start()
 
   // 語音播放設定
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -80,22 +81,27 @@ export default function ChatInterface({
     };
 
     recognition.onstart = () => setIsListening(true);
-    recognition.onend = () => setIsListening(false);
+    recognition.onend = () => {
+      recognitionActiveRef.current = false;
+      setIsListening(false);
+    };
     recognition.onerror = err => {
+      recognitionActiveRef.current = false;
       console.error('語音辨識錯誤:', err);
       setIsListening(false);
 
       // no-speech：瀏覽器內建 timeout（約 5–10 秒無語音會觸發），不彈窗，自動重啟辨識
       if (err.error === 'no-speech') {
         setTimeout(() => {
-          if (recognitionRef.current) {
+          if (recognitionRef.current && !recognitionActiveRef.current) {
             try {
+              recognitionActiveRef.current = true;
               recognitionRef.current.start();
             } catch (e) {
-              // 若尚未 end 完就 start 會拋錯，忽略
+              recognitionActiveRef.current = false;
             }
           }
-        }, 300);
+        }, 500);
         return;
       }
 
@@ -272,8 +278,18 @@ export default function ChatInterface({
       // 獲得權限後，停止 stream（我們只是用來檢查權限）
       stream.getTracks().forEach(track => track.stop());
 
-      // 啟動語音識別
-      recognitionRef.current.start();
+      // 若辨識已啟動則不再呼叫 start（避免 DOMException: recognition has already started）
+      if (recognitionActiveRef.current) return;
+
+      try {
+        recognitionActiveRef.current = true;
+        recognitionRef.current.start();
+      } catch (e) {
+        recognitionActiveRef.current = false;
+        if (e.name !== 'InvalidStateError' && !/already started/i.test(e.message)) {
+          throw e;
+        }
+      }
     } catch (error) {
       console.error('無法取得麥克風權限:', error);
 
