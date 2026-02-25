@@ -25,6 +25,16 @@ const CHAT_HEIGHT = 598;
 const MESSAGE_TOP_LIMIT = CHAT_HEIGHT / 2;
 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 
+const DIGIT_TO_ZH = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
+function formatPhoneForSpeech(str) {
+  if (!str || typeof str !== 'string') return str;
+  const phoneRegex = /\(?0\d\)?[\s\-]*\d{4}[\s\-]*\d{4}|09[\s\-]*\d{2}[\s\-]*\d{6}/g;
+  return str.replace(phoneRegex, match => {
+    const digits = match.replace(/\D/g, '');
+    return digits.split('').map(d => DIGIT_TO_ZH[Number(d)]).join(' ');
+  });
+}
+
 const EmbeddableChatInterface = ({
   assistantUrl, // 助手ID作為參數傳入
   //assistantName = null, // 可選參數
@@ -46,6 +56,7 @@ const EmbeddableChatInterface = ({
   // 語音辨識狀態
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef(null);
+  const noSpeechReconnectRef = useRef(false);
 
   // 語音播放設定
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -81,10 +92,43 @@ const EmbeddableChatInterface = ({
     };
 
     recognition.onstart = () => setIsListening(true);
-    recognition.onend = () => setIsListening(false);
+    recognition.onend = () => {
+      setIsListening(false);
+      // 沒偵測到語音時在 onend 後重連（此時辨識已完全結束）
+      if (noSpeechReconnectRef.current) {
+        noSpeechReconnectRef.current = false;
+        const rec = recognitionRef.current;
+        setTimeout(() => {
+          if (rec) {
+            try {
+              rec.start();
+            } catch (e) {
+              console.warn('麥克風重連失敗', e);
+            }
+          }
+        }, 150);
+      }
+    };
     recognition.onerror = err => {
       console.error('語音辨識錯誤:', err);
       setIsListening(false);
+
+      // 沒偵測到語音時標記重連，實際在 onend 裡執行；若 onend 已先觸發則由此處延遲重連
+      if (err.error === 'no-speech') {
+        noSpeechReconnectRef.current = true;
+        const rec = recognitionRef.current;
+        setTimeout(() => {
+          if (noSpeechReconnectRef.current && rec) {
+            noSpeechReconnectRef.current = false;
+            try {
+              rec.start();
+            } catch (e) {
+              console.warn('麥克風重連失敗', e);
+            }
+          }
+        }, 400);
+        return;
+      }
 
       // 提供更詳細的錯誤訊息
       let errorMessage = '語音辨識發生錯誤';
@@ -92,9 +136,6 @@ const EmbeddableChatInterface = ({
         case 'not-allowed':
           errorMessage =
             '麥克風權限被拒絕。請在瀏覽器設定中允許使用麥克風，或確保網站使用 HTTPS。';
-          break;
-        case 'no-speech':
-          errorMessage = '未偵測到語音，請再試一次。';
           break;
         case 'audio-capture':
           errorMessage = '找不到麥克風設備，請檢查麥克風是否已連接。';
@@ -204,7 +245,8 @@ const EmbeddableChatInterface = ({
       }
 
       const segment = sentences[index];
-      const cleaned = cleanText(segment);
+      const withPhoneFormatted = formatPhoneForSpeech(segment);
+      const cleaned = cleanText(withPhoneFormatted);
 
       if (!cleaned) {
         // 如果清理後是空字串，則跳過並繼續
