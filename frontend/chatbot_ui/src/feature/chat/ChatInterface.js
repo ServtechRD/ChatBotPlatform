@@ -87,6 +87,7 @@ export default function ChatInterface({
     };
     recognition.onerror = err => {
       recognitionActiveRef.current = false;
+      console.error('語音辨識錯誤:', err);
       setIsListening(false);
 
       // no-speech：瀏覽器內建 timeout（約 5–10 秒無語音會觸發），不彈窗，自動重啟辨識
@@ -103,8 +104,6 @@ export default function ChatInterface({
         }, 500);
         return;
       }
-
-      console.error('語音辨識錯誤:', err);
 
       // 提供更詳細的錯誤訊息
       let errorMessage = '語音辨識發生錯誤';
