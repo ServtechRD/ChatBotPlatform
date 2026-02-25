@@ -89,11 +89,11 @@ const EmbeddableChatInterface = ({
     };
     recognition.onerror = err => {
       recognitionActiveRef.current = false;
-      console.error('語音辨識錯誤:', err);
       setIsListening(false);
 
       // no-speech：瀏覽器內建 timeout（約 5–10 秒無語音會觸發），不彈窗，自動重啟辨識
       if (err.error === 'no-speech') {
+        // 不記錄為錯誤，僅在需要除錯時可改為 console.log
         setTimeout(() => {
           if (recognitionRef.current && !recognitionActiveRef.current) {
             try {
@@ -107,6 +107,8 @@ const EmbeddableChatInterface = ({
         }, 500);
         return;
       }
+
+      console.error('語音辨識錯誤:', err);
 
       // 提供更詳細的錯誤訊息
       let errorMessage = '語音辨識發生錯誤';
