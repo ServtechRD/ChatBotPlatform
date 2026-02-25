@@ -429,6 +429,13 @@ export default function ChatInterface({
       };
 
       utterance.onerror = (err) => {
+        // 'interrupted' 為預期狀況：使用者停止或開始新的播放時 cancel() 會觸發，不需當成錯誤
+        if (err?.error === 'interrupted') return;
+        // 'not-allowed'：瀏覽器在非使用者手勢下阻擋語音（例如機器人回覆到達時自動播放），請改點擊喇叭按鈕播放
+        if (err?.error === 'not-allowed') {
+          if (speechId === currentSpeechIdRef.current) setIsSpeaking(false);
+          return;
+        }
         console.error('語音播放錯誤:', err);
         if (speechId !== currentSpeechIdRef.current) return;
         setIsSpeaking(false);
