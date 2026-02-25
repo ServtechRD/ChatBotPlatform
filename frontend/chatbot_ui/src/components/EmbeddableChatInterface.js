@@ -72,7 +72,6 @@ const EmbeddableChatInterface = ({
     recognition.lang = 'zh-TW'; // 語音輸入語言
     recognition.interimResults = false; // 只要最終結果
     recognition.maxAlternatives = 1;
-    recognition.continuous = true; // 持續聆聽，減少因靜音而中斷
 
     recognition.onresult = event => {
       const transcript = event.results[0][0].transcript;
@@ -87,26 +86,15 @@ const EmbeddableChatInterface = ({
       console.error('語音辨識錯誤:', err);
       setIsListening(false);
 
-      // no-speech：瀏覽器內建 timeout（約 5–10 秒無語音會觸發），不彈窗，自動重啟辨識
-      if (err.error === 'no-speech') {
-        setTimeout(() => {
-          if (recognitionRef.current) {
-            try {
-              recognitionRef.current.start();
-            } catch (e) {
-              // 若尚未 end 完就 start 會拋錯，忽略
-            }
-          }
-        }, 300);
-        return;
-      }
-
       // 提供更詳細的錯誤訊息
       let errorMessage = '語音辨識發生錯誤';
       switch (err.error) {
         case 'not-allowed':
           errorMessage =
             '麥克風權限被拒絕。請在瀏覽器設定中允許使用麥克風，或確保網站使用 HTTPS。';
+          break;
+        case 'no-speech':
+          errorMessage = '未偵測到語音，請再試一次。';
           break;
         case 'audio-capture':
           errorMessage = '找不到麥克風設備，請檢查麥克風是否已連接。';
