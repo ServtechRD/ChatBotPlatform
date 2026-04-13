@@ -109,7 +109,7 @@ def generate_summary_and_keywords(text, max_summary_words=150, max_keywords=10):
     # 4. 初始化 LLM (啟用 JSON 模式)
     llm = ChatOpenAI(
         openai_api_key="ollama",      
-        base_url="http://192.168.1.235:11534/v1",
+        base_url="http://192.168.1.187:11534/v1",
         model="gpt-oss:20b",           
         temperature=0.1,  
         model_kwargs={

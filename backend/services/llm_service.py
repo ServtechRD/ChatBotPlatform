@@ -60,7 +60,7 @@ def _synch_process_llm(data, assistant_uuid, customer_unique_id, lang, model, pr
     t_llm_init_start = time.perf_counter()
     llm = ChatOpenAI(
         openai_api_key="ollama",
-        base_url="http://192.168.1.235:11534/v1",
+        base_url="http://192.168.1.187:11534/v1",
         model=model,
         temperature=0.5,
         model_kwargs={"top_p": 0.9, "extra_body": {"keep_alive": -1}}
