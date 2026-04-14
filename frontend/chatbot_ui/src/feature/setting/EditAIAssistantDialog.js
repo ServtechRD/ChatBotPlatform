@@ -449,7 +449,7 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
           <>
             <TextField
               label="描述（專屬 prompt）"
-              helperText="儲存後將作為此助理對話時的系統指示；後端會寫入資料庫，過長時改存伺服器檔案。"
+              helperText="儲存後，系統會在對話時自動附上：預設回覆語系、使用者問題，以及有知識庫時的檢索結果。請在此處撰寫角色、語氣、禁忌與業務規則等專屬指示。"
               multiline
               minRows={10}
               fullWidth
