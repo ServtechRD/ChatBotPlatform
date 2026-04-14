@@ -30,6 +30,8 @@ class AIAssistant(Base):
     assistant_id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
+    # True 時完整 prompt 存於 assistant_prompts/{assistant_id}.txt，description 僅為列表用摘要
+    description_use_file = Column(Boolean, default=False, nullable=False)
     status = Column(Boolean, default=True)  # 用于表示助理是否启用
     created_at = Column(DateTime, default=datetime.utcnow)
 

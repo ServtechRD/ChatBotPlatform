@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from services.llm_service import process_message_through_llm
 from models.database import get_db
 from models.models import Conversation, Message, AIAssistant
+from services.assistant_prompt_storage import get_effective_description
 from utils.logger import get_logger
 
 router = APIRouter()
@@ -74,8 +75,6 @@ async def websocket_endpoint(
         await websocket.close(code=4404)
         return
     model = setting.get("model", "")
-    prompt1 = setting.get("prompt1", "")
-    prompt2 = setting.get("prompt2", "")
     welcome = assistant.message_welcome
     noidea = assistant.message_noidea
     lang = assistant.language
@@ -127,9 +126,19 @@ async def websocket_endpoint(
             logger.info("已寫入用戶訊息至 DB (耗時=%.2f ms)", t_save_user_ms)
 
             t_llm_start = time.perf_counter()
+            # 每回合重新載入助理，讓後台修改 description 後不必重連 WebSocket
+            db.refresh(assistant)
+            assistant_description = get_effective_description(assistant)
+
             response = await process_message_through_llm(
-                data, assistant_uuid, customer_id, lang, model, prompt1,
-                prompt2, welcome, noidea
+                data,
+                assistant_uuid,
+                customer_id,
+                lang,
+                model,
+                assistant_description,
+                welcome,
+                noidea,
             )
             t_llm_ms = (time.perf_counter() - t_llm_start) * 1000
             logger.info(

@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 
 from routers import assistant, conversation, websocket, auth, embed, mfa, tts
 from models.database import Base, engine
+from services.assistant_prompt_storage import ensure_description_use_file_column
 from utils.logger import setup_logging, get_logger
 
 # 日誌：寫入 ./log/yyyyMMdd.log
@@ -12,6 +13,7 @@ logger = get_logger(__name__)
 
 # 初始化数据库
 Base.metadata.create_all(bind=engine)
+ensure_description_use_file_column(engine)
 
 app = FastAPI()
 

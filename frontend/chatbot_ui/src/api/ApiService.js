@@ -312,6 +312,44 @@ class ApiService {
     }
   }
 
+  /** 單筆助理（含完整描述／檔案溢出時的合併全文） */
+  async fetchAssistant(assistantId) {
+    try {
+      const response = await this.axiosInstance.get(`/assistant/${assistantId}`, {
+        timeout: 120000,
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch assistant:', error);
+      throw error;
+    }
+  }
+
+  /** 新增助理預填與「重新載入範本」 */
+  async toggleAssistantStatus(assistantId) {
+    try {
+      const response = await this.axiosInstance.put(
+        `/assistant/${assistantId}/toggle_status`
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Failed to toggle assistant status:', error);
+      throw error;
+    }
+  }
+
+  async fetchDescriptionTemplate() {
+    try {
+      const response = await this.axiosInstance.get(
+        '/assistant/meta/description-template'
+      );
+      return response.data?.template ?? '';
+    } catch (error) {
+      console.error('Failed to fetch description template:', error);
+      throw error;
+    }
+  }
+
   // 取得使用者資料
   async fetchAssistants() {
     try {

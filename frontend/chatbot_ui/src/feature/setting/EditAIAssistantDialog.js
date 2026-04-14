@@ -16,6 +16,7 @@ import {
   IconButton,
   Box,
   Paper,
+  CircularProgress,
 } from '@mui/material';
 import {
   Link as LinkIcon,
@@ -30,6 +31,7 @@ import 'react-image-crop/dist/ReactCrop.css';
 import { formatImageUrl } from '../../utils/urlUtils';
 
 import ApiService from '../../api/ApiService';
+import { DEFAULT_ASSISTANT_DESCRIPTION_TEMPLATE } from './defaultAssistantDescriptionTemplate';
 
 const UPLOAD_IMAGE_WIDTH = 398;
 const UPLOAD_IMAGE_HEIGHT = 598;
@@ -41,6 +43,7 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
   const [allowLiveChat, setAllowLiveChat] = useState(false);
   const [aiAssistantUrl, setAiAssistantUrl] = useState('');
   const [name, setName] = useState('');
+  const [detailLoading, setDetailLoading] = useState(false);
 
   const [welcomeText, setWelcomeText] = useState('');
   const [unableToRespondText, setUnableToRespondText] = useState('');
@@ -75,42 +78,142 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
   const videoInputRef1 = useRef(null);
   const videoInputRef2 = useRef(null);
 
-  useEffect(() => {
-    if (aiAssistant) {
-      setName(aiAssistant.name || '');
-      setDescription(aiAssistant.description || '');
-      setAiAssistantUrl(aiAssistant.link || '');
+  const resetFormForCreate = useCallback(() => {
+    setName('');
+    setAiAssistantUrl('');
+    setWelcomeText('welcome');
+    setUnableToRespondText('No response');
+    setLanguage('Traditional Chinese');
+    setAllowLiveChat(false);
+    setImage(null);
+    setImageUrl('');
+    setCroppedImageUrl('');
+    setHasNewImage(false);
+    setVideo1(null);
+    setVideo2(null);
+    setVideoUrl1('');
+    setVideoUrl2('');
+    setCrop({
+      unit: 'px',
+      width: CROP_SIZE,
+      height: CROP_SIZE,
+      x: (UPLOAD_IMAGE_WIDTH - CROP_SIZE) / 2,
+      y: (UPLOAD_IMAGE_HEIGHT - CROP_SIZE) / 2,
+    });
+    setCompletedCrop(null);
+  }, []);
 
-      setWelcomeText(aiAssistant.message_welcome || 'welcome');
-      setUnableToRespondText(aiAssistant.message_noidea || 'No response');
-
-      // 如果 aiAssistant 有 language 屬性，也可以設置
-      if (aiAssistant.language) {
-        setLanguage(aiAssistant.language);
-      }
-      // 如果有 allowLiveChat 屬性，也可以設置
-      if (aiAssistant.allowLiveChat !== undefined) {
-        setAllowLiveChat(aiAssistant.allowLiveChat);
-      }
-
-      if (aiAssistant.image_assistant) {
-        setImageUrl(formatImageUrl(aiAssistant.image_assistant));
-        setHasNewImage(false); // 重置新圖片標記
-      }
-
-      if (aiAssistant.image_crop) {
-        setCroppedImageUrl(formatImageUrl(aiAssistant.image_crop));
-      }
-
-      if (aiAssistant.video_1) {
-        setVideoUrl1(formatImageUrl(aiAssistant.video_1));
-      }
-
-      if (aiAssistant.video_2) {
-        setVideoUrl1(formatImageUrl(aiAssistant.video_2));
-      }
+  const applyAssistantDetail = useCallback(d => {
+    if (!d) return;
+    setName(d.name || '');
+    setDescription(d.description || '');
+    setAiAssistantUrl(d.link || '');
+    setWelcomeText(d.message_welcome || 'welcome');
+    setUnableToRespondText(d.message_noidea || 'No response');
+    if (d.language) {
+      setLanguage(d.language);
     }
-  }, [aiAssistant]);
+    if (d.allowLiveChat !== undefined) {
+      setAllowLiveChat(d.allowLiveChat);
+    }
+    if (d.image_assistant) {
+      setImageUrl(formatImageUrl(d.image_assistant));
+      setHasNewImage(false);
+    } else {
+      setImageUrl('');
+      setImage(null);
+    }
+    if (d.image_crop) {
+      setCroppedImageUrl(formatImageUrl(d.image_crop));
+    } else {
+      setCroppedImageUrl('');
+    }
+    if (d.video_1) {
+      setVideoUrl1(formatImageUrl(d.video_1));
+    } else {
+      setVideoUrl1('');
+      setVideo1(null);
+    }
+    if (d.video_2) {
+      setVideoUrl2(formatImageUrl(d.video_2));
+    } else {
+      setVideoUrl2('');
+      setVideo2(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    let cancelled = false;
+
+    const run = async () => {
+      if (aiAssistant?.assistant_id) {
+        setDetailLoading(true);
+        try {
+          const d = await ApiService.fetchAssistant(aiAssistant.assistant_id);
+          if (!cancelled) {
+            applyAssistantDetail(d);
+          }
+        } catch (e) {
+          if (!cancelled) {
+            const msg =
+              e?.response?.data?.detail ||
+              e?.message ||
+              '無法載入助理資料';
+            alert(`載入助理失敗: ${msg}`);
+            onClose();
+          }
+        } finally {
+          if (!cancelled) {
+            setDetailLoading(false);
+          }
+        }
+      } else {
+        setDetailLoading(true);
+        resetFormForCreate();
+        try {
+          const tmpl = await ApiService.fetchDescriptionTemplate();
+          if (!cancelled) {
+            setDescription(
+              (tmpl && String(tmpl).trim()) ||
+                DEFAULT_ASSISTANT_DESCRIPTION_TEMPLATE
+            );
+          }
+        } catch {
+          if (!cancelled) {
+            setDescription(DEFAULT_ASSISTANT_DESCRIPTION_TEMPLATE);
+          }
+        } finally {
+          if (!cancelled) {
+            setDetailLoading(false);
+          }
+        }
+      }
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    open,
+    aiAssistant?.assistant_id,
+    applyAssistantDetail,
+    resetFormForCreate,
+    // onClose 不列入：避免父層重繪時重複載入
+  ]);
+
+  const handleReloadTemplate = async () => {
+    try {
+      const tmpl = await ApiService.fetchDescriptionTemplate();
+      setDescription(
+        (tmpl && String(tmpl).trim()) ||
+          DEFAULT_ASSISTANT_DESCRIPTION_TEMPLATE
+      );
+    } catch {
+      setDescription(DEFAULT_ASSISTANT_DESCRIPTION_TEMPLATE);
+    }
+  };
 
   // 處理圖片上傳
   const handleImageUpload = e => {
@@ -313,7 +416,11 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
 
       onClose();
     } catch (error) {
-      alert(`${aiAssistant?.assistant_id ? '更新' : '建立'}失敗: ${error}`);
+      const msg =
+        error?.response?.data?.detail ||
+        error?.message ||
+        String(error);
+      alert(`${aiAssistant?.assistant_id ? '更新' : '建立'}失敗: ${msg}`);
     }
   };
 
@@ -326,28 +433,51 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
         <Typography variant="body2" color="textSecondary" gutterBottom>
           AI助理助理主要使用情境以及使用者知悉與其互動。對於表現演算結果的使用情境，請使用範本填入背景知識。請根據您的需求修改範本中的問題。
         </Typography>
-        <Box display="flex" alignItems="center" marginTop={2}>
-          <Typography variant="body2">AI 助理名稱:</Typography>
-          <TextField
-            value={name}
-            onChange={e => setName(e.target.value)}
-            variant="outlined"
-            size="small"
-            fullWidth
-            sx={{ ml: 1, mr: 1 }}
-          />
-        </Box>
 
-        <TextField
-          label="描述"
-          multiline
-          rows={4}
-          fullWidth
-          variant="outlined"
-          value={description}
-          onChange={e => setDescription(e.target.value)}
-          margin="normal"
-        />
+        {detailLoading ? (
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              py: 6,
+            }}
+          >
+            <CircularProgress />
+          </Box>
+        ) : (
+          <>
+            <TextField
+              label="描述（專屬 prompt）"
+              helperText="儲存後將作為此助理對話時的系統指示；後端會寫入資料庫，過長時改存伺服器檔案。"
+              multiline
+              minRows={10}
+              fullWidth
+              variant="outlined"
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              margin="normal"
+            />
+
+            <Box sx={{ display: 'flex', justifyContent: 'flex-start', my: 1 }}>
+              <Button variant="outlined" size="small" onClick={handleReloadTemplate}>
+                重新載入範本
+              </Button>
+            </Box>
+
+            <Box display="flex" alignItems="center" marginTop={1}>
+              <Typography variant="body2" sx={{ flexShrink: 0 }}>
+                AI 助理名稱:
+              </Typography>
+              <TextField
+                value={name}
+                onChange={e => setName(e.target.value)}
+                variant="outlined"
+                size="small"
+                fullWidth
+                sx={{ ml: 1, mr: 1 }}
+              />
+            </Box>
 
         {/* 圖片上傳和裁剪區域 */}
         <Box sx={{ mt: 3 }}>
@@ -499,7 +629,7 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
             上傳影片2
           </Button>
 
-          {videoUrl1 && (
+          {videoUrl2 && (
             <Box sx={{ mt: 2 }}>
               <Typography variant="subtitle2" gutterBottom>
                 影片預覽2
@@ -578,12 +708,16 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
             <ContentCopyIcon />
           </IconButton>
         </Box>
+          </>
+        )}
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>取消</Button>
         <Button
           onClick={handleSave}
-          disabled={!name.trim() || !description.trim()}
+          disabled={
+            detailLoading || !name.trim() || !description.trim()
+          }
           variant="contained"
           color="primary"
         >

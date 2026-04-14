@@ -50,14 +50,30 @@ const AIAssistantManagement = ({ onRefresh }) => {
     fetchAssistants();
   }, [fetchAssistants]);
 
-  const handleStatusChange = id => {
+  const handleStatusChange = async (id, nextChecked) => {
+    const prev = assistants.find(a => a.assistant_id === id);
+    const prevStatus = prev?.status;
     setAssistants(
       assistants.map(assistant =>
         assistant.assistant_id === id
-          ? { ...assistant, status: !assistant.status }
+          ? { ...assistant, status: nextChecked }
           : assistant
       )
     );
+    try {
+      await ApiService.toggleAssistantStatus(id);
+    } catch (e) {
+      setAssistants(
+        assistants.map(assistant =>
+          assistant.assistant_id === id
+            ? { ...assistant, status: prevStatus }
+            : assistant
+        )
+      );
+      const msg =
+        e?.response?.data?.detail || e?.message || String(e);
+      alert(`更新助理狀態失敗: ${msg}`);
+    }
   };
 
   const handleOpenDialog = (assistant = null) => {
@@ -153,7 +169,12 @@ const AIAssistantManagement = ({ onRefresh }) => {
                   <TableCell align="center">
                     <Switch
                       checked={assistant.status}
-                      onChange={e => handleStatusChange(assistant.assistant_id)}
+                      onChange={e =>
+                        handleStatusChange(
+                          assistant.assistant_id,
+                          e.target.checked
+                        )
+                      }
                       color="primary"
                     />
                   </TableCell>

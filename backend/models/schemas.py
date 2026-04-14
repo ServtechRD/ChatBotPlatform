@@ -39,6 +39,7 @@ class Assistant(BaseModel):
     assistant_id: int
     name: str
     description: Optional[str] = None
+    description_use_file: Optional[bool] = False
     status: bool
 
     image_assistant: Optional[str] = None  # 助理图路径

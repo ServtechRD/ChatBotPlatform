@@ -26,9 +26,10 @@ const CHAT_WIDTH = 398;
 const CHAT_HEIGHT = 598;
 const MESSAGE_TOP_LIMIT = CHAT_HEIGHT / 2;
 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-const WS_BASE_URL =
-  `${protocol}//${process.env.REACT_APP_API_BASE_WS_URL}` ||
-  `${protocol}//cloud.servtech.com.tw:36100`;
+// 注意：樣板字串在 env 未設定時會變成 ws://undefined（仍為 truthy），導致 || 右側永遠不生效
+const WS_HOST =
+  process.env.REACT_APP_API_BASE_WS_URL || 'cloud.servtech.com.tw:36100';
+const WS_BASE_URL = `${protocol}//${WS_HOST}`;
 
 export default function ChatInterface({
   assistantid,

@@ -1,14 +1,12 @@
-from langchain.chains import RetrievalQA  # pyright: ignore[reportMissingImports]
 from langchain.chat_models import ChatOpenAI  # pyright: ignore[reportMissingImports]
-from langchain.prompts import PromptTemplate  # pyright: ignore[reportMissingImports]
 from services.vector_service import get_vector_store
-# from langchain.chains.combine_documents import StuffDocumentsChain
 
 from dotenv import load_dotenv  # pyright: ignore[reportMissingImports]
 import os
 import time
 
 from utils.logger import get_logger
+from typing import List, Optional
 
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
@@ -23,11 +21,31 @@ api_key = os.getenv("OPENAI_API_KEY")
 logger = get_logger(__name__)
 
 
+def _build_user_prompt(assistant_description: str, lang: str, user_query: str, retrieval_context: Optional[str]) -> str:
+    """以 DB 儲存的助理描述為系統指令本體，加上語系、使用者問題；若有檢索結果一併附上。"""
+    blocks: List[str] = []
+    desc = (assistant_description or "").strip()
+    if desc:
+        blocks.append(desc)
+    blocks.append(f"### 預設回覆語系\n{lang}")
+    blocks.append(f"### 使用者問題\n{user_query}")
+    if retrieval_context:
+        blocks.append(f"### 檢索結果\n{retrieval_context}")
+    return "\n\n".join(blocks)
 
-def _synch_process_llm(data, assistant_uuid, customer_unique_id, lang, model, prompt1, prompt2, welcome, noidea):
+
+def _synch_process_llm(data, assistant_uuid, customer_unique_id, lang, model, assistant_description, welcome, noidea):
     """
-    同步版本的 LLM 處理邏輯，包含向量檢索與 QA Chain 呼叫。
+    同步版本的 LLM 處理邏輯，包含向量檢索與單次 LLM 呼叫。
     此函數將被丟入 ThreadPoolExecutor 中執行，以免阻塞主要 Event Loop。
+    data: 用戶的問題
+    assistant_uuid: 助手 ID
+    customer_unique_id: 客戶唯一 ID
+    lang: 語言
+    model: 模型
+    assistant_description: 來自 AIAssistant.description（表單儲存的專屬 prompt）
+    welcome: 歡迎提示
+    noidea: 沒有想法提示
     """
     t_total_start = time.perf_counter()
     logger.info(
@@ -73,10 +91,10 @@ def _synch_process_llm(data, assistant_uuid, customer_unique_id, lang, model, pr
     logger.debug("[LLM] 建構 user_query 與 LLM 實例 (耗時=%.2f ms)", t_llm_init_ms)
 
     if not relevant_docs:
-        logger.info("[LLM] 無相關文件，使用 prompt1 直接呼叫 LLM")
-        system_prompt = prompt1.replace("$language", lang).replace("$data", user_query)
+        logger.info("[LLM] 無相關文件，使用助理 description + 使用者問題呼叫 LLM")
+        full_prompt = _build_user_prompt(assistant_description, lang, user_query, retrieval_context=None)
         t_direct_start = time.perf_counter()
-        response = llm(system_prompt)
+        response = llm(full_prompt)
         t_direct_ms = (time.perf_counter() - t_direct_start) * 1000
         t_total_ms = (time.perf_counter() - t_total_start) * 1000
         logger.info(
@@ -85,50 +103,21 @@ def _synch_process_llm(data, assistant_uuid, customer_unique_id, lang, model, pr
         )
         return response
 
-    system_prompt = prompt2.replace("$language", lang).replace("$data", user_query)
-    system_prompt = system_prompt.replace("$doc", "{context}")
-
-    # Ensure context variable exists for StuffDocumentsChain
-    if "{context}" not in system_prompt:
-        system_prompt += "\n\nRelevant context:\n{context}"
-    
-    # Ensure question variable exists, even if we injected it already, to satisfy RetrievalQA expectations
-    if "{question}" not in system_prompt:
-        system_prompt += "\n\nQuestion: {question}"
-
-    prompt_template = PromptTemplate(
-        template=system_prompt,
-        input_variables=["context", "question"]
+    retrieval_text = "\n\n---\n\n".join(
+        (d.page_content or "").strip() for d in relevant_docs if (d.page_content or "").strip()
     )
-
-    t_chain_start = time.perf_counter()
-    qa_chain = RetrievalQA.from_chain_type(
-        llm=llm,
-        chain_type="stuff",
-        retriever=retriever,
-        return_source_documents=False,
-        chain_type_kwargs={"prompt": prompt_template, "document_variable_name": "context"},
-    )
-    t_chain_ms = (time.perf_counter() - t_chain_start) * 1000
-    logger.debug("[LLM] 建立 QA chain (耗時=%.2f ms)", t_chain_ms)
+    logger.info("[LLM] 有相關文件，使用助理 description + 使用者問題 + 檢索結果呼叫 LLM")
+    full_prompt = _build_user_prompt(assistant_description, lang, user_query, retrieval_context=retrieval_text)
 
     t_invoke_start = time.perf_counter()
-    try:
-        res = qa_chain.invoke({"context": "customer service", "query": user_query})
-        response = res.get("result", str(res))
-    except Exception as e:
-        logger.warning("[LLM] invoke 失敗改 run: %s", e)
-        t_fallback_start = time.perf_counter()
-        response = qa_chain.run({"context": "customer service", "query": user_query})
-        t_invoke_ms = (time.perf_counter() - t_fallback_start) * 1000
-        logger.info("[LLM] run 完成 (fallback 耗時=%.2f ms)", t_invoke_ms)
-    else:
-        t_invoke_ms = (time.perf_counter() - t_invoke_start) * 1000
-        logger.info(
-            "[LLM] QA chain invoke 完成 assistant_uuid=%s 回覆長度=%d (invoke 耗時=%.2f ms)",
-            assistant_uuid, len(response or ""), t_invoke_ms
-        )
+    response = llm(full_prompt)
+    t_invoke_ms = (time.perf_counter() - t_invoke_start) * 1000
+    logger.info(
+        "[LLM 完成-含檢索] assistant_uuid=%s 回覆長度=%d (LLM 耗時=%.2f ms)",
+        assistant_uuid, len(response or ""), t_invoke_ms
+    )
 
+    t_chain_ms = 0.0  # 已不再使用 RetrievalQA chain
     t_total_ms = (time.perf_counter() - t_total_start) * 1000
     logger.info(
         "[LLM 總耗時] assistant_uuid=%s 總耗時=%.2f ms (向量庫=%.2f 檢索=%.2f 建鏈=%.2f 呼叫LLM=%.2f)",
@@ -138,7 +127,7 @@ def _synch_process_llm(data, assistant_uuid, customer_unique_id, lang, model, pr
     return response
 
 
-async def process_message_through_llm(data, assistant_uuid, customer_unique_id, lang, model, prompt1, prompt2, welcome, noidea):
+async def process_message_through_llm(data, assistant_uuid, customer_unique_id, lang, model, assistant_description, welcome, noidea):
     """
     非阻塞包裝：在 ThreadPoolExecutor 中執行同步的 LLM 操作，
     避免長時間運算 (如 150s) 卡住 asyncio 事件迴圈導致 WebSocket 斷線。
@@ -146,9 +135,9 @@ async def process_message_through_llm(data, assistant_uuid, customer_unique_id, 
     loop = asyncio.get_running_loop()
     # 使用 run_in_executor 將同步函式丟到執行緒池
     return await loop.run_in_executor(
-        executor, 
+        executor,
         _synch_process_llm,
-        data, assistant_uuid, customer_unique_id, lang, model, prompt1, prompt2, welcome, noidea
+        data, assistant_uuid, customer_unique_id, lang, model, assistant_description, welcome, noidea
     )
     # print("start to send to ws")
     # 将回复通过 WebSocket 发送给客户

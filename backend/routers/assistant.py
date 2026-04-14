@@ -11,6 +11,10 @@ from services.vector_service import process_and_store_file, list_knowledge, get_
 from services.auth_service import verify_token
 from models.schemas import AssistantCreate, Assistant, AssistantUpdate
 from utils.logger import get_logger
+from services.assistant_prompt_storage import (
+    get_effective_description,
+    sync_description_to_storage,
+)
 import asyncio
 import os
 import uuid
@@ -23,6 +27,27 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 # 定义文件保存路径
 UPLOAD_DIR = "./public"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+_DESCRIPTION_TEMPLATE_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(__file__)), "config", "assistant_description_template.txt"
+)
+
+
+def _read_default_description_template() -> str:
+    try:
+        with open(_DESCRIPTION_TEMPLATE_PATH, "r", encoding="utf-8") as f:
+            return f.read().strip()
+    except OSError:
+        logger.warning("找不到描述範本檔: %s", _DESCRIPTION_TEMPLATE_PATH)
+        return "你是專業且友善的 AI 助理。請清楚、簡潔地回答使用者問題。"
+
+
+# 必須註冊在 /assistant/{assistant_id} 之前，避免 path 被當成 id
+@router.get("/assistant/meta/description-template")
+def get_description_template(token: str = Depends(oauth2_scheme)):
+    """供前端「新增助理」預填與「重新載入範本」使用。"""
+    verify_token(token)
+    return {"template": _read_default_description_template()}
 
 
 def save_file(file: UploadFile, sub_dir: str) -> str:
@@ -82,10 +107,11 @@ def create_assistant(  # assistant_data: AssistantCreate,
     # 生成唯一 link
     unique_link = f"assistant-{uuid.uuid4().hex[:8]}"
 
-    # 创建新的助理
+    # 创建新的助理（描述改由 sync 寫入，避免超長內容在首次 commit 時被 DB TEXT 截斷）
     new_assistant = AIAssistant(
         name=name,
-        description=description,
+        description="",
+        description_use_file=False,
         owner_id=user_id,
         image_assistant=assistant_image_path,
         message_welcome=welcome,
@@ -101,6 +127,14 @@ def create_assistant(  # assistant_data: AssistantCreate,
     db.add(new_assistant)
     db.commit()
     db.refresh(new_assistant)
+
+    try:
+        sync_description_to_storage(db, new_assistant, description)
+        db.commit()
+        db.refresh(new_assistant)
+    except RuntimeError as e:
+        logger.exception("建立助理後寫入描述失敗 assistant_id=%s", new_assistant.assistant_id)
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
     return {
         "status": "success",
@@ -196,7 +230,8 @@ def get_assistant(assistant_id: int, db: Session = Depends(get_db)):
     return {
         "assistant_id": assistant.assistant_id,
         "name": assistant.name,
-        "description": assistant.description,
+        "description": get_effective_description(assistant),
+        "description_use_file": bool(getattr(assistant, "description_use_file", False)),
         "status": assistant.status,
         "message_welcome": assistant.message_welcome,
         "message_noidea": assistant.message_noidea,
@@ -268,7 +303,10 @@ async def update_assistant(
     if name is not None:
         assistant.name = name
     if description is not None:
-        assistant.description = description
+        try:
+            sync_description_to_storage(db, assistant, description)
+        except RuntimeError as e:
+            raise HTTPException(status_code=500, detail=str(e)) from e
     if language is not None:
         assistant.language = language
     if note is not None:
@@ -299,7 +337,7 @@ async def update_assistant(
         "message": "Assistant updated successfully",
         "assistant": {
             "name": assistant.name,
-            "description": assistant.description,
+            "description": get_effective_description(assistant),
             "welcome": welcome,
             "noidea": noidea,
             "other": other,
