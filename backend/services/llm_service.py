@@ -18,6 +18,9 @@ executor = ThreadPoolExecutor(max_workers=10)
 load_dotenv()  # 加载 .env 文件中的环境变量
 
 api_key = os.getenv("OPENAI_API_KEY")
+VLLM_API_KEY = os.getenv("VLLM_API_KEY", "EMPTY")
+VLLM_BASE_URL = os.getenv("VLLM_BASE_URL")
+VLLM_MODEL = os.getenv("VLLM_MODEL").strip()
 
 logger = get_logger(__name__)
 
@@ -130,13 +133,15 @@ def _synch_process_llm(data, assistant_uuid, customer_unique_id, lang, model, as
         logger.debug("[LLM] 檢索到文件預覽: %s", relevant_docs[0].page_content[:200] if relevant_docs else "")
 
     t_llm_init_start = time.perf_counter()
+    runtime_model = VLLM_MODEL or model
     llm = ChatOpenAI(
-        openai_api_key="ollama",
-        base_url="http://192.168.1.187:11534/v1",
-        model=model,
+        openai_api_key=VLLM_API_KEY,
+        base_url=VLLM_BASE_URL,
+        model=runtime_model,
         temperature=0.5,
-        model_kwargs={"top_p": 0.9, "extra_body": {"keep_alive": -1}}
+        model_kwargs={"top_p": 0.9},
     )
+    logger.info("[LLM] provider=vllm base_url=%s model=%s", VLLM_BASE_URL, runtime_model)
     if lang == "Traditional Chinese" or "繁體中文" in str(lang):
         user_query = f"#zh_tw {data}"
     else:

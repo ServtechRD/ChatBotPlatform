@@ -33,6 +33,10 @@ load_dotenv()  # 加载 .env 文件中的环境变量
 logger = get_logger(__name__)
 
 api_key = os.getenv("OPENAI_API_KEY")
+VLLM_API_KEY = os.getenv("VLLM_API_KEY", "EMPTY")
+VLLM_BASE_URL = os.getenv("VLLM_BASE_URL", "http://127.0.0.1:8000/v1")
+VLLM_MODEL = os.getenv("VLLM_MODEL", "").strip()
+VLLM_SUMMARY_MODEL = os.getenv("VLLM_SUMMARY_MODEL", "").strip()
 
 # 用于获取向量存储
 vector_store = {}
@@ -107,21 +111,19 @@ def generate_summary_and_keywords(text, max_summary_words=150, max_keywords=10):
     )
 
     # 4. 初始化 LLM (啟用 JSON 模式)
+    runtime_model = VLLM_SUMMARY_MODEL or VLLM_MODEL or "gpt-oss:20b"
     llm = ChatOpenAI(
-        openai_api_key="ollama",      
-        base_url="http://192.168.1.187:11534/v1",
-        model="gpt-oss:20b",           
-        temperature=0.1,  
-        model_kwargs={
-            "extra_body": {"keep_alive": -1},
-            # "response_format": {"type": "json_object"}  # REMOVED: Caused empty response on this backend
-        }
+        openai_api_key=VLLM_API_KEY,
+        base_url=VLLM_BASE_URL,
+        model=runtime_model,
+        temperature=0.1,
+        model_kwargs={},
     )
     
     try:
-        from langchain.schema import SystemMessage, HumanMessage
+        from langchain_core.messages import SystemMessage, HumanMessage
         
-        response = llm([
+        response = llm.invoke([
             SystemMessage(content=system_instruction),
             HumanMessage(content=user_prompt)
         ])
@@ -257,7 +259,7 @@ def _process_and_store_file_heavy_sync(
         logger.info("[上傳檔案] loader.load 完成 doc_count=%d (耗時=%.2f ms)", len(documents), t_load_ms)
 
         text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=500,
+            chunk_size=300,
             chunk_overlap=50,
             separators=["\n\n", "\n", "。", "！", "？", ".", "!", "?", " ", ""]
         )
