@@ -1,4 +1,5 @@
 from langchain.chat_models import ChatOpenAI  # pyright: ignore[reportMissingImports]
+from langchain_core.messages import HumanMessage  # pyright: ignore[reportMissingImports]
 from services.vector_service import get_vector_store
 
 from dotenv import load_dotenv  # pyright: ignore[reportMissingImports]
@@ -32,6 +33,31 @@ def _build_user_prompt(assistant_description: str, lang: str, user_query: str, r
     if retrieval_context:
         blocks.append(f"### 檢索結果\n{retrieval_context}")
     return "\n\n".join(blocks)
+
+
+def _invoke_chat_text(llm: ChatOpenAI, text: str) -> str:
+    """
+    LangChain 0.3+ 的 ChatOpenAI 不可再 llm(長字串)：字串會被當成 iterable，逐字變成「訊息」而觸發
+    TypeError: Got unknown type 你。改為 invoke([HumanMessage(...)])。
+    """
+    msg = HumanMessage(content=text)
+    result = llm.invoke([msg])
+    if hasattr(result, "content"):
+        c = result.content
+        if isinstance(c, str):
+            return c
+        if isinstance(c, list):
+            parts = []
+            for block in c:
+                if isinstance(block, str):
+                    parts.append(block)
+                elif isinstance(block, dict) and "text" in block:
+                    parts.append(str(block["text"]))
+                else:
+                    parts.append(str(block))
+            return "".join(parts)
+        return str(c)
+    return str(result)
 
 
 def _synch_process_llm(data, assistant_uuid, customer_unique_id, lang, model, assistant_description, welcome, noidea):
@@ -94,7 +120,7 @@ def _synch_process_llm(data, assistant_uuid, customer_unique_id, lang, model, as
         logger.info("[LLM] 無相關文件，使用助理 description + 使用者問題呼叫 LLM")
         full_prompt = _build_user_prompt(assistant_description, lang, user_query, retrieval_context=None)
         t_direct_start = time.perf_counter()
-        response = llm(full_prompt)
+        response = _invoke_chat_text(llm, full_prompt)
         t_direct_ms = (time.perf_counter() - t_direct_start) * 1000
         t_total_ms = (time.perf_counter() - t_total_start) * 1000
         logger.info(
@@ -110,7 +136,7 @@ def _synch_process_llm(data, assistant_uuid, customer_unique_id, lang, model, as
     full_prompt = _build_user_prompt(assistant_description, lang, user_query, retrieval_context=retrieval_text)
 
     t_invoke_start = time.perf_counter()
-    response = llm(full_prompt)
+    response = _invoke_chat_text(llm, full_prompt)
     t_invoke_ms = (time.perf_counter() - t_invoke_start) * 1000
     logger.info(
         "[LLM 完成-含檢索] assistant_uuid=%s 回覆長度=%d (LLM 耗時=%.2f ms)",
