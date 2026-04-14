@@ -447,24 +447,6 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
           </Box>
         ) : (
           <>
-            <TextField
-              label="描述（專屬 prompt）"
-              helperText="儲存後，系統會在對話時自動附上：預設回覆語系、使用者問題，以及有知識庫時的檢索結果。請在此處撰寫角色、語氣、禁忌與業務規則等專屬指示。"
-              multiline
-              minRows={10}
-              fullWidth
-              variant="outlined"
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              margin="normal"
-            />
-
-            <Box sx={{ display: 'flex', justifyContent: 'flex-start', my: 1 }}>
-              <Button variant="outlined" size="small" onClick={handleReloadTemplate}>
-                重新載入範本
-              </Button>
-            </Box>
-
             <Box display="flex" alignItems="center" marginTop={1}>
               <Typography variant="body2" sx={{ flexShrink: 0 }}>
                 AI 助理名稱:
@@ -478,6 +460,24 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
                 sx={{ ml: 1, mr: 1 }}
               />
             </Box>
+
+            <Box sx={{ display: 'flex', justifyContent: 'flex-start', my: 1 }}>
+              <Button variant="outlined" size="small" onClick={handleReloadTemplate}>
+                重新載入範本
+              </Button>
+            </Box>
+
+            <TextField
+              label="描述（專屬 prompt）"
+              helperText="儲存後，系統會在對話時自動附上：預設回覆語系、使用者問題，以及有知識庫時的檢索結果。請在此處撰寫角色、語氣、禁忌與業務規則等專屬指示。"
+              multiline
+              minRows={10}
+              fullWidth
+              variant="outlined"
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              margin="normal"
+            />
 
         {/* 圖片上傳和裁剪區域 */}
         <Box sx={{ mt: 3 }}>
