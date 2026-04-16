@@ -17,6 +17,8 @@ import {
   Paper,
   Collapse,
   IconButton,
+  Menu,
+  MenuItem,
 } from '@mui/material';
 import {
   Link as LinkIcon,
@@ -35,6 +37,7 @@ import {
   MoreVert as MoreVertIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 
 import ReactMarkdown from 'react-markdown';
@@ -101,6 +104,16 @@ export default function KnowledgeBaseUI({ currentAssistant }) {
 
   const [isTextDialogOpen, setIsTextDialogOpen] = useState(false);
   const [uploadType, setUploadType] = useState(null);
+  const [isFetchingEditContent, setIsFetchingEditContent] = useState(false);
+
+  const [knowledgeMenuAnchor, setKnowledgeMenuAnchor] = useState(null);
+  const [knowledgeMenuItem, setKnowledgeMenuItem] = useState(null);
+  const knowledgeMenuOpen = Boolean(knowledgeMenuAnchor);
+
+  function closeKnowledgeMenu() {
+    setKnowledgeMenuAnchor(null);
+    setKnowledgeMenuItem(null);
+  }
 
   useEffect(() => {
     if (!currentAssistant?.assistant_id) return;
@@ -235,10 +248,8 @@ export default function KnowledgeBaseUI({ currentAssistant }) {
         />
 
         <List>
-          {isLoading ? (
-            <Typography>讀取中...</Typography>
-          ) : (
-            filteredItems.map((item, index) => (
+          {isLoading && (<Typography>讀取中...</Typography>)}
+          {!isLoading && (filteredItems.map((item, index) => (
               <Paper key={index} elevation={1} sx={{ mb: 2 }}>
                 <ListItem
                   button
@@ -263,8 +274,8 @@ export default function KnowledgeBaseUI({ currentAssistant }) {
                       />
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      {/* Only show Edit button for text files */}
-                      {(item.file_name || '')
+                      {/* TODO: 待刪除 */}
+                      {((false && item.file_name) || '')
                         .toLowerCase()
                         .endsWith('.txt') && (
                         <IconButton
@@ -293,15 +304,16 @@ export default function KnowledgeBaseUI({ currentAssistant }) {
                           <ExpandMoreIcon />
                         )}
                       </IconButton>
-                      {/* TODO: 先隱藏列表選單 */}
-                      {false && (
-                        <IconButton
-                          size="small"
-                          onClick={e => e.stopPropagation()}
-                        >
-                          <MoreVertIcon />
-                        </IconButton>
-                      )}
+                      <IconButton
+                        size="small"
+                        onClick={e => {
+                          e.stopPropagation();
+                          setKnowledgeMenuAnchor(e.currentTarget);
+                          setKnowledgeMenuItem(item);
+                        }}
+                      >
+                        <MoreVertIcon />
+                      </IconButton>
                     </Box>
                   </Box>
 
@@ -343,61 +355,126 @@ export default function KnowledgeBaseUI({ currentAssistant }) {
                   </Collapse>
                 </ListItem>
               </Paper>
-            ))
-          )}
+            )))}
         </List>
       </>
     );
   }
 
+  async function handleDeleteKnowledge(item) {
+    if (!item?.id) return;
+    const assistantId = currentAssistant?.assistant_id;
+    if (!assistantId) return;
+    const ok = window.confirm(
+      `確定要刪除「${item.file_name || item.id}」嗎？此操作無法復原。`
+    );
+    if (!ok) return;
+    try {
+      await ApiService.deleteKnowledge(assistantId, item.id);
+      await fetchKnowledgeItems();
+    } catch (err) {
+      console.error('刪除知識失敗:', err);
+      alert('刪除失敗，請稍後再試');
+    }
+  }
+
   async function handleEditKnowledge(item) {
     if (!item.id) return;
-    setIsLoading(true);
+    setSelectedItem(item);
+    setUploadType('edit_text');
+    setEditingContent('');
+    setIsFetchingEditContent(true);
+    setIsTextDialogOpen(true);
     try {
       const assistantId = currentAssistant?.assistant_id;
       const response = await ApiService.getKnowledgeContent(
         assistantId,
         item.id
       );
-      setSelectedItem(item);
       setEditingContent(response.content);
-      setUploadType('edit_text');
-      setIsTextDialogOpen(true);
     } catch (err) {
       console.error('Failed to load content:', err);
       alert('無法載入文件內容');
+      setIsTextDialogOpen(false);
+      setSelectedItem(null);
+      setUploadType(null);
+      setEditingContent('');
     } finally {
-      setIsLoading(false);
+      setIsFetchingEditContent(false);
     }
   }
 
   return (
-    <Box sx={{ p: 6 }}>
-      <Typography variant="h3" fontWeight="bold" mb={4}>
-        知識庫
-      </Typography>
+    <>
+      <Box sx={{ p: 6 }}>
+        <Typography variant="h3" fontWeight="bold" mb={4}>
+          知識庫
+        </Typography>
 
-      <Box sx={{ mb: 4 }}>
-        <Button
-          variant={activeTab === 'new' ? 'contained' : 'outlined'}
-          onClick={() => handleTabChange('new')}
-          startIcon={<AddIcon />}
-          sx={{ mr: 2 }}
-          disabled={user?.permission_level < 2}
+        <Box sx={{ mb: 4 }}>
+          <Button
+            variant={activeTab === 'new' ? 'contained' : 'outlined'}
+            onClick={() => handleTabChange('new')}
+            startIcon={<AddIcon />}
+            sx={{ mr: 2 }}
+            disabled={user?.permission_level < 2}
+          >
+            新增知識
+          </Button>
+          <Button
+            variant={activeTab === 'existing' ? 'contained' : 'outlined'}
+            onClick={() => handleTabChange('existing')}
+            startIcon={<FolderIcon />}
+          >
+            現有知識
+          </Button>
+        </Box>
+
+        <Divider sx={{ mb: 4 }} />
+        {activeTab === 'new' ? renderNewKnowledge() : renderExistingKnowledge()}
+
+        <Menu
+          anchorEl={knowledgeMenuAnchor}
+          open={knowledgeMenuOpen}
+          onClose={closeKnowledgeMenu}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          onClick={e => e.stopPropagation()}
         >
-          新增知識
-        </Button>
-        <Button
-          variant={activeTab === 'existing' ? 'contained' : 'outlined'}
-          onClick={() => handleTabChange('existing')}
-          startIcon={<FolderIcon />}
-        >
-          現有知識
-        </Button>
+          <MenuItem
+            disabled={
+              !(knowledgeMenuItem?.file_name || '')
+                .toLowerCase()
+                .endsWith('.txt')
+            }
+            onClick={e => {
+              e.stopPropagation();
+              const row = knowledgeMenuItem;
+              closeKnowledgeMenu();
+              if (row) handleEditKnowledge(row);
+            }}
+          >
+            <ListItemIcon>
+              <EditIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>編輯</ListItemText>
+          </MenuItem>
+          <MenuItem
+            disabled={user?.permission_level < 2}
+            onClick={e => {
+              e.stopPropagation();
+              const row = knowledgeMenuItem;
+              closeKnowledgeMenu();
+              if (row) handleDeleteKnowledge(row);
+            }}
+          >
+            <ListItemIcon>
+              <DeleteIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>刪除</ListItemText>
+          </MenuItem>
+        </Menu>
       </Box>
-
-      <Divider sx={{ mb: 4 }} />
-      {activeTab === 'new' ? renderNewKnowledge() : renderExistingKnowledge()}
 
       {/* Dialogs */}
       <FileUploadDialog
@@ -413,6 +490,7 @@ export default function KnowledgeBaseUI({ currentAssistant }) {
           setIsTextDialogOpen(false);
           setSelectedItem(null);
           setUploadType(null);
+          setIsFetchingEditContent(false);
         }}
         onSubmitComplete={handleTextSubmitComplete}
         assistantId={currentAssistant?.assistant_id}
@@ -420,7 +498,8 @@ export default function KnowledgeBaseUI({ currentAssistant }) {
         initialFileName={selectedItem?.file_name || ''}
         isEditMode={uploadType === 'edit_text'}
         knowledgeId={selectedItem?.id}
+        isLoadingEditContent={isFetchingEditContent}
       />
-    </Box>
+    </>
   );
 }

@@ -553,6 +553,52 @@ def get_knowledge_content(assistant_id: int, knowledge_id: int, db: Session):
         return f.read()
 
 
+def delete_knowledge_base_item(assistant_id: int, knowledge_id: int, db: Session):
+    """
+    依 knowledge_base.id 刪除一筆知識：自 FAISS 移除對應 doc_ids、刪除上傳檔案、刪除 DB 列。
+    """
+    record = db.query(KnowledgeBase).filter(
+        KnowledgeBase.id == knowledge_id,
+        KnowledgeBase.assistant_id == assistant_id,
+    ).first()
+    if not record:
+        raise ValueError("Knowledge base item not found")
+
+    file_name = record.file_name
+    vs = get_vector_store(assistant_id)
+    old_doc_ids = [did.strip() for did in record.doc_ids.split(",") if did.strip()]
+    if vs and old_doc_ids:
+        try:
+            logger.info(
+                "Deleting vectors for knowledge_id=%s doc_count=%d",
+                knowledge_id,
+                len(old_doc_ids),
+            )
+            vs.delete(old_doc_ids)
+            save_vector_store(assistant_id, vs)
+        except Exception as e:
+            logger.warning("Could not delete vectors (continuing DB/file delete): %s", e)
+    elif vs and not old_doc_ids:
+        logger.info("No doc_ids on record knowledge_id=%s, skipping vector delete", knowledge_id)
+
+    save_directory = f"./uploaded_files/assistant_{assistant_id}"
+    file_path = os.path.join(save_directory, file_name)
+    if os.path.isfile(file_path):
+        try:
+            os.remove(file_path)
+        except OSError as e:
+            logger.warning("Could not remove file %s: %s", file_path, e)
+
+    db.delete(record)
+    db.commit()
+
+    return {
+        "id": knowledge_id,
+        "assistant_id": assistant_id,
+        "file_name": file_name,
+    }
+
+
 async def update_knowledge_base_item(assistant_id: int, knowledge_id: int, new_content: str, db: Session):
     # 1. Find record
     record = db.query(KnowledgeBase).filter(KnowledgeBase.id == knowledge_id,

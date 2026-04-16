@@ -466,6 +466,17 @@ class ApiService {
     }
   }
 
+  async deleteKnowledge(assistantId, knowledgeId) {
+    try {
+      const response = await this.axiosInstance.delete(
+        `/assistant/${assistantId}/knowledge/${knowledgeId}`
+      );
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
   async submitText(assistantId, text, fileName = '') {
     try {
       const formData = new FormData();

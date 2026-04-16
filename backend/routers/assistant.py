@@ -7,7 +7,13 @@ from starlette.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 from models.database import get_db
 from models.models import AIAssistant, User
-from services.vector_service import process_and_store_file, list_knowledge, get_knowledge_content, update_knowledge_base_item
+from services.vector_service import (
+    process_and_store_file,
+    list_knowledge,
+    get_knowledge_content,
+    update_knowledge_base_item,
+    delete_knowledge_base_item,
+)
 from services.auth_service import verify_token
 from models.schemas import AssistantCreate, Assistant, AssistantUpdate
 from utils.logger import get_logger
@@ -216,6 +222,25 @@ async def update_knowledge_item(
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         print(f"Update error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/assistant/{assistant_id}/knowledge/{knowledge_id}")
+def delete_knowledge_item(
+    assistant_id: int,
+    knowledge_id: int,
+    db: Session = Depends(get_db),
+):
+    assistant = db.query(AIAssistant).filter(AIAssistant.assistant_id == assistant_id).first()
+    if not assistant:
+        raise HTTPException(status_code=404, detail="Assistant not found")
+    try:
+        result = delete_knowledge_base_item(assistant_id, knowledge_id, db)
+        return {"status": "success", "message": "Knowledge deleted", "data": result}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.exception("delete_knowledge_item failed assistant_id=%s knowledge_id=%s", assistant_id, knowledge_id)
         raise HTTPException(status_code=500, detail=str(e))
 
 

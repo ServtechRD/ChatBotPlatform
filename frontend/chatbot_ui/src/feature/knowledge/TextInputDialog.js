@@ -25,6 +25,7 @@ const TextInputDialog = ({
   isEditMode,
   knowledgeId,
   initialFileName,
+  isLoadingEditContent = false,
 }) => {
   const [textContent, setTextContent] = useState('');
   const [fileName, setFileName] = useState('');
@@ -64,6 +65,8 @@ const TextInputDialog = ({
     resetDialog();
     onClose();
   };
+
+  const isBlockingClose = isSubmitting || isLoadingEditContent;
 
   const handleClear = () => {
     setTextContent('');
@@ -119,7 +122,7 @@ const TextInputDialog = ({
   return (
     <Dialog
       open={isOpen}
-      onClose={isSubmitting ? undefined : handleClose}
+      onClose={isBlockingClose ? undefined : handleClose}
       maxWidth="md"
       fullWidth
       PaperProps={{
@@ -140,7 +143,7 @@ const TextInputDialog = ({
         <IconButton
           edge="end"
           onClick={handleClose}
-          disabled={isSubmitting}
+          disabled={isBlockingClose}
           aria-label="close"
         >
           <CloseIcon />
@@ -163,6 +166,20 @@ const TextInputDialog = ({
           >
             <CircularProgress size={48} />
             <Typography sx={{ mt: 2 }}>送出中...</Typography>
+          </Box>
+        ) : isEditMode && isLoadingEditContent ? (
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flex: 1,
+              minHeight: 200,
+            }}
+          >
+            <CircularProgress size={48} />
+            <Typography sx={{ mt: 2 }}>載入文件內容中...</Typography>
           </Box>
         ) : (
           <>
@@ -222,18 +239,26 @@ const TextInputDialog = ({
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button
           onClick={handleClear}
-          disabled={isSubmitting || !textContent}
+          disabled={isBlockingClose || !textContent}
           color="inherit"
         >
           清除
         </Button>
         <Box sx={{ flex: 1 }} />
-        <Button onClick={handleClose} disabled={isSubmitting} color="inherit">
+        <Button
+          onClick={handleClose}
+          disabled={isBlockingClose}
+          color="inherit"
+        >
           取消
         </Button>
         <Button
           onClick={handleSubmit}
-          disabled={isSubmitting || !textContent.trim()}
+          disabled={
+            isBlockingClose ||
+            isLoadingEditContent ||
+            !textContent.trim()
+          }
           color="primary"
           variant="contained"
         >
