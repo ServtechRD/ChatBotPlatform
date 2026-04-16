@@ -3,13 +3,13 @@ from typing import List, Optional
 from datetime import datetime
 
 
-# 用户创建模型
+# 使用者建立模型
 class UserCreate(BaseModel):
     email: str
     password: str
 
 
-# 登录和注册成功后的JWT返回模型
+# 登入與註冊成功後的 JWT 回傳模型
 class Token(BaseModel):
     access_token: str
     token_type: str
@@ -19,7 +19,7 @@ class Token(BaseModel):
     temp_token: Optional[str] = None
 
 
-# 助理创建模型
+# 助理建立模型
 class AssistantCreate(BaseModel):
     name: str
     description: Optional[str] = None
@@ -34,7 +34,7 @@ class AssistantUpdate(BaseModel):
     note: Optional[str] = None
 
 
-# 助理的完整响应模型
+# 助理的完整回應模型
 class Assistant(BaseModel):
     assistant_id: int
     name: str
@@ -42,13 +42,13 @@ class Assistant(BaseModel):
     description_use_file: Optional[bool] = False
     status: bool
 
-    image_assistant: Optional[str] = None  # 助理图路径
-    image_crop: Optional[str] = None  # 裁剪图路径
-    video_1: Optional[str] = None  # 第一个视频路径
-    video_2: Optional[str] = None  # 第二个视频路径
-    language: Optional[str] = None  # 预设语言
-    link: Optional[str] = None  # 外部链接
-    note: Optional[str] = None  # 备注
+    image_assistant: Optional[str] = None  # 助理圖路徑
+    image_crop: Optional[str] = None  # 裁剪圖路徑
+    video_1: Optional[str] = None  # 第一支影片路徑
+    video_2: Optional[str] = None  # 第二支影片路徑
+    language: Optional[str] = None  # 預設語言
+    link: Optional[str] = None  # 外部連結
+    note: Optional[str] = None  # 備註
 
     message_welcome: Optional[str] = None
     message_noidea: Optional[str] = None
@@ -60,7 +60,7 @@ class Assistant(BaseModel):
         orm_mode = True
 
 
-# 消息模型
+# 訊息模型
 class MessageCreate(BaseModel):
     sender: str
     content: str
@@ -77,7 +77,7 @@ class Message(BaseModel):
         orm_mode = True
 
 
-# 对话模型
+# 對話模型
 class ConversationCreate(BaseModel):
     customer_id: str
     customer_name: Optional[str] = None

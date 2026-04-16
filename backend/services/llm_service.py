@@ -15,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 # Create a thread pool for LLM operations
 executor = ThreadPoolExecutor(max_workers=10)
 
-load_dotenv()  # 加载 .env 文件中的环境变量
+load_dotenv()  # 載入 .env 檔案中的環境變數
 
 api_key = os.getenv("OPENAI_API_KEY")
 VLLM_API_KEY = os.getenv("VLLM_API_KEY", "EMPTY")
@@ -95,8 +95,8 @@ def _synch_process_llm(data, assistant_uuid, customer_unique_id, lang, model, as
     """
     同步版本的 LLM 處理邏輯，包含向量檢索與單次 LLM 呼叫。
     此函數將被丟入 ThreadPoolExecutor 中執行，以免阻塞主要 Event Loop。
-    data: 用戶的問題
-    assistant_uuid: 助手 ID
+    data: 使用者的問題
+    assistant_uuid: 助理 ID
     customer_unique_id: 客戶唯一 ID
     lang: 語言
     model: 模型
@@ -209,8 +209,8 @@ async def process_message_through_llm(data, assistant_uuid, customer_unique_id, 
         data, assistant_uuid, customer_unique_id, lang, model, assistant_description, welcome, noidea
     )
     # print("start to send to ws")
-    # 将回复通过 WebSocket 发送给客户
+    # 將回覆透過 WebSocket 傳送給客戶
     # await websocket.send_text(response)
 
     # print("send ws finish")
-    # 选择性保存对话记录到数据库或 Redis（省略）
+    # 選擇性儲存對話紀錄至資料庫或 Redis（省略）

@@ -12,26 +12,26 @@ from datetime import timedelta
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-# OAuth2 密码流机制
+# OAuth2 密碼流機制
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 
-# 用户注册
+# 使用者註冊
 @router.post("/register", response_model=Token)
 def register_user(user_data: UserCreate, db: Session = Depends(get_db)):
-    # 检查用户是否已经存在
+    # 檢查使用者是否已存在
     user = db.query(User).filter(User.email == user_data.email).first()
     if user:
         raise HTTPException(status_code=400, detail="Email is already registered")
 
-    # 哈希密码并保存用户
+    # 雜湊密碼並儲存使用者
     hashed_password = get_password_hash(user_data.password)
     new_user = User(email=user_data.email, password=hashed_password)
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
 
-    # 注册后生成 Access Token 和 Refresh Token
+    # 註冊後產生 Access Token 與 Refresh Token
     access_token_expires = timedelta(minutes=30)
     access_token = create_access_token(data={"sub": str(new_user.user_id)}, expires_delta=access_token_expires)
     refresh_token = create_refresh_token(data={"sub": str(new_user.user_id)})
@@ -40,7 +40,7 @@ def register_user(user_data: UserCreate, db: Session = Depends(get_db)):
     return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
 
 
-# 用户登录
+# 使用者登入
 @router.post("/login", response_model=Token)
 def login_user(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == form_data.username).first()
@@ -51,7 +51,7 @@ def login_user(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = D
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # 登录成功后生成 Access Token 和 Refresh Token
+    # 登入成功後產生 Access Token 與 Refresh Token
     # access_token_expires = timedelta(minutes=30)
     # access_token = create_access_token(data={"sub": str(user.user_id)}, expires_delta=access_token_expires)
     # refresh_token = create_refresh_token(data={"sub": str(user.user_id)})
@@ -94,7 +94,7 @@ def login_user(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = D
 # 刷新 Access Token
 @router.post("/refresh")
 def refresh_access_token(refresh_token: str, db: Session = Depends(get_db)):
-    # 验证 refresh token
+    # 驗證 refresh token
     user_id = verify_refresh_token(refresh_token)
     if user_id is None:
         raise HTTPException(
@@ -103,25 +103,25 @@ def refresh_access_token(refresh_token: str, db: Session = Depends(get_db)):
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # 确保 user_id 是整数类型
+    # 確保 user_id 為整數型別
     try:
         user_id = int(user_id)
     except (ValueError, TypeError):
         raise HTTPException(status_code=401, detail="Invalid token format")
 
-    # 验证用户是否存在
+    # 驗證使用者是否存在
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # 生成新的 access token
+    # 產生新的 access token
     access_token_expires = timedelta(minutes=30)
     access_token = create_access_token(data={"sub": str(user.user_id)}, expires_delta=access_token_expires)
 
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-# JWT保护路由示例
+# JWT 保護路由範例
 @router.get("/users/me")
 def read_users_me(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     user_id = verify_token(token)

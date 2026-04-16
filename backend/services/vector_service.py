@@ -28,7 +28,7 @@ import re
 
 from utils.logger import get_logger
 
-load_dotenv()  # 加载 .env 文件中的环境变量
+load_dotenv()  # 載入 .env 檔案中的環境變數
 
 logger = get_logger(__name__)
 
@@ -38,26 +38,26 @@ VLLM_BASE_URL = os.getenv("VLLM_BASE_URL", "http://127.0.0.1:8000/v1")
 VLLM_MODEL = os.getenv("VLLM_MODEL", "").strip()
 VLLM_SUMMARY_MODEL = os.getenv("VLLM_SUMMARY_MODEL", "").strip()
 
-# 用于获取向量存储
+# 用於取得向量儲存
 vector_store = {}
 
-# 加载预训练的摘要生成模型
+# 載入預訓練的摘要產生模型
 summarizer = pipeline("summarization")
 
 
 def generate_doc_id():
     """
-    生成唯一的文档 ID
+    產生唯一的文件 ID
     """
     return str(uuid.uuid4())
 
 
 def process_documents_with_id(documents):
     """
-    为每个文档生成一个唯一的 doc_id
+    為每份文件產生唯一的 doc_id
     """
     for doc in documents:
-        doc.metadata["doc_id"] = generate_doc_id()  # 将 doc_id 存入 metadata 中
+        doc.metadata["doc_id"] = generate_doc_id()  # 將 doc_id 寫入 metadata
     return documents
 
 
@@ -85,7 +85,7 @@ def generate_summary_and_keywords(text, max_summary_words=150, max_keywords=10):
     logger.info(f"Generating summary. Target Output Lang = {target_language}")
 
     # 2. ⚠️ 關鍵修正：極限縮減至前 500 字 ⚠️
-    # 這能確保 Prompt 絕對完整，彻底杜絕幻覺與亂碼
+    # 這能確保 Prompt 絕對完整，徹底杜絕幻覺與亂碼
     SAFE_TEXT_LIMIT = 500 
     truncated_text = text[:SAFE_TEXT_LIMIT]
 
@@ -166,23 +166,23 @@ def generate_summary_and_keywords(text, max_summary_words=150, max_keywords=10):
         logger.error(f"Error generating summary: {e}")
         return "Summary generation unavailable", ""
 
-# 计算文档的 token 数量
+# 計算文件的 token 數量
 def calculate_token_count(documents):
-    tokenizer = tiktoken.get_encoding("cl100k_base")  # 根据模型选择编码
+    tokenizer = tiktoken.get_encoding("cl100k_base")  # 依模型選擇編碼
     token_count = 0
     for doc in documents:
         token_count += len(tokenizer.encode(doc.page_content))
     return token_count
 
 
-# 用于保存向量存储
+# 用於儲存向量資料庫
 def save_vector_store(assistant_id: int, vector_store):
     save_path = f"./vector_stores/assistant_{assistant_id}.index"
     if not os.path.exists("./vector_stores"):
         os.makedirs("./vector_stores")
     faiss.write_index(vector_store.index, save_path)
 
-    # 保存 docstore 和 index_to_docstore_id
+    # 儲存 docstore 與 index_to_docstore_id
     metadata_path = f"./vector_stores/assistant_{assistant_id}_metadata.pkl"
     with open(metadata_path, "wb") as f:
         metadata = {
@@ -197,18 +197,18 @@ def load_vector_store(assistant_id: int):
     metadata_path = f"./vector_stores/assistant_{assistant_id}_metadata.pkl"
 
     if os.path.exists(load_path) and os.path.exists(metadata_path):
-        # 从磁盘加载 FAISS 索引
+        # 從磁碟載入 FAISS 索引
         index = faiss.read_index(load_path)
         # embeddings = OpenAIEmbeddings()  # 重新初始化 OpenAIEmbeddings
         embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-base-zh-v1.5")
 
-        # 加载 docstore 和 index_to_docstore_id
+        # 載入 docstore 與 index_to_docstore_id
         with open(metadata_path, "rb") as f:
             metadata = pickle.load(f)
             docstore = metadata["docstore"]
             index_to_docstore_id = metadata["index_to_docstore_id"]
 
-        # 使用 from_index 方法来加载已存在的 FAISS 索引
+        # 使用 from_index 方法載入既有的 FAISS 索引
         vector_store[assistant_id] = FAISS(
             index=index,
             docstore=docstore,
@@ -218,14 +218,14 @@ def load_vector_store(assistant_id: int):
 
         return vector_store[assistant_id]
     else:
-        # 返回空的 FAISS 对象
+        # 傳回空的 FAISS 物件
         return None
         #embeddings = OpenAIEmbeddings()
-        #return FAISS.from_texts([], embeddings)  # 空的文本列表
+        #return FAISS.from_texts([], embeddings)  # 空的文字列表
         #raise ValueError(f"Vector store for assistant {assistant_id} is not initialized.")
 
 
-# 根据文件类型选择加载器
+# 依檔案類型選擇載入器
 def get_loader(file_path: str, file_type: str):
     if file_type == "pdf":
         return PyPDFLoader(file_path)
@@ -245,8 +245,8 @@ def _process_and_store_file_heavy_sync(
     vs,  # FAISS vector store or None
 ):
     """
-    在線程池中執行的同步重邏輯：載入文件、分塊、嵌入、寫入向量庫與磁碟、生成摘要。
-    DB 寫入由呼叫方在主線程執行。
+    在執行緒池中執行的同步重邏輯：載入檔案、分塊、嵌入、寫入向量庫與磁碟、產生摘要。
+    DB 寫入由呼叫方在主執行緒執行。
     """
     t_start = time.perf_counter()
     try:
@@ -254,7 +254,7 @@ def _process_and_store_file_heavy_sync(
         t_load = time.perf_counter()
         documents = loader.load()
         if not documents:
-            logger.warning("[上傳檔案] 載入後無文件內容 path=%s ext=%s", file_location, file_extension)
+            logger.warning("[上傳檔案] 載入後無檔案內容 path=%s ext=%s", file_location, file_extension)
         t_load_ms = (time.perf_counter() - t_load) * 1000
         logger.info("[上傳檔案] loader.load 完成 doc_count=%d (耗時=%.2f ms)", len(documents), t_load_ms)
 
@@ -306,7 +306,7 @@ def _process_and_store_file_heavy_sync(
         raise
 
 
-# 处理并存储文件嵌入到向量数据库
+# 處理並儲存檔案嵌入至向量資料庫
 async def process_and_store_file(assistant_id: int, file: UploadFile, db: Session):
     t_start = time.perf_counter()
     filename = file.filename or "(unnamed)"
@@ -316,7 +316,7 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
     )
 
     try:
-        # 輕量步驟留在主線程：查詢 DB 與向量庫
+        # 輕量步驟留在主執行緒：查詢 DB 與向量庫
         t_q = time.perf_counter()
         existing_entry = db.query(KnowledgeBase).filter(
             KnowledgeBase.assistant_id == assistant_id,
@@ -336,7 +336,7 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
                     # 避免 FAISS 報錯 "ValueError: Some specified ids do not exist"
                     # 先過濾出真正存在於向量庫的 ID
                     # vs.index_to_docstore_id 是一個 dict: int_index -> doc_id
-                    # 注意：如果向量庫很大，這裡可能會有性能開銷，但對於一般知識庫應無問題
+                    # 注意：若向量庫很大，此處可能有效能開銷，但一般知識庫應無問題
                     if hasattr(vs, 'index_to_docstore_id'):
                         current_doc_ids = set(vs.index_to_docstore_id.values())
                         ids_to_delete = [did for did in old_doc_ids if did in current_doc_ids]
@@ -387,7 +387,7 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
         token_count = heavy_result["token_count"]
         file_extension = heavy_result["file_extension"]
 
-        # DB 寫入僅在主線程執行（Session 非線程安全）
+        # DB 寫入僅在主執行緒執行（Session 非執行緒安全）
         # 安全截斷 summary 和 keywords 以防止 DB 欄位長度溢位 (Data too long)
         # 假設 summary 欄位可能是 TEXT (65535) 或 LONGTEXT，但為了安全起見，限制在合理範圍
         # 錯誤日誌顯示 summary 有 150k+ 字元，這明顯是模型產生了重複迴圈
@@ -461,7 +461,7 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
 
 def get_vector_store_status(assistant_id: int):
     """
-    獲取向量存儲的狀態與統計資訊
+    取得向量儲存的狀態與統計資訊
     """
     vs = get_vector_store(assistant_id)
     if not vs:
@@ -525,7 +525,7 @@ def list_knowledge(assistant_id: int, db: Session):
 
 def get_vector_store(assistant_id: int):
     if assistant_id not in vector_store:
-        # 如果向量存储不在内存中，从磁盘加载
+        # 若向量儲存不在記憶體中，則從磁碟載入
         return load_vector_store(assistant_id)
         # raise ValueError("Vector store for this assistant is not initialized.")
 
@@ -639,7 +639,7 @@ async def update_knowledge_base_item(assistant_id: int, knowledge_id: int, new_c
     loader = TextLoader(new_file_path, encoding="utf-8")
     documents = loader.load()
     
-    # 使用 RecursiveCharacterTextSplitter 进行分块
+    # 使用 RecursiveCharacterTextSplitter 進行分塊
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=500,
         chunk_overlap=50,

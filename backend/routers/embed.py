@@ -5,7 +5,7 @@ from starlette.middleware.cors import CORSMiddleware
 from typing import Optional
 import os
 
-# 引入模型
+# 匯入模型
 from models.database import get_db
 from models.models import AIAssistant
 from sqlalchemy.orm import Session
@@ -19,10 +19,10 @@ router = APIRouter(tags=["embed"])
 @router.get("/api/embed/assistant/{assistant_link}/image")
 async def get_assistant_image(assistant_link: str, db: Session = Depends(get_db)):
     """
-    根據助手連結取得其圖片
+    根據助理連結取得其圖片
     """
     try:
-        # 查詢助手訊息
+        # 查詢助理訊息
         assistant = db.query(AIAssistant).filter(AIAssistant.link == assistant_link).first()
 
         if not assistant:
@@ -30,44 +30,44 @@ async def get_assistant_image(assistant_link: str, db: Session = Depends(get_db)
 
         # 檢查圖片路徑是否存在
         if not assistant.image_crop:
-            # 返回預設圖片
+            # 傳回預設圖片
             default_image_path = "public/images/default_assistant.png"
             if os.path.exists(default_image_path):
                 return FileResponse(default_image_path)
             else:
                 raise HTTPException(status_code=404, detail="找不到圖片")
 
-        # 根據數據庫中儲存的路徑取得圖片
+        # 根據資料庫中儲存的路徑取得圖片
         image_path = assistant.image_crop
 
-        # 如果路徑是相對路徑，新增基礎路徑
-        # 如果路徑不是以/public開頭，新增前綴
+        # 若路徑為相對路徑，則加上基礎路徑
+        # 若路徑不是以 /public 開頭，則加上前綴
         if image_path.startswith("/public/"):
             # 去除開頭的斜槓（如果有）
             if image_path.startswith("/"):
                 image_path = image_path[1:]
 
-        # 返回圖片文件
+        # 傳回圖片檔案
         return FileResponse(image_path)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"伺服器錯誤: {str(e)}")
 
-# 取得助手嵌入訊息API
+# 取得助理嵌入訊息 API
 @router.get("/api/embed/assistant/{assistant_link}")
 async def get_embed_assistant_info(assistant_link: str, db: Session = Depends(get_db)):
     """
-    根據ID取得用於嵌入的助手訊息
+    根據 ID 取得用於嵌入的助理訊息
     """
     try:
-        # 查詢助手訊息
+        # 查詢助理訊息
         assistant = db.query(AIAssistant).filter(AIAssistant.link == assistant_link).first()
 
 
         if not assistant:
             raise HTTPException(status_code=404, detail="找不到指定ID的助手")
 
-        # 返回必要的助手訊息
+        # 傳回必要的助理訊息
         return {
             "id": assistant.assistant_id,
             "name": assistant.name,

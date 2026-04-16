@@ -11,7 +11,7 @@ from utils.logger import setup_logging, get_logger
 setup_logging()
 logger = get_logger(__name__)
 
-# 初始化数据库
+# 初始化資料庫
 Base.metadata.create_all(bind=engine)
 ensure_description_use_file_column(engine)
 
@@ -35,7 +35,7 @@ app.add_middleware(
 app.mount("/public", StaticFiles(directory="public"), name="public")
 app.mount("/images", StaticFiles(directory="public/images"), name="images")
 app.mount("/videos", StaticFiles(directory="public/videos"), name="videos")
-# 包含助理、对话、WebSocket路由
+# 包含助理、對話、WebSocket 路由
 app.include_router(assistant.router)
 app.include_router(conversation.router)
 app.include_router(websocket.router)

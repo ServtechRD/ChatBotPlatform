@@ -15,7 +15,7 @@ from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-# MySQL TEXT 上限 65535 bytes；以字元數保守截斷，避免 UTF-8 多字節溢出
+# MySQL TEXT 上限 65535 bytes；以字元數保守截斷，避免 UTF-8 多位元組溢出
 MAX_DESCRIPTION_INLINE_CHARS = 60000
 
 PROMPT_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assistant_prompts")

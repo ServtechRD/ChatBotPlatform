@@ -20,7 +20,7 @@ class User(Base):
     is_totp_enabled = Column(Boolean, default=False)
     # is_totp_enabled = Column(Boolean, default=True)
 
-    # 一个用户可以拥有多个助理
+    # 一位使用者可擁有多個助理
     assistants = relationship("AIAssistant", back_populates="owner")
 
 
@@ -32,28 +32,28 @@ class AIAssistant(Base):
     description = Column(Text, nullable=True)
     # True 時完整 prompt 存於 assistant_prompts/{assistant_id}.txt，description 僅為列表用摘要
     description_use_file = Column(Boolean, default=False, nullable=False)
-    status = Column(Boolean, default=True)  # 用于表示助理是否启用
+    status = Column(Boolean, default=True)  # 用於表示助理是否啟用
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    # 外键关联到用户
+    # 外鍵關聯至使用者
     owner_id = Column(Integer, ForeignKey("users.user_id"))
     owner = relationship("User", back_populates="assistants")
 
-    # 一个助理可以有多个对话记录
+    # 一個助理可有多筆對話紀錄
     conversations = relationship("Conversation", back_populates="assistant")
 
     knowledges = relationship("KnowledgeBase", back_populates="assistant")
 
-    # 新增字段
-    image_assistant = Column(String(255), nullable=True)  # 助理图路径
-    image_crop = Column(String(255), nullable=True)  # 裁剪图路径
-    video_1 = Column(String(255), nullable=True)  # 第一个视频路径
-    video_2 = Column(String(255), nullable=True)  # 第二个视频路径
-    language = Column(String(50), nullable=False)  # 预设语言
-    link = Column(String(255), nullable=True)  # 外部链接
-    note = Column(Text, nullable=True)  # 备注
+    # 新增欄位
+    image_assistant = Column(String(255), nullable=True)  # 助理圖路徑
+    image_crop = Column(String(255), nullable=True)  # 裁剪圖路徑
+    video_1 = Column(String(255), nullable=True)  # 第一支影片路徑
+    video_2 = Column(String(255), nullable=True)  # 第二支影片路徑
+    language = Column(String(50), nullable=False)  # 預設語言
+    link = Column(String(255), nullable=True)  # 外部連結
+    note = Column(Text, nullable=True)  # 備註
 
-    # 新增加字段
+    # 其餘新增欄位
     message_welcome = Column(Text, nullable=True)
     message_noidea = Column(Text, nullable=True)
     message_other = Column(Text, nullable=True)
@@ -64,15 +64,15 @@ class Conversation(Base):
 
     conversation_id = Column(Integer, primary_key=True, index=True)
     assistant_id = Column(Integer, ForeignKey("assistants.assistant_id"), nullable=False)
-    customer_id = Column(String(255), nullable=False)  # 存储客户唯一ID
+    customer_id = Column(String(255), nullable=False)  # 儲存客戶唯一 ID
     customer_name = Column(String(255), nullable=True)
     customer_email = Column(String(255), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    # 关联到助理
+    # 關聯至助理
     assistant = relationship("AIAssistant", back_populates="conversations")
 
-    # 一个对话可以包含多个消息
+    # 一則對話可包含多則訊息
     messages = relationship("Message", back_populates="conversation")
 
 
@@ -81,11 +81,11 @@ class Message(Base):
 
     message_id = Column(Integer, primary_key=True, index=True)
     conversation_id = Column(Integer, ForeignKey("conversations.conversation_id"), nullable=False)
-    sender = Column(String(255), nullable=False)  # 记录是谁发送的，可能是“客户”或“助理”
+    sender = Column(String(255), nullable=False)  # 紀錄傳送者，可能是「客戶」或「助理」
     content = Column(Text, nullable=False)
     timestamp = Column(DateTime, default=datetime.utcnow)
 
-    # 关联到对话
+    # 關聯至對話
     conversation = relationship("Conversation", back_populates="messages")
 
 
@@ -104,5 +104,5 @@ class KnowledgeBase(Base):
     token_count = Column(Integer, nullable=False)
     upload_date = Column(DateTime, default=datetime.utcnow)
 
-    # 关联到助理
+    # 關聯至助理
     assistant = relationship("AIAssistant", back_populates="knowledges")

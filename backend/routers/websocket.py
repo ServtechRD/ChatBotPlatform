@@ -14,7 +14,7 @@ router = APIRouter()
 logger = get_logger(__name__)
 
 
-# WebSocket连接管理类
+# WebSocket 連線管理類別
 class ConnectionManager:
     def __init__(self):
         self.active_connections: dict[str, WebSocket] = {}
@@ -39,7 +39,7 @@ class ConnectionManager:
             await connection.send_text(message)
 
 
-# 实例化WebSocket连接管理类
+# 實例化 WebSocket 連線管理類別
 manager = ConnectionManager()
 
 setting = {}
