@@ -273,24 +273,7 @@ export default function KnowledgeBaseUI({ currentAssistant }) {
                         // secondary={`${item.token_count} Tokens`}
                       />
                     </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      {/* TODO: 待刪除 */}
-                      {((false && item.file_name) || '')
-                        .toLowerCase()
-                        .endsWith('.txt') && (
-                        <IconButton
-                          size="small"
-                          onClick={e => {
-                            e.stopPropagation();
-                            handleEditKnowledge(item);
-                          }}
-                          sx={{ mr: 1 }}
-                          title="編輯"
-                        >
-                          <EditIcon />
-                        </IconButton>
-                      )}
-
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>                     
                       <IconButton
                         onClick={e => {
                           e.stopPropagation();
@@ -442,6 +425,9 @@ export default function KnowledgeBaseUI({ currentAssistant }) {
           onClick={e => e.stopPropagation()}
         >
           <MenuItem
+            sx={{ display: !(knowledgeMenuItem?.file_name || '')
+                .toLowerCase()
+                .endsWith('.txt') ? 'none' : 'block' }}
             disabled={
               !(knowledgeMenuItem?.file_name || '')
                 .toLowerCase()
