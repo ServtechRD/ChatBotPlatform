@@ -1,7 +1,7 @@
 import { createTheme } from '@mui/material/styles';
 
 const theme = createTheme({
-  // 在这里自定义您的主题
+  // 在這裡自訂您的主題
   palette: {
     primary: {
       main: '#556cd6',

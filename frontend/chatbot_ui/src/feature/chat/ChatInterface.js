@@ -51,7 +51,7 @@ export default function ChatInterface({
   const voiceRef = useRef(null);
 
   const socketRef = useRef(null);
-  const customerIdRef = useRef(uuidv4()); // 生成随机的 customer_id
+  const customerIdRef = useRef(uuidv4()); // 產生隨機的 customer_id
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const videoRef = useRef(null);

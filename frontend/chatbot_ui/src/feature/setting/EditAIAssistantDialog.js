@@ -357,8 +357,8 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
   }, [completedCrop, generateCroppedImage]);
 
   function base64ToFile(base64, filename) {
-    const byteString = atob(base64.split(',')[1]); // 解码 Base64
-    const mimeString = base64.split(',')[0].match(/:(.*?);/)[1]; // 获取 MIME 类型
+    const byteString = atob(base64.split(',')[1]); // 解碼 Base64
+    const mimeString = base64.split(',')[0].match(/:(.*?);/)[1]; // 取得 MIME 類型
     const ab = new ArrayBuffer(byteString.length);
     const ia = new Uint8Array(ab);
     for (let i = 0; i < byteString.length; i++) {
@@ -368,7 +368,7 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
   }
 
   const handleSave = async () => {
-    // 处理保存逻辑
+    // 處理儲存邏輯
     try {
       const formData = new FormData();
       formData.append('name', name);

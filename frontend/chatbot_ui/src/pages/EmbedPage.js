@@ -5,7 +5,7 @@ import EmbeddableChatInterface from '../components/EmbeddableChatInterface';
 
 /**
  * 嵌入頁面組件
- * 用於提供嵌入到第三方網站的界面
+ * 用於提供嵌入到第三方網站的介面
  */
 const EmbedPage = () => {
   const { assistantId } = useParams(); // 如果使用路由參數
@@ -46,7 +46,7 @@ const EmbedPage = () => {
         }}
       >
         <Typography variant="h6" color="error" gutterBottom>
-          錯誤：未提供助手ID
+          錯誤：未提供助理 ID
         </Typography>
         <Typography>請確保URL包含正確的ID參數，例如：/embed?id=123</Typography>
       </Box>

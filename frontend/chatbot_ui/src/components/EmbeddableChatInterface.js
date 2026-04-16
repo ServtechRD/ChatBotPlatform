@@ -412,7 +412,7 @@ const EmbeddableChatInterface = ({
     };
   }, [assistantUrl]);
 
-  // 滚动控制
+  // 捲動控制
   const scrollToBottom = () => {
     if (messagesContainerRef.current) {
       requestAnimationFrame(() => {
@@ -437,12 +437,12 @@ const EmbeddableChatInterface = ({
     }*/
   };
 
-  // 消息更新时滚动
+  // 訊息更新時捲動
   useEffect(() => {
     scrollToBottom();
   }, [messages, isThinking]);
 
-  // WebSocket连接
+  // WebSocket 連線
   useEffect(() => {
     if (!assistant || !assistantId) return;
 
@@ -454,7 +454,7 @@ const EmbeddableChatInterface = ({
       welcomeMessageShownRef.current = true;
     }
 
-    // 建立WebSocket连接
+    // 建立 WebSocket 連線
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.hostname}:36100/ws/assistant/${assistantId}/${customerIdRef.current}`;
 
@@ -569,10 +569,10 @@ const EmbeddableChatInterface = ({
       return;
     }
 
-    // 发送消息到WebSocket
+    // 傳送訊息到 WebSocket
     socket.send(text);
 
-    // 新增用户消息到聊天界面
+    // 新增使用者訊息到聊天介面
     setMessages(prevMessages => [
       ...prevMessages,
       { id: Date.now(), text: text, isBot: false },

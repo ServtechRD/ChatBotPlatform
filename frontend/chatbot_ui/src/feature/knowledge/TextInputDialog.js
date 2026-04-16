@@ -225,7 +225,7 @@ const TextInputDialog = ({
               color="text.secondary"
               sx={{ mt: 1, textAlign: 'right' }}
             >
-              已輸入 {charCount} 個字符
+              已輸入 {charCount} 個字元
             </Typography>
           </>
         )}

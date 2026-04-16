@@ -148,7 +148,7 @@ const IntegratedAppView = () => {
         return <AIAssistantManagement />;
       // Implement other views
       default:
-        return <div>选择一个视图</div>;
+        return <div>選擇一個檢視</div>;
     }
   };
 
@@ -156,10 +156,10 @@ const IntegratedAppView = () => {
     <AppLayout>
       <div>
         <Button onClick={() => setCurrentView('aiAssistant')}>AI助理管理</Button>
-        <Button onClick={() => setCurrentView('account')}>账户资料</Button>
-        <Button onClick={() => setCurrentView('imageUpload')}>图片上传</Button>
-        <Button onClick={() => setCurrentView('chat')}>聊天界面</Button>
-        <Button onClick={() => setIsFileUploadDialogOpen(true)}>打开文件上传对话框</Button>
+        <Button onClick={() => setCurrentView('account')}>帳戶資料</Button>
+        <Button onClick={() => setCurrentView('imageUpload')}>圖片上傳</Button>
+        <Button onClick={() => setCurrentView('chat')}>聊天介面</Button>
+        <Button onClick={() => setIsFileUploadDialogOpen(true)}>開啟檔案上傳對話框</Button>
       </div>
       
       {renderCurrentView()}
