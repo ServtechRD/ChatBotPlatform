@@ -492,7 +492,8 @@ export default function ChatInterface({
           <Paper
             elevation={0}
             sx={{
-              display: 'inline-block',
+              // display: 'inline-block',
+              display: 'none',
               p: 1.5,
               bgcolor: 'rgba(0, 0, 0, 0.6)',
               borderRadius: 2,
@@ -508,7 +509,6 @@ export default function ChatInterface({
             >
               {assistantname || '智能助理'}
               {isConnected ? 'Connected' : 'Disconnected'}
-              {/* | ID: {customerIdRef.current.slice(0, 8)} */}
             </Typography>
           </Paper>
         </Box>
