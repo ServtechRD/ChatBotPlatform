@@ -255,8 +255,8 @@ def _process_and_store_file_heavy_sync(
         documents = loader.load()
         if not documents:
             logger.warning("[上傳檔案] 載入後無檔案內容 path=%s ext=%s", file_location, file_extension)
-        t_load_ms = (time.perf_counter() - t_load) * 1000
-        logger.info("[上傳檔案] loader.load 完成 doc_count=%d (耗時=%.2f ms)", len(documents), t_load_ms)
+        t_load_s = time.perf_counter() - t_load
+        logger.info("[上傳檔案] loader.load 完成 doc_count=%d (耗時=%.3f s)", len(documents), t_load_s)
 
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=300,
@@ -288,10 +288,10 @@ def _process_and_store_file_heavy_sync(
         summary, keyword_lines = generate_summary_and_keywords(full_text)
         doc_ids_string = ", ".join(doc_ids)
 
-        t_total_ms = (time.perf_counter() - t_start) * 1000
+        t_total_s = time.perf_counter() - t_start
         logger.info(
-            "[上傳檔案 重邏輯完成] assistant_id=%s filename=%s chunks=%d token_count=%d 耗時=%.2f ms",
-            assistant_id, filename, len(documents), token_count, t_total_ms
+            "[上傳檔案 重邏輯完成] assistant_id=%s filename=%s chunks=%d token_count=%d 耗時=%.3f s",
+            assistant_id, filename, len(documents), token_count, t_total_s
         )
         return {
             "doc_ids": doc_ids,
@@ -323,10 +323,10 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
             KnowledgeBase.file_name == filename
         ).first()
         vs = get_vector_store(assistant_id)
-        t_q_ms = (time.perf_counter() - t_q) * 1000
+        t_q_s = time.perf_counter() - t_q
         logger.info(
-            "[上傳檔案] 查詢既有知識庫與向量庫 完成 existing=%s vs_exists=%s (耗時=%.2f ms)",
-            existing_entry is not None, vs is not None, t_q_ms
+            "[上傳檔案] 查詢既有知識庫與向量庫 完成 existing=%s vs_exists=%s (耗時=%.3f s)",
+            existing_entry is not None, vs is not None, t_q_s
         )
 
         if existing_entry and vs:
@@ -361,7 +361,7 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
         t_read = time.perf_counter()
         content = await file.read()
         file_size = len(content)
-        logger.info("[上傳檔案] 讀取上傳內容 完成 size=%d bytes (耗時=%.2f ms)", file_size, (time.perf_counter() - t_read) * 1000)
+        logger.info("[上傳檔案] 讀取上傳內容 完成 size=%d bytes (耗時=%.3f s)", file_size, time.perf_counter() - t_read)
 
         with open(file_location, "wb+") as f:
             f.write(content)
@@ -431,10 +431,10 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
             entry_to_return = new_entry
 
         vs = vector_store.get(assistant_id)
-        t_total_ms = (time.perf_counter() - t_start) * 1000
+        t_total_s = time.perf_counter() - t_start
         logger.info(
-            "[上傳檔案 完成] assistant_id=%s filename=%s token_count=%d 總耗時=%.2f ms",
-            assistant_id, filename, token_count, t_total_ms
+            "[上傳檔案 完成] assistant_id=%s filename=%s token_count=%d 總耗時=%.3f s",
+            assistant_id, filename, token_count, t_total_s
         )
         return {
             "vector_store": vs,
@@ -451,10 +451,10 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
         }
 
     except Exception as e:
-        t_total_ms = (time.perf_counter() - t_start) * 1000
+        t_total_s = time.perf_counter() - t_start
         logger.exception(
-            "[上傳檔案 失敗] assistant_id=%s filename=%s 總耗時=%.2f ms error=%s",
-            assistant_id, filename, t_total_ms, e
+            "[上傳檔案 失敗] assistant_id=%s filename=%s 總耗時=%.3f s error=%s",
+            assistant_id, filename, t_total_s, e
         )
         raise
 

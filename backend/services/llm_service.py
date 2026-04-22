@@ -112,22 +112,22 @@ def _synch_process_llm(data, assistant_uuid, customer_unique_id, lang, model, as
 
     t_vs_start = time.perf_counter()
     vector_store = get_vector_store(assistant_uuid)
-    t_vs_ms = (time.perf_counter() - t_vs_start) * 1000
+    t_vs_s = time.perf_counter() - t_vs_start
 
     if not vector_store:
-        logger.warning("[LLM] 無向量庫 assistant_uuid=%s (get_vector_store 耗時=%.2f ms)，回傳 noidea", assistant_uuid, t_vs_ms)
+        logger.warning("[LLM] 無向量庫 assistant_uuid=%s (get_vector_store 耗時=%.3f s)，回傳 noidea", assistant_uuid, t_vs_s)
         return noidea
-    logger.info("[LLM] get_vector_store 完成 (耗時=%.2f ms)", t_vs_ms)
+    logger.info("[LLM] get_vector_store 完成 (耗時=%.3f s)", t_vs_s)
 
     retriever = vector_store.as_retriever()
 
     t_retrieve_start = time.perf_counter()
     relevant_docs = retriever.get_relevant_documents(data)
-    t_retrieve_ms = (time.perf_counter() - t_retrieve_start) * 1000
+    t_retrieve_s = time.perf_counter() - t_retrieve_start
     doc_count = len(relevant_docs) if relevant_docs else 0
     logger.info(
-        "[LLM] 向量檢索完成 assistant_uuid=%s 相關文件數=%d (檢索耗時=%.2f ms)",
-        assistant_uuid, doc_count, t_retrieve_ms
+        "[LLM] 向量檢索完成 assistant_uuid=%s 相關文件數=%d (檢索耗時=%.3f s)",
+        assistant_uuid, doc_count, t_retrieve_s
     )
     if doc_count > 0:
         logger.debug("[LLM] 檢索到文件預覽: %s", relevant_docs[0].page_content[:200] if relevant_docs else "")
@@ -146,8 +146,8 @@ def _synch_process_llm(data, assistant_uuid, customer_unique_id, lang, model, as
         user_query = f"#zh_tw {data}"
     else:
         user_query = data
-    t_llm_init_ms = (time.perf_counter() - t_llm_init_start) * 1000
-    logger.debug("[LLM] 建構 user_query 與 LLM 實例 (耗時=%.2f ms)", t_llm_init_ms)
+    t_llm_init_s = time.perf_counter() - t_llm_init_start
+    logger.debug("[LLM] 建構 user_query 與 LLM 實例 (耗時=%.3f s)", t_llm_init_s)
 
     if not relevant_docs:
         logger.info("[LLM] 無相關文件，使用助理 description + 使用者問題呼叫 LLM")
@@ -159,11 +159,11 @@ def _synch_process_llm(data, assistant_uuid, customer_unique_id, lang, model, as
             assistant_uuid=assistant_uuid,
             log_branch="無檢索文件",
         )
-        t_direct_ms = (time.perf_counter() - t_direct_start) * 1000
-        t_total_ms = (time.perf_counter() - t_total_start) * 1000
+        t_direct_s = time.perf_counter() - t_direct_start
+        t_total_s = time.perf_counter() - t_total_start
         logger.info(
-            "[LLM 完成-無文件] assistant_uuid=%s 回覆長度=%d (直接 LLM=%.2f ms 總耗時=%.2f ms)",
-            assistant_uuid, len(response or ""), t_direct_ms, t_total_ms
+            "[LLM 完成-無文件] assistant_uuid=%s 回覆長度=%d (直接 LLM=%.3f s 總耗時=%.3f s)",
+            assistant_uuid, len(response or ""), t_direct_s, t_total_s
         )
         return response
 
@@ -180,17 +180,17 @@ def _synch_process_llm(data, assistant_uuid, customer_unique_id, lang, model, as
         assistant_uuid=assistant_uuid,
         log_branch="含檢索結果",
     )
-    t_invoke_ms = (time.perf_counter() - t_invoke_start) * 1000
+    t_invoke_s = time.perf_counter() - t_invoke_start
     logger.info(
-        "[LLM 完成-含檢索] assistant_uuid=%s 回覆長度=%d (LLM 耗時=%.2f ms)",
-        assistant_uuid, len(response or ""), t_invoke_ms
+        "[LLM 完成-含檢索] assistant_uuid=%s 回覆長度=%d (LLM 耗時=%.3f s)",
+        assistant_uuid, len(response or ""), t_invoke_s
     )
 
-    t_chain_ms = 0.0  # 已不再使用 RetrievalQA chain
-    t_total_ms = (time.perf_counter() - t_total_start) * 1000
+    t_chain_s = 0.0  # 已不再使用 RetrievalQA chain
+    t_total_s = time.perf_counter() - t_total_start
     logger.info(
-        "[LLM 總耗時] assistant_uuid=%s 總耗時=%.2f ms (向量庫=%.2f 檢索=%.2f 建鏈=%.2f 呼叫LLM=%.2f)",
-        assistant_uuid, t_total_ms, t_vs_ms, t_retrieve_ms, t_chain_ms, t_invoke_ms
+        "[LLM 總耗時] assistant_uuid=%s 總耗時=%.3f s (向量庫=%.3f 檢索=%.3f 建鏈=%.3f 呼叫LLM=%.3f)",
+        assistant_uuid, t_total_s, t_vs_s, t_retrieve_s, t_chain_s, t_invoke_s
     )
     logger.debug("[LLM] 回覆預覽: %s", (response or "")[:200])
     return response

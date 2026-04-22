@@ -78,10 +78,10 @@ async def websocket_endpoint(
     welcome = assistant.message_welcome
     noidea = assistant.message_noidea
     lang = assistant.language
-    t_setting_ms = (time.perf_counter() - t_setting_start) * 1000
+    t_setting_s = time.perf_counter() - t_setting_start
     logger.info(
-        "WebSocket session: assistant_uuid=%s customer_id=%s model=%s lang=%s (查詢助理與設定耗時=%.2f ms)",
-        assistant_uuid, customer_id, model, lang, t_setting_ms
+        "WebSocket session: assistant_uuid=%s customer_id=%s model=%s lang=%s (查詢助理與設定耗時=%.3f s)",
+        assistant_uuid, customer_id, model, lang, t_setting_s
     )
 
     await manager.connect(websocket, assistant_uuid, customer_id)
@@ -92,27 +92,27 @@ async def websocket_endpoint(
         db.add(conversation)
         db.commit()
         db.refresh(conversation)
-        t_conv_ms = (time.perf_counter() - t_conv_start) * 1000
+        t_conv_s = time.perf_counter() - t_conv_start
         logger.info(
-            "Conversation created: conversation_id=%s (耗時=%.2f ms)",
-            conversation.conversation_id, t_conv_ms
+            "Conversation created: conversation_id=%s (耗時=%.3f s)",
+            conversation.conversation_id, t_conv_s
         )
 
         while True:
             t_recv_start = time.perf_counter()
             data = await websocket.receive_text()
-            t_recv_ms = (time.perf_counter() - t_recv_start) * 1000
+            t_recv_s = time.perf_counter() - t_recv_start
             logger.info(
-                "[收到對話] assistant_uuid=%s customer_id=%s conversation_id=%s 內容長度=%d (接收耗時=%.2f ms)",
-                assistant_uuid, customer_id, conversation.conversation_id, len(data or ""), t_recv_ms
+                "[收到對話] assistant_uuid=%s customer_id=%s conversation_id=%s 內容長度=%d (接收耗時=%.3f s)",
+                assistant_uuid, customer_id, conversation.conversation_id, len(data or ""), t_recv_s
             )
             logger.debug("[收到對話] 原始內容: %s", (data or "")[:500])
 
             t_indicator_start = time.perf_counter()
             await manager.send_message("@@@", assistant_uuid, customer_id)
             await asyncio.sleep(0.1)
-            t_indicator_ms = (time.perf_counter() - t_indicator_start) * 1000
-            logger.debug("已發送思考中指標 @@@ (耗時=%.2f ms)", t_indicator_ms)
+            t_indicator_s = time.perf_counter() - t_indicator_start
+            logger.debug("已發送思考中指標 @@@ (耗時=%.3f s)", t_indicator_s)
 
             t_save_user_start = time.perf_counter()
             new_message = Message(
@@ -122,8 +122,8 @@ async def websocket_endpoint(
             )
             db.add(new_message)
             db.commit()
-            t_save_user_ms = (time.perf_counter() - t_save_user_start) * 1000
-            logger.info("已寫入用戶訊息至 DB (耗時=%.2f ms)", t_save_user_ms)
+            t_save_user_s = time.perf_counter() - t_save_user_start
+            logger.info("已寫入用戶訊息至 DB (耗時=%.3f s)", t_save_user_s)
 
             t_llm_start = time.perf_counter()
             # 每回合重新載入助理，讓後台修改 description 後不必重連 WebSocket
@@ -140,10 +140,10 @@ async def websocket_endpoint(
                 welcome,
                 noidea,
             )
-            t_llm_ms = (time.perf_counter() - t_llm_start) * 1000
+            t_llm_s = time.perf_counter() - t_llm_start
             logger.info(
-                "[LLM 完成] assistant_uuid=%s 回覆長度=%d (LLM 總耗時=%.2f ms)",
-                assistant_uuid, len(response or ""), t_llm_ms
+                "[LLM 完成] assistant_uuid=%s 回覆長度=%d (LLM 總耗時=%.3f s)",
+                assistant_uuid, len(response or ""), t_llm_s
             )
             logger.debug("[LLM 回覆預覽] %s", (response or "")[:300])
 
@@ -155,19 +155,19 @@ async def websocket_endpoint(
             )
             db.add(assistant_reply)
             db.commit()
-            t_save_assistant_ms = (time.perf_counter() - t_save_assistant_start) * 1000
-            logger.info("已寫入助理回覆至 DB (耗時=%.2f ms)", t_save_assistant_ms)
+            t_save_assistant_s = time.perf_counter() - t_save_assistant_start
+            logger.info("已寫入助理回覆至 DB (耗時=%.3f s)", t_save_assistant_s)
 
             t_send_start = time.perf_counter()
             await manager.send_message("###", assistant_uuid, customer_id)
             await asyncio.sleep(0.1)
             await manager.send_message(response, assistant_uuid, customer_id)
-            t_send_ms = (time.perf_counter() - t_send_start) * 1000
+            t_send_s = time.perf_counter() - t_send_start
             logger.info(
-                "[對話回合完成] conversation_id=%s 總耗時=%.2f ms (接收=%.2f 存用戶=%.2f LLM=%.2f 存助理=%.2f 回傳=%.2f)",
+                "[對話回合完成] conversation_id=%s 總耗時=%.3f s (接收=%.3f 存用戶=%.3f LLM=%.3f 存助理=%.3f 回傳=%.3f)",
                 conversation.conversation_id,
-                t_recv_ms + t_save_user_ms + t_llm_ms + t_save_assistant_ms + t_send_ms,
-                t_recv_ms, t_save_user_ms, t_llm_ms, t_save_assistant_ms, t_send_ms
+                t_recv_s + t_save_user_s + t_llm_s + t_save_assistant_s + t_send_s,
+                t_recv_s, t_save_user_s, t_llm_s, t_save_assistant_s, t_send_s
             )
 
     except WebSocketDisconnect:
