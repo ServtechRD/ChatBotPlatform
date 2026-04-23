@@ -25,11 +25,22 @@ VLLM_MODEL = os.getenv("VLLM_MODEL").strip()
 logger = get_logger(__name__)
 
 
+def _normalize_lang_label(lang: str) -> str:
+    """將舊資料中的英文語系值轉成顯示用中文標籤。"""
+    raw = (lang or "").strip()
+    lower = raw.lower()
+    if lower in {"traditional chinese", "traditional chinese (taiwan)", "zh-tw", "zh_tw"}:
+        return "繁體中文"
+    if lower in {"english", "en", "en-us", "en_us"}:
+        return "英文"
+    return raw
+
+
 def _build_user_prompt(assistant_description: str, lang: str, user_query: str, retrieval_context: Optional[str]) -> str:
     """以 DB 儲存的助理描述為系統指令本體；其後依助理設定的語系加上回覆指示，再加上使用者問題；若有檢索結果一併附上。"""
     blocks: List[str] = []
     desc = (assistant_description or "").strip()
-    lang_label = (lang or "").strip()
+    lang_label = _normalize_lang_label(lang)
     if desc:
         blocks.append(desc)
     if lang_label:
