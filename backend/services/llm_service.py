@@ -5,9 +5,11 @@ from services.vector_service import get_vector_store
 from dotenv import load_dotenv  # pyright: ignore[reportMissingImports]
 import os
 import time
+import math
+import re
 
 from utils.logger import get_logger
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
@@ -23,6 +25,134 @@ VLLM_BASE_URL = os.getenv("VLLM_BASE_URL")
 VLLM_MODEL = os.getenv("VLLM_MODEL").strip()
 
 logger = get_logger(__name__)
+
+
+def _tokenize_for_bm25(text: str) -> List[str]:
+    """簡單中文/英文混合 tokenizer，供 BM25 使用。"""
+    raw = (text or "").lower()
+    return re.findall(r"[\u4e00-\u9fff]|[a-z0-9_]+", raw)
+
+
+def _bm25_score(query_tokens: List[str], doc_tokens: List[str], idf: Dict[str, float], avgdl: float, *, k1: float = 1.5, b: float = 0.75) -> float:
+    """純 Python BM25 分數計算，避免額外依賴。"""
+    if not query_tokens or not doc_tokens:
+        return 0.0
+
+    tf: Dict[str, int] = {}
+    for tok in doc_tokens:
+        tf[tok] = tf.get(tok, 0) + 1
+
+    dl = max(1, len(doc_tokens))
+    score = 0.0
+    for q in query_tokens:
+        freq = tf.get(q, 0)
+        if freq <= 0:
+            continue
+        denom = freq + k1 * (1.0 - b + b * dl / max(1e-9, avgdl))
+        score += idf.get(q, 0.0) * (freq * (k1 + 1.0)) / max(1e-9, denom)
+    return score
+
+
+def _doc_key(doc) -> str:
+    """嘗試用 metadata.doc_id 當唯一鍵，fallback 用內容 hash。"""
+    md = getattr(doc, "metadata", {}) or {}
+    did = md.get("doc_id")
+    if did:
+        return str(did)
+    return str(hash(((doc.page_content or "")[:500], tuple(sorted(md.items())))))
+
+
+def _hybrid_retrieve(vector_store, query: str) -> List[Any]:
+    """
+    向量 + BM25 混合檢索，回傳依混合分數排序的文件列表。
+    """
+    top_k = max(1, int(os.getenv("RAG_TOP_K", "5")))
+    vector_fetch_k = max(top_k, int(os.getenv("RAG_VECTOR_FETCH_K", "20")))
+    bm25_corpus_limit = max(vector_fetch_k, int(os.getenv("RAG_BM25_CORPUS_LIMIT", "1500")))
+    bm25_fetch_k = max(top_k, int(os.getenv("RAG_BM25_FETCH_K", "20")))
+    hybrid_alpha = float(os.getenv("RAG_HYBRID_ALPHA", "0.7"))
+    hybrid_alpha = max(0.0, min(1.0, hybrid_alpha))
+
+    # 1) 向量候選（FAISS distance 越小越好，轉成 similarity）
+    vector_candidates = vector_store.similarity_search_with_score(query, k=vector_fetch_k)
+    vector_map: Dict[str, Dict[str, Any]] = {}
+    for doc, distance in vector_candidates or []:
+        key = _doc_key(doc)
+        vector_map[key] = {
+            "doc": doc,
+            "vector_raw_distance": float(distance),
+            "vector_score": 1.0 / (1.0 + max(0.0, float(distance))),  # 轉成越大越好
+            "bm25_score": 0.0,
+        }
+
+    # 2) BM25 候選語料：從 FAISS docstore 擷取
+    docstore = getattr(vector_store, "docstore", None)
+    docs_dict = getattr(docstore, "_dict", {}) if docstore is not None else {}
+    corpus_items: List[Any] = list(docs_dict.values())[:bm25_corpus_limit]
+    query_tokens = _tokenize_for_bm25(query)
+
+    bm25_ranked: List[Any] = []
+    if query_tokens and corpus_items:
+        tokenized_docs = [_tokenize_for_bm25(d.page_content or "") for d in corpus_items]
+        doc_count = len(tokenized_docs)
+        avgdl = sum(len(toks) for toks in tokenized_docs) / max(1, doc_count)
+
+        df: Dict[str, int] = {}
+        for toks in tokenized_docs:
+            for t in set(toks):
+                df[t] = df.get(t, 0) + 1
+
+        idf = {
+            t: math.log(1.0 + (doc_count - freq + 0.5) / (freq + 0.5))
+            for t, freq in df.items()
+        }
+
+        scored_docs = []
+        for doc, toks in zip(corpus_items, tokenized_docs):
+            score = _bm25_score(query_tokens, toks, idf, avgdl)
+            if score > 0:
+                scored_docs.append((doc, score))
+        scored_docs.sort(key=lambda x: x[1], reverse=True)
+        bm25_ranked = scored_docs[:bm25_fetch_k]
+
+    # 3) 合併向量與 BM25
+    for doc, bm25_score in bm25_ranked:
+        key = _doc_key(doc)
+        if key not in vector_map:
+            vector_map[key] = {
+                "doc": doc,
+                "vector_raw_distance": None,
+                "vector_score": 0.0,
+                "bm25_score": float(bm25_score),
+            }
+        else:
+            vector_map[key]["bm25_score"] = float(bm25_score)
+
+    if not vector_map:
+        return []
+
+    max_vec = max((v["vector_score"] for v in vector_map.values()), default=0.0) or 1.0
+    max_bm25 = max((v["bm25_score"] for v in vector_map.values()), default=0.0) or 1.0
+
+    merged = []
+    for item in vector_map.values():
+        v_norm = item["vector_score"] / max_vec
+        b_norm = item["bm25_score"] / max_bm25
+        hybrid_score = hybrid_alpha * v_norm + (1.0 - hybrid_alpha) * b_norm
+        merged.append((item["doc"], hybrid_score, v_norm, b_norm))
+
+    merged.sort(key=lambda x: x[1], reverse=True)
+    final_docs = [m[0] for m in merged[:top_k]]
+    logger.info(
+        "[RAG 混合檢索] vector_candidates=%d bm25_corpus=%d bm25_hits=%d merged=%d top_k=%d alpha=%.2f",
+        len(vector_candidates or []),
+        len(corpus_items),
+        len(bm25_ranked),
+        len(merged),
+        top_k,
+        hybrid_alpha,
+    )
+    return final_docs
 
 
 def _normalize_lang_label(lang: str) -> str:
@@ -132,14 +262,12 @@ def _synch_process_llm(data, assistant_uuid, customer_unique_id, lang, model, as
         return noidea
     logger.info("[LLM] get_vector_store 完成 (耗時=%.3f s)", t_vs_s)
 
-    retriever = vector_store.as_retriever()
-
     t_retrieve_start = time.perf_counter()
-    relevant_docs = retriever.get_relevant_documents(data)
+    relevant_docs = _hybrid_retrieve(vector_store, data)
     t_retrieve_s = time.perf_counter() - t_retrieve_start
     doc_count = len(relevant_docs) if relevant_docs else 0
     logger.info(
-        "[LLM] 向量檢索完成 assistant_uuid=%s 相關文件數=%d (檢索耗時=%.3f s)",
+        "[LLM] 混合檢索完成 assistant_uuid=%s 相關文件數=%d (檢索耗時=%.3f s)",
         assistant_uuid, doc_count, t_retrieve_s
     )
     if doc_count > 0:
