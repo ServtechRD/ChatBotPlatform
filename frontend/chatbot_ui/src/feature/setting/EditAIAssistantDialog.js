@@ -39,7 +39,7 @@ const CROP_SIZE = 200;
 
 const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
   const [description, setDescription] = useState('');
-  const [language, setLanguage] = useState('Traditional Chinese');
+  const [language, setLanguage] = useState('繁體中文');
   const [allowLiveChat, setAllowLiveChat] = useState(false);
   const [aiAssistantUrl, setAiAssistantUrl] = useState('');
   const [name, setName] = useState('');
@@ -83,7 +83,7 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
     setAiAssistantUrl('');
     setWelcomeText('welcome');
     setUnableToRespondText('No response');
-    setLanguage('Traditional Chinese');
+    setLanguage('繁體中文');
     setAllowLiveChat(false);
     setImage(null);
     setImageUrl('');
@@ -656,8 +656,8 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
               onChange={e => setLanguage(e.target.value)}
               label="預設回覆語系"
             >
-              <MenuItem value="Traditional Chinese">繁體中文</MenuItem>
-              <MenuItem value="english">英文</MenuItem>
+              <MenuItem value="繁體中文">繁體中文</MenuItem>
+              <MenuItem value="英文">英文</MenuItem>
             </Select>
           </FormControl>
         </Box>
