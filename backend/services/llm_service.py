@@ -26,12 +26,14 @@ logger = get_logger(__name__)
 
 
 def _build_user_prompt(assistant_description: str, lang: str, user_query: str, retrieval_context: Optional[str]) -> str:
-    """以 DB 儲存的助理描述為系統指令本體，加上語系、使用者問題；若有檢索結果一併附上。"""
+    """以 DB 儲存的助理描述為系統指令本體；其後依助理設定的語系加上回覆指示，再加上使用者問題；若有檢索結果一併附上。"""
     blocks: List[str] = []
     desc = (assistant_description or "").strip()
+    lang_label = (lang or "").strip()
     if desc:
         blocks.append(desc)
-    blocks.append(f"### 預設回覆語系\n{lang}")
+    if lang_label:
+        blocks.append(f"請使用{lang_label}回答\n")
     blocks.append(f"### 使用者問題\n{user_query}")
     if retrieval_context:
         blocks.append(f"### 檢索結果\n{retrieval_context}")
@@ -138,14 +140,12 @@ def _synch_process_llm(data, assistant_uuid, customer_unique_id, lang, model, as
         openai_api_key=VLLM_API_KEY,
         base_url=VLLM_BASE_URL,
         model=runtime_model,
-        temperature=0.5,
+        temperature=0.3,
         model_kwargs={"top_p": 0.9},
     )
     logger.info("[LLM] provider=vllm base_url=%s model=%s", VLLM_BASE_URL, runtime_model)
-    if lang == "Traditional Chinese" or "繁體中文" in str(lang):
-        user_query = f"#zh_tw {data}"
-    else:
-        user_query = data
+    
+    user_query = data
     t_llm_init_s = time.perf_counter() - t_llm_init_start
     logger.debug("[LLM] 建構 user_query 與 LLM 實例 (耗時=%.3f s)", t_llm_init_s)
 
