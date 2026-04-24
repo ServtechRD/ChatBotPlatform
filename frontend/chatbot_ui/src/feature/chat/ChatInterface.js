@@ -360,17 +360,63 @@ export default function ChatInterface({
   const audioRef = useRef(null);
   const audioObjectUrlRef = useRef(null);
   const DIGIT_TO_ZH = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
+  const digitsToZhSpaced = digits =>
+    digits
+      .split('')
+      .map(d => DIGIT_TO_ZH[Number(d)] ?? d)
+      .join(' ');
 
   function formatPhoneForSpeech(input) {
     if (!input || typeof input !== 'string') return input;
+    let text = input;
+    const placeholderMap = [];
+    let placeholderIdx = 0;
+    const toPlaceholder = value => {
+      const token = `__TEL_PLACEHOLDER_${placeholderIdx}__`;
+      placeholderMap.push({ token, value });
+      placeholderIdx += 1;
+      return token;
+    };
+
+    // 台灣市話 + 分機格式，如 02-26558899 轉 10090
+    text = text.replace(
+      /(0\d{1,2}[\-\s]?\d{6,8})\s*(?:轉|ext\.?|#)\s*(\d{1,10})/gi,
+      (_, mainNumber, extNumber) => {
+        const mainDigits = mainNumber.replace(/\D/g, '');
+        return toPlaceholder(
+          `${digitsToZhSpaced(mainDigits)} 轉 ${digitsToZhSpaced(extNumber)}`
+        );
+      }
+    );
+
     // 台灣常見手機格式，如 0912-345-678 / 0912345678
-    return input.replace(/09\d[\d\- ]{7,10}\d/g, match => {
+    text = text.replace(/09\d[\d\- ]{7,10}\d/g, match => {
       const digits = match.replace(/\D/g, '');
-      return digits
-        .split('')
-        .map(d => DIGIT_TO_ZH[Number(d)] ?? d)
-        .join(' ');
+      return toPlaceholder(digitsToZhSpaced(digits));
     });
+
+    // 國碼手機格式，如 +886-912-345-678 / 886912345678
+    text = text.replace(/(?:\+?886[\-\s]?)9\d(?:[\-\s]?\d){7,8}/g, match => {
+      const digits = match.replace(/\D/g, '').replace(/^886/, '0');
+      return toPlaceholder(digitsToZhSpaced(digits));
+    });
+
+    // 含括號區碼市話，如 (02)26558899 / (02) 2655-8899
+    text = text.replace(
+      /\(0\d{1,2}\)\s*\d{3,4}[\-\s]?\d{3,4}/g,
+      match => toPlaceholder(digitsToZhSpaced(match.replace(/\D/g, '')))
+    );
+
+    // 純市話（不含分機），如 02-26558899 / 04 1234 5678
+    text = text.replace(/0\d{1,2}[\-\s]?\d{3,4}[\-\s]?\d{3,4}/g, match =>
+      toPlaceholder(digitsToZhSpaced(match.replace(/\D/g, '')))
+    );
+
+    // 還原 placeholders
+    for (const item of placeholderMap) {
+      text = text.replace(item.token, item.value);
+    }
+    return text;
   }
 
   function formatDecimalAndPercentForSpeech(input) {
@@ -432,6 +478,37 @@ export default function ChatInterface({
     }
   }
 
+  function waitAudioReady(audio, timeoutMs = 400) {
+    return new Promise(resolve => {
+      let done = false;
+      let timer = null;
+
+      const finish = () => {
+        if (done) return;
+        done = true;
+        if (timer) clearTimeout(timer);
+        audio.removeEventListener('canplaythrough', onReady);
+        audio.removeEventListener('loadeddata', onReady);
+        audio.removeEventListener('error', onReady);
+        resolve();
+      };
+
+      const onReady = () => finish();
+
+      // 若已可播，直接通過，避免多等
+      if (audio.readyState >= 2) {
+        finish();
+        return;
+      }
+
+      audio.addEventListener('canplaythrough', onReady, { once: true });
+      audio.addEventListener('loadeddata', onReady, { once: true });
+      audio.addEventListener('error', onReady, { once: true });
+      // 保底：避免少數情況事件不回來造成卡住
+      timer = setTimeout(finish, timeoutMs);
+    });
+  }
+
   function speakText(text) {
     if (!text) return;
 
@@ -451,7 +528,7 @@ export default function ChatInterface({
     setIsSpeaking(true);
 
     // 切割句子：以標點符號為界
-    const sentences = text.split(/[。！？!?，,]/);
+    const sentences = text.split(/[。！？!?]/);
     let index = 0;
 
     function speakNext() {
@@ -491,7 +568,7 @@ export default function ChatInterface({
               if (speechId !== currentSpeechIdRef.current) return;
               index++;
               speakNext();
-            }, 120);
+            }, 20);
           };
 
           audio.onerror = err => {
@@ -501,7 +578,7 @@ export default function ChatInterface({
             setIsSpeaking(false);
           };
 
-          return audio.play();
+          return waitAudioReady(audio).then(() => audio.play());
         })
         .catch(err => {
           console.error('Kokoro 語音合成錯誤:', err);
@@ -521,7 +598,7 @@ export default function ChatInterface({
                 if (speechId !== currentSpeechIdRef.current) return;
                 index++;
                 speakNext();
-              }, 120);
+              }, 20);
             };
             utterance.onerror = fallbackErr => {
               console.error('Fallback 語音播放錯誤:', fallbackErr);
