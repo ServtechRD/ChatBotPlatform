@@ -30,6 +30,9 @@ const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 const WS_HOST =
   process.env.REACT_APP_API_BASE_WS_URL || 'cloud.servtech.com.tw:36100';
 const WS_BASE_URL = `${protocol}//${WS_HOST}`;
+const API_HOST =
+  process.env.REACT_APP_API_BASE_HTTP_URL || 'cloud.servtech.com.tw:36100';
+const API_BASE_URL = `${window.location.protocol}//${API_HOST}`;
 
 export default function ChatInterface({
   assistantid,
@@ -354,6 +357,8 @@ export default function ChatInterface({
   // 追蹤語音播放序列，用於取消舊的播放
   const currentSpeechIdRef = useRef(0);
   const speechTimeoutRef = useRef(null);
+  const audioRef = useRef(null);
+  const audioObjectUrlRef = useRef(null);
 
   function cleanText(text) {
     return text
@@ -366,13 +371,39 @@ export default function ChatInterface({
       .trim();
   }
 
+  async function fetchKokoroAudio(text) {
+    const response = await fetch(`${API_BASE_URL}/api/tts/kokoro`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text,
+        voice: 'zm_yunjian',
+        speed: 1.0,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Kokoro TTS failed: ${response.status}`);
+    }
+    return response.blob();
+  }
+
+  function stopCurrentAudio() {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    if (audioObjectUrlRef.current) {
+      URL.revokeObjectURL(audioObjectUrlRef.current);
+      audioObjectUrlRef.current = null;
+    }
+  }
+
   function speakText(text) {
     if (!text) return;
 
-    // 停止目前的播放
-    if (speechSynthesisRef.current.speaking) {
-      speechSynthesisRef.current.cancel();
-    }
+    // 停止目前的播放（保留舊邏輯：新訊息來就中斷舊播放）
+    stopCurrentAudio();
 
     // 清除任何等待中的計時器
     if (speechTimeoutRef.current) {
@@ -409,37 +440,81 @@ export default function ChatInterface({
         return;
       }
 
-      const utterance = new SpeechSynthesisUtterance(cleaned);
-
-      if (voiceRef.current) {
-        utterance.voice = voiceRef.current;
-      }
-      utterance.lang = "zh-TW";
-      utterance.rate = 1; // 正常語速
-      utterance.pitch = 1;
-
-      utterance.onend = () => {
-        if (speechId !== currentSpeechIdRef.current) return;
-
-        // 句子之間的停頓 (500ms)
-        speechTimeoutRef.current = setTimeout(() => {
+      fetchKokoroAudio(cleaned)
+        .then(blob => {
           if (speechId !== currentSpeechIdRef.current) return;
-          index++;
-          speakNext();
-        }, 500);
-      };
+          console.info('[TTS] provider=kokoro status=ok');
 
-      utterance.onerror = (err) => {
-        console.error('語音播放錯誤:', err);
-        if (speechId !== currentSpeechIdRef.current) return;
-        setIsSpeaking(false);
-      };
+          stopCurrentAudio();
+          const objectUrl = URL.createObjectURL(blob);
+          const audio = new Audio(objectUrl);
+          audioRef.current = audio;
+          audioObjectUrlRef.current = objectUrl;
 
-      speechSynthesisRef.current.speak(utterance);
+          audio.onended = () => {
+            stopCurrentAudio();
+            if (speechId !== currentSpeechIdRef.current) return;
+            speechTimeoutRef.current = setTimeout(() => {
+              if (speechId !== currentSpeechIdRef.current) return;
+              index++;
+              speakNext();
+            }, 500);
+          };
+
+          audio.onerror = err => {
+            stopCurrentAudio();
+            console.error('Kokoro 語音播放錯誤:', err);
+            if (speechId !== currentSpeechIdRef.current) return;
+            setIsSpeaking(false);
+          };
+
+          return audio.play();
+        })
+        .catch(err => {
+          console.error('Kokoro 語音合成錯誤:', err);
+          console.warn('[TTS] provider=web-speech-fallback reason=kokoro-failed');
+          // Kokoro 失敗時，維持原本可用性，退回瀏覽器語音
+          try {
+            const utterance = new SpeechSynthesisUtterance(cleaned);
+            if (voiceRef.current) {
+              utterance.voice = voiceRef.current;
+            }
+            utterance.lang = 'zh-TW';
+            utterance.rate = 1;
+            utterance.pitch = 1;
+            utterance.onend = () => {
+              if (speechId !== currentSpeechIdRef.current) return;
+              speechTimeoutRef.current = setTimeout(() => {
+                if (speechId !== currentSpeechIdRef.current) return;
+                index++;
+                speakNext();
+              }, 500);
+            };
+            utterance.onerror = fallbackErr => {
+              console.error('Fallback 語音播放錯誤:', fallbackErr);
+              if (speechId !== currentSpeechIdRef.current) return;
+              setIsSpeaking(false);
+            };
+            speechSynthesisRef.current.speak(utterance);
+          } catch (fallbackError) {
+            console.error('Fallback 語音失敗:', fallbackError);
+            if (speechId !== currentSpeechIdRef.current) return;
+            setIsSpeaking(false);
+          }
+        });
     }
 
     speakNext();
   }
+
+  useEffect(() => {
+    return () => {
+      stopCurrentAudio();
+      if (speechSynthesisRef.current.speaking) {
+        speechSynthesisRef.current.cancel();
+      }
+    };
+  }, []);
 
   function safeSend(msg) {
     const socket = socketRef.current;
