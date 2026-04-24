@@ -138,3 +138,7 @@ qrcode==7.4.2
 edge-tts==6.1.9
 gTTS==2.5.1
 kokoro
+ordered-set
+pypinyin
+cn2an
+jieba

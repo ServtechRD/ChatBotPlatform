@@ -359,13 +359,46 @@ export default function ChatInterface({
   const speechTimeoutRef = useRef(null);
   const audioRef = useRef(null);
   const audioObjectUrlRef = useRef(null);
+  const DIGIT_TO_ZH = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
+
+  function formatPhoneForSpeech(input) {
+    if (!input || typeof input !== 'string') return input;
+    // 台灣常見手機格式，如 0912-345-678 / 0912345678
+    return input.replace(/09\d[\d\- ]{7,10}\d/g, match => {
+      const digits = match.replace(/\D/g, '');
+      return digits
+        .split('')
+        .map(d => DIGIT_TO_ZH[Number(d)] ?? d)
+        .join(' ');
+    });
+  }
+
+  function formatDecimalAndPercentForSpeech(input) {
+    if (!input || typeof input !== 'string') return input;
+
+    let text = input;
+    // 百分比：12.5% -> 12點5 percent
+    text = text.replace(/(\d+)\.(\d+)%/g, (_, intPart, fracPart) => {
+      return `${intPart}點${fracPart} percent`;
+    });
+    text = text.replace(/(\d+)%/g, (_, num) => `${num} percent`);
+    // 小數：12.34 -> 12點34
+    text = text.replace(/(\d+)\.(\d+)/g, (_, intPart, fracPart) => {
+      return `${intPart}點${fracPart}`;
+    });
+    return text;
+  }
 
   function cleanText(text) {
-    return text
+    const normalized = formatDecimalAndPercentForSpeech(
+      formatPhoneForSpeech(text)
+    );
+
+    return normalized
       // 移除 emoji
       .replace(/[\p{Extended_Pictographic}]/gu, '')
-      // 移除各種特殊符號 (保留文字、數字、空白)
-      .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+      // 保留點號/百分比與中文頓點，避免數字朗讀語意流失
+      .replace(/[^\p{L}\p{N}\s.%。，、]/gu, ' ')
       // 合併多餘空白
       .replace(/\s+/g, ' ')
       .trim();
@@ -458,7 +491,7 @@ export default function ChatInterface({
               if (speechId !== currentSpeechIdRef.current) return;
               index++;
               speakNext();
-            }, 500);
+            }, 120);
           };
 
           audio.onerror = err => {
@@ -488,7 +521,7 @@ export default function ChatInterface({
                 if (speechId !== currentSpeechIdRef.current) return;
                 index++;
                 speakNext();
-              }, 500);
+              }, 120);
             };
             utterance.onerror = fallbackErr => {
               console.error('Fallback 語音播放錯誤:', fallbackErr);
