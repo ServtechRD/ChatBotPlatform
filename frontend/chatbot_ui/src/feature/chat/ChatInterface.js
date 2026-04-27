@@ -180,12 +180,15 @@ export default function ChatInterface({
         setTimeout(scrollToBottom, 100);
       } else if (message === '###') {
         setIsThinking(false);
+        // 回覆結束時立刻播放已合併的段落，縮短尾端等待。
+        flushQueuedSpeakText();
       } else {
         setMessages(prev => [
           ...prev,
           { id: Date.now(), text: message, isBot: true },
         ]);
-        speakText(message);
+        // 串流分段先合併，避免新分段到來時中斷前一段開頭造成漏字。
+        queueSpeakText(message);
       }
     });
 
@@ -229,6 +232,7 @@ export default function ChatInterface({
 
   function queueSpeakText(text) {
     if (!text) return;
+    console.info(`[TTS][frontend] queue_append chunk_len=${text.length}`);
     pendingSpeakTextRef.current = pendingSpeakTextRef.current
       ? `${pendingSpeakTextRef.current}\n${text}`
       : text;
@@ -238,11 +242,21 @@ export default function ChatInterface({
     }
     // 合併短時間內的分段回覆，避免多次 TTS 造成句首被截斷
     speakDebounceTimerRef.current = setTimeout(() => {
-      const merged = pendingSpeakTextRef.current;
-      pendingSpeakTextRef.current = '';
-      speakDebounceTimerRef.current = null;
-      if (merged) speakText(merged);
+      flushQueuedSpeakText();
     }, 280);
+  }
+
+  function flushQueuedSpeakText() {
+    if (speakDebounceTimerRef.current) {
+      clearTimeout(speakDebounceTimerRef.current);
+      speakDebounceTimerRef.current = null;
+    }
+    const merged = pendingSpeakTextRef.current;
+    pendingSpeakTextRef.current = '';
+    if (merged) {
+      console.info(`[TTS][frontend] queue_flush merged_len=${merged.length}`);
+      speakText(merged);
+    }
   }
 
   async function handleVoiceInput() {
@@ -385,6 +399,48 @@ export default function ChatInterface({
       .split('')
       .map(d => DIGIT_TO_ZH[Number(d)] ?? d)
       .join(' ');
+  const spellAsciiForSpeech = raw =>
+    raw
+      .split('')
+      .map(ch => {
+        if (/[A-Za-z]/.test(ch)) return ch.toLowerCase();
+        if (/\d/.test(ch)) return DIGIT_TO_ZH[Number(ch)] ?? ch;
+        if (ch === '.') return '點';
+        if (ch === '-') return '減號';
+        if (ch === '_') return '底線';
+        if (ch === '+') return '加號';
+        return ch;
+      })
+      .join(' ');
+
+  function formatEmailForSpeech(input) {
+    if (!input || typeof input !== 'string') return input;
+    let text = input;
+    const placeholderMap = [];
+    let placeholderIdx = 0;
+    const toPlaceholder = value => {
+      const token = `__MAIL_PLACEHOLDER_${placeholderIdx}__`;
+      placeholderMap.push({ token, value });
+      placeholderIdx += 1;
+      return token;
+    };
+
+    text = text.replace(
+      /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g,
+      email => {
+        const [local = '', domain = ''] = email.split('@');
+        if (!local || !domain) return email;
+        return toPlaceholder(
+          `${spellAsciiForSpeech(local)} 小老鼠 ${spellAsciiForSpeech(domain)}`
+        );
+      }
+    );
+
+    for (const item of placeholderMap) {
+      text = text.replace(item.token, item.value);
+    }
+    return text;
+  }
 
   function formatPhoneForSpeech(input) {
     if (!input || typeof input !== 'string') return input;
@@ -432,9 +488,9 @@ export default function ChatInterface({
       toPlaceholder(digitsToZhSpaced(match.replace(/\D/g, '')))
     );
 
-    // 分機語境逐位念：如「分機: 10090」、「轉 10090」、「ext 10090」
+    // 電話/分機語境逐位念：如「電話10090」、「分機: 10090」、「轉 10090」、「ext 10090」
     text = text.replace(
-      /((?:分機|轉|ext\.?|#)\s*[:：]?\s*)(\d{1,10})/gi,
+      /((?:電話|專線|分機|轉|ext\.?|#)\s*[:：]?\s*)(\d{1,10})/gi,
       (_, prefix, extDigits) => `${prefix}${toPlaceholder(digitsToZhSpaced(extDigits))}`
     );
 
@@ -475,7 +531,7 @@ export default function ChatInterface({
 
   function cleanText(text) {
     const normalized = formatDecimalAndPercentForSpeech(
-      formatPhoneForSpeech(text)
+      formatPhoneForSpeech(formatEmailForSpeech(text))
     );
 
     return normalized
@@ -491,6 +547,7 @@ export default function ChatInterface({
   }
 
   async function fetchKokoroAudio(text) {
+    const fetchStart = performance.now();
     const response = await fetch(`${API_BASE_URL}/api/tts/kokoro`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -504,7 +561,11 @@ export default function ChatInterface({
     if (!response.ok) {
       throw new Error(`Kokoro TTS failed: ${response.status}`);
     }
-    return response.blob();
+    const blob = await response.blob();
+    console.info(
+      `[TTS][frontend] fetch_done text_len=${text.length} blob_bytes=${blob.size} elapsed_ms=${(performance.now() - fetchStart).toFixed(1)}`
+    );
+    return blob;
   }
 
   function stopCurrentAudio() {
@@ -518,7 +579,7 @@ export default function ChatInterface({
     }
   }
 
-  function waitAudioReady(audio, timeoutMs = 400) {
+  function waitAudioReady(audio, timeoutMs = 120) {
     return new Promise(resolve => {
       let done = false;
       let timer = null;
@@ -551,6 +612,7 @@ export default function ChatInterface({
 
   function speakText(text) {
     if (!text) return;
+    const speakStart = performance.now();
 
     // 停止目前的播放（保留舊邏輯：新訊息來就中斷舊播放）
     stopCurrentAudio();
@@ -567,6 +629,9 @@ export default function ChatInterface({
 
     setIsSpeaking(true);
     const cleaned = cleanText(text);
+    console.info(
+      `[TTS][frontend] speak_start raw_len=${text.length} cleaned_len=${cleaned.length}`
+    );
     if (!cleaned) {
       setIsSpeaking(false);
       return;
@@ -576,6 +641,9 @@ export default function ChatInterface({
       .then(blob => {
         if (speechId !== currentSpeechIdRef.current) return;
         console.info('[TTS] provider=kokoro status=ok');
+        console.info(
+          `[TTS][frontend] blob_ready elapsed_ms=${(performance.now() - speakStart).toFixed(1)}`
+        );
 
         stopCurrentAudio();
         const objectUrl = URL.createObjectURL(blob);
@@ -586,6 +654,9 @@ export default function ChatInterface({
         audio.onended = () => {
           stopCurrentAudio();
           if (speechId !== currentSpeechIdRef.current) return;
+          console.info(
+            `[TTS][frontend] playback_ended total_ms=${(performance.now() - speakStart).toFixed(1)}`
+          );
           setIsSpeaking(false);
         };
 
@@ -596,7 +667,12 @@ export default function ChatInterface({
           setIsSpeaking(false);
         };
 
-        return waitAudioReady(audio).then(() => audio.play());
+        return waitAudioReady(audio).then(() => {
+          console.info(
+            `[TTS][frontend] play_begin elapsed_ms=${(performance.now() - speakStart).toFixed(1)}`
+          );
+          return audio.play();
+        });
       })
       .catch(err => {
         console.error('Kokoro 語音合成錯誤:', err);
@@ -630,6 +706,11 @@ export default function ChatInterface({
 
   useEffect(() => {
     return () => {
+      if (speakDebounceTimerRef.current) {
+        clearTimeout(speakDebounceTimerRef.current);
+        speakDebounceTimerRef.current = null;
+      }
+      pendingSpeakTextRef.current = '';
       stopCurrentAudio();
       if (speechSynthesisRef.current.speaking) {
         speechSynthesisRef.current.cancel();

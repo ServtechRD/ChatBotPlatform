@@ -7,6 +7,7 @@ import io
 import wave
 import numpy as np
 import re
+import time
 from collections import OrderedDict
 from threading import Lock
 
@@ -18,10 +19,10 @@ _kokoro_cache_lock = Lock()
 _kokoro_audio_cache = OrderedDict()
 
 SAMPLE_RATE = 24000
-LEADING_SILENCE_MS = 200
-PAUSE_MS_COMMA = 80
-PAUSE_MS_SENTENCE = 180
-PAUSE_MS_COLON = 250
+LEADING_SILENCE_MS = 250
+PAUSE_MS_COMMA = 50
+PAUSE_MS_SENTENCE = 120
+PAUSE_MS_COLON = 200
 PAUSE_MS_LIST_ITEM_BEFORE = 200
 KOKORO_CACHE_MAX_ITEMS = 128
 
@@ -167,9 +168,18 @@ def _segment_text_with_pauses(text: str):
 
 
 def _synthesize_kokoro(text: str, voice: str, speed: float) -> bytes:
+    synth_start = time.perf_counter()
     cached_audio = _kokoro_cache_get(text=text, voice=voice, speed=speed)
     if cached_audio is not None:
+        elapsed_ms = (time.perf_counter() - synth_start) * 1000
+        print(
+            f"[TTS][backend] cache=hit text_len={len(text)} voice={voice} "
+            f"speed={speed} elapsed_ms={elapsed_ms:.1f}"
+        )
         return cached_audio
+    print(
+        f"[TTS][backend] cache=miss text_len={len(text)} voice={voice} speed={speed}"
+    )
 
     segments = _segment_text_with_pauses(text)
     if not segments:
@@ -192,6 +202,11 @@ def _synthesize_kokoro(text: str, voice: str, speed: float) -> bytes:
     combined = np.concatenate(all_audio)
     wav_bytes = _float_audio_to_wav_bytes(combined, sample_rate=SAMPLE_RATE)
     _kokoro_cache_set(text=text, voice=voice, speed=speed, wav_bytes=wav_bytes)
+    elapsed_ms = (time.perf_counter() - synth_start) * 1000
+    print(
+        f"[TTS][backend] synth_done segments={len(segments)} "
+        f"text_len={len(text)} elapsed_ms={elapsed_ms:.1f}"
+    )
     return wav_bytes
 
 @router.post("/tts/edge")
@@ -241,10 +256,16 @@ async def edge_tts_endpoint(request: TTSRequest):
 @router.post("/tts/kokoro")
 async def kokoro_tts_endpoint(request: KokoroTTSRequest):
     try:
+        request_start = time.perf_counter()
         audio_content = _synthesize_kokoro(
             text=request.text,
             voice=request.voice,
             speed=request.speed,
+        )
+        total_ms = (time.perf_counter() - request_start) * 1000
+        print(
+            f"[TTS][backend] endpoint_done text_len={len(request.text)} "
+            f"audio_bytes={len(audio_content)} elapsed_ms={total_ms:.1f}"
         )
         return Response(content=audio_content, media_type="audio/wav")
     except Exception as e:
