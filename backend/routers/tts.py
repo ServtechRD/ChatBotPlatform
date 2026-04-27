@@ -21,9 +21,10 @@ _kokoro_audio_cache = OrderedDict()
 SAMPLE_RATE = 24000
 LEADING_SILENCE_MS = 250
 PAUSE_MS_COMMA = 40
-PAUSE_MS_SENTENCE = 60
-PAUSE_MS_COLON = 80
-PAUSE_MS_LIST_ITEM_BEFORE = 100
+PAUSE_MS_SENTENCE = 40
+PAUSE_MS_COLON = 40
+PAUSE_MS_LIST_ITEM_BEFORE = 60
+
 KOKORO_CACHE_MAX_ITEMS = 128
 
 class TTSRequest(BaseModel):
@@ -203,7 +204,7 @@ def _synthesize_kokoro(text: str, voice: str, speed: float) -> bytes:
     _kokoro_cache_set(text=text, voice=voice, speed=speed, wav_bytes=wav_bytes)
     elapsed_ms = (time.perf_counter() - synth_start) * 1000
     print(
-        f"[TTS][backend] synth_done segments={len(segments)} merged_segments={len(merged_segments)} "
+        f"[TTS][backend] synth_done segments={len(segments)} "
         f"text_len={len(text)} elapsed_ms={elapsed_ms:.1f}"
     )
     return wav_bytes
