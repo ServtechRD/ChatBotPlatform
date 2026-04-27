@@ -15,4 +15,4 @@ sleep 6
 
 cd /home/chatbot_platform/frontend/chatbot_ui/
 npm install cross-env
-npm start &
+HOST=0.0.0.0 PORT=3000 npm start &
