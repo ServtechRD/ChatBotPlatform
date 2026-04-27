@@ -393,6 +393,8 @@ export default function ChatInterface({
   const speechTimeoutRef = useRef(null);
   const audioRef = useRef(null);
   const audioObjectUrlRef = useRef(null);
+  const kokoroBlobCacheRef = useRef(new Map());
+  const KOKORO_BLOB_CACHE_MAX_ITEMS = 48;
   const DIGIT_TO_ZH = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
   const digitsToZhSpaced = digits =>
     digits
@@ -547,6 +549,17 @@ export default function ChatInterface({
   }
 
   async function fetchKokoroAudio(text) {
+    const cachedBlob = kokoroBlobCacheRef.current.get(text);
+    if (cachedBlob) {
+      // LRU 更新：命中後移到尾端
+      kokoroBlobCacheRef.current.delete(text);
+      kokoroBlobCacheRef.current.set(text, cachedBlob);
+      console.info(
+        `[TTS][frontend] fetch_cache_hit text_len=${text.length} blob_bytes=${cachedBlob.size}`
+      );
+      return cachedBlob;
+    }
+
     const fetchStart = performance.now();
     const response = await fetch(`${API_BASE_URL}/api/tts/kokoro`, {
       method: 'POST',
@@ -562,6 +575,12 @@ export default function ChatInterface({
       throw new Error(`Kokoro TTS failed: ${response.status}`);
     }
     const blob = await response.blob();
+    kokoroBlobCacheRef.current.set(text, blob);
+    while (kokoroBlobCacheRef.current.size > KOKORO_BLOB_CACHE_MAX_ITEMS) {
+      const oldestKey = kokoroBlobCacheRef.current.keys().next().value;
+      if (!oldestKey) break;
+      kokoroBlobCacheRef.current.delete(oldestKey);
+    }
     console.info(
       `[TTS][frontend] fetch_done text_len=${text.length} blob_bytes=${blob.size} elapsed_ms=${(performance.now() - fetchStart).toFixed(1)}`
     );
@@ -711,6 +730,7 @@ export default function ChatInterface({
         speakDebounceTimerRef.current = null;
       }
       pendingSpeakTextRef.current = '';
+      kokoroBlobCacheRef.current.clear();
       stopCurrentAudio();
       if (speechSynthesisRef.current.speaking) {
         speechSynthesisRef.current.cancel();

@@ -21,10 +21,11 @@ _kokoro_audio_cache = OrderedDict()
 SAMPLE_RATE = 24000
 LEADING_SILENCE_MS = 250
 PAUSE_MS_COMMA = 40
-PAUSE_MS_SENTENCE = 100
-PAUSE_MS_COLON = 200
+PAUSE_MS_SENTENCE = 80
+PAUSE_MS_COLON = 100
 PAUSE_MS_LIST_ITEM_BEFORE = 200
 KOKORO_CACHE_MAX_ITEMS = 128
+CHUNK_TARGET_TEXT_LENGTH = 120
 
 class TTSRequest(BaseModel):
     text: str
@@ -166,6 +167,47 @@ def _segment_text_with_pauses(text: str):
     return segments
 
 
+def _merge_segments_for_faster_synth(segments, target_len: int = CHUNK_TARGET_TEXT_LENGTH):
+    """
+    把多個短段合併成較少 chunk，降低 Kokoro 模型呼叫次數。
+    - 段內標點保留，交給模型自然停頓
+    - chunk 前停頓沿用首段，chunk 後停頓沿用末段
+    """
+    if not segments:
+        return []
+
+    merged = []
+    current_text_parts = []
+    current_pre_pause = 0
+    current_post_pause = 0
+    current_len = 0
+
+    for segment_text, pre_pause_ms, post_pause_ms in segments:
+        seg_len = len(segment_text)
+        if not current_text_parts:
+            current_text_parts = [segment_text]
+            current_pre_pause = pre_pause_ms
+            current_post_pause = post_pause_ms
+            current_len = seg_len
+            continue
+
+        if current_len + seg_len > target_len:
+            merged.append(("".join(current_text_parts), current_pre_pause, current_post_pause))
+            current_text_parts = [segment_text]
+            current_pre_pause = pre_pause_ms
+            current_post_pause = post_pause_ms
+            current_len = seg_len
+        else:
+            current_text_parts.append(segment_text)
+            current_post_pause = post_pause_ms
+            current_len += seg_len
+
+    if current_text_parts:
+        merged.append(("".join(current_text_parts), current_pre_pause, current_post_pause))
+
+    return merged
+
+
 def _synthesize_kokoro(text: str, voice: str, speed: float) -> bytes:
     synth_start = time.perf_counter()
     cached_audio = _kokoro_cache_get(text=text, voice=voice, speed=speed)
@@ -183,9 +225,10 @@ def _synthesize_kokoro(text: str, voice: str, speed: float) -> bytes:
     segments = _segment_text_with_pauses(text)
     if not segments:
         raise RuntimeError("Kokoro received empty text after segmentation.")
+    merged_segments = _merge_segments_for_faster_synth(segments)
 
     all_audio = [_silence_audio(LEADING_SILENCE_MS)]
-    for segment_text, pre_pause_ms, post_pause_ms in segments:
+    for segment_text, pre_pause_ms, post_pause_ms in merged_segments:
         if pre_pause_ms > 0:
             all_audio.append(_silence_audio(pre_pause_ms))
         seg_audio = _synthesize_kokoro_segment(segment_text, voice=voice, speed=speed)
@@ -203,7 +246,7 @@ def _synthesize_kokoro(text: str, voice: str, speed: float) -> bytes:
     _kokoro_cache_set(text=text, voice=voice, speed=speed, wav_bytes=wav_bytes)
     elapsed_ms = (time.perf_counter() - synth_start) * 1000
     print(
-        f"[TTS][backend] synth_done segments={len(segments)} "
+        f"[TTS][backend] synth_done segments={len(segments)} merged_segments={len(merged_segments)} "
         f"text_len={len(text)} elapsed_ms={elapsed_ms:.1f}"
     )
     return wav_bytes
