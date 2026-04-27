@@ -481,10 +481,12 @@ export default function ChatInterface({
     return normalized
       // 移除 emoji
       .replace(/[\p{Extended_Pictographic}]/gu, '')
-      // 保留點號/百分比與中文頓點，避免數字朗讀語意流失
-      .replace(/[^\p{L}\p{N}\s.%。，、]/gu, ' ')
-      // 合併多餘空白
-      .replace(/\s+/g, ' ')
+      // 保留中英文常見斷句標點與換行，讓後端能正確做斷句停頓
+      .replace(/[^\p{L}\p{N}\s.%。，、！？!?：:；;、•\-]/gu, ' ')
+      // 保留換行（供條列偵測），僅壓縮同一行內多餘空白
+      .replace(/[^\S\r\n]+/g, ' ')
+      // 壓縮連續空行，避免過多靜音
+      .replace(/\n{3,}/g, '\n\n')
       .trim();
   }
 

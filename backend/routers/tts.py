@@ -7,10 +7,15 @@ import io
 import wave
 import numpy as np
 import re
+from collections import OrderedDict
+from threading import Lock
 
 router = APIRouter()
 
 _kokoro_pipeline = None
+_kokoro_warmed_up = False
+_kokoro_cache_lock = Lock()
+_kokoro_audio_cache = OrderedDict()
 
 SAMPLE_RATE = 24000
 LEADING_SILENCE_MS = 200
@@ -18,6 +23,7 @@ PAUSE_MS_COMMA = 80
 PAUSE_MS_SENTENCE = 180
 PAUSE_MS_COLON = 250
 PAUSE_MS_LIST_ITEM_BEFORE = 200
+KOKORO_CACHE_MAX_ITEMS = 128
 
 class TTSRequest(BaseModel):
     text: str
@@ -44,7 +50,7 @@ def _float_audio_to_wav_bytes(audio: np.ndarray, sample_rate: int = SAMPLE_RATE)
 
 
 def _get_kokoro_pipeline():
-    global _kokoro_pipeline
+    global _kokoro_pipeline, _kokoro_warmed_up
     if _kokoro_pipeline is not None:
         return _kokoro_pipeline
 
@@ -57,7 +63,37 @@ def _get_kokoro_pipeline():
 
     # "z" language code supports Chinese generation in Kokoro pipeline.
     _kokoro_pipeline = KPipeline(lang_code="z")
+
+    # 預熱：降低第一句冷啟動延遲，不影響實際語音規則。
+    if not _kokoro_warmed_up:
+        try:
+            for _, _, audio in _kokoro_pipeline("預熱", voice="zf_xiaoni", speed=1.0):
+                if audio is not None:
+                    break
+        except Exception as warmup_error:
+            print(f"Kokoro warmup skipped: {warmup_error}")
+        finally:
+            _kokoro_warmed_up = True
     return _kokoro_pipeline
+
+
+def _kokoro_cache_get(text: str, voice: str, speed: float):
+    cache_key = (text, voice, round(float(speed), 3))
+    with _kokoro_cache_lock:
+        cached = _kokoro_audio_cache.get(cache_key)
+        if cached is None:
+            return None
+        _kokoro_audio_cache.move_to_end(cache_key)
+        return cached
+
+
+def _kokoro_cache_set(text: str, voice: str, speed: float, wav_bytes: bytes):
+    cache_key = (text, voice, round(float(speed), 3))
+    with _kokoro_cache_lock:
+        _kokoro_audio_cache[cache_key] = wav_bytes
+        _kokoro_audio_cache.move_to_end(cache_key)
+        while len(_kokoro_audio_cache) > KOKORO_CACHE_MAX_ITEMS:
+            _kokoro_audio_cache.popitem(last=False)
 
 
 def _synthesize_kokoro_segment(text: str, voice: str, speed: float) -> np.ndarray:
@@ -131,6 +167,10 @@ def _segment_text_with_pauses(text: str):
 
 
 def _synthesize_kokoro(text: str, voice: str, speed: float) -> bytes:
+    cached_audio = _kokoro_cache_get(text=text, voice=voice, speed=speed)
+    if cached_audio is not None:
+        return cached_audio
+
     segments = _segment_text_with_pauses(text)
     if not segments:
         raise RuntimeError("Kokoro received empty text after segmentation.")
@@ -150,7 +190,9 @@ def _synthesize_kokoro(text: str, voice: str, speed: float) -> bytes:
         raise RuntimeError("Kokoro returned empty audio.")
 
     combined = np.concatenate(all_audio)
-    return _float_audio_to_wav_bytes(combined, sample_rate=SAMPLE_RATE)
+    wav_bytes = _float_audio_to_wav_bytes(combined, sample_rate=SAMPLE_RATE)
+    _kokoro_cache_set(text=text, voice=voice, speed=speed, wav_bytes=wav_bytes)
+    return wav_bytes
 
 @router.post("/tts/edge")
 async def edge_tts_endpoint(request: TTSRequest):
