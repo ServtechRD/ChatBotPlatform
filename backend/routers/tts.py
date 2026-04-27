@@ -20,8 +20,8 @@ _kokoro_audio_cache = OrderedDict()
 
 SAMPLE_RATE = 24000
 LEADING_SILENCE_MS = 250
-PAUSE_MS_COMMA = 50
-PAUSE_MS_SENTENCE = 120
+PAUSE_MS_COMMA = 40
+PAUSE_MS_SENTENCE = 100
 PAUSE_MS_COLON = 200
 PAUSE_MS_LIST_ITEM_BEFORE = 200
 KOKORO_CACHE_MAX_ITEMS = 128
@@ -124,13 +124,14 @@ def _silence_audio(ms: int, sample_rate: int = SAMPLE_RATE) -> np.ndarray:
 def _segment_text_with_pauses(text: str):
     """
     依語意切段並附帶停頓：
-    - 逗號: 80ms
-    - 句號/問號/驚嘆號: 180ms
-    - 冒號: 250ms
+    - 逗號: 不切段（由模型自然停頓）
+    - 句號/問號/驚嘆號: 句尾切段 + 停頓
+    - 冒號: 切段 + 停頓
     - 條列項目前: 200ms
     """
     segments = []
-    punct_split = re.compile(r"([，,。！？!?：:])")
+    # 只在句尾與冒號切段，逗號保留在段內避免過度分段造成速度變慢。
+    punct_split = re.compile(r"([。！？!?：:])")
     list_item_pattern = re.compile(r"^\s*(?:[•\-]|\d+\.)\s*")
 
     lines = text.splitlines() or [text]
@@ -154,9 +155,7 @@ def _segment_text_with_pauses(text: str):
                 continue
 
             post_pause_ms = 0
-            if punct in ("，", ","):
-                post_pause_ms = PAUSE_MS_COMMA
-            elif punct in ("。", "！", "？", "!", "?"):
+            if punct in ("。", "！", "？", "!", "?"):
                 post_pause_ms = PAUSE_MS_SENTENCE
             elif punct in ("：", ":"):
                 post_pause_ms = PAUSE_MS_COLON
