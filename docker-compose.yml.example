@@ -1,9 +1,7 @@
 services:
   server:
-    build:
-      context: ${PROJECT_ROOT:-.}
-      dockerfile: Dockerfile
-    container_name: chatbot-platform-server
+    image: nikolaik/python-nodejs:python3.10-nodejs20
+    container_name: chatbot01
     working_dir: /home/chatbot_platform
     command: ["/bin/bash", "-c", "chmod +x /home/chatbot_platform/start.sh && /home/chatbot_platform/start.sh"]
     volumes:
