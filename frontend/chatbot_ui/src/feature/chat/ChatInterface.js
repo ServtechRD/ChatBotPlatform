@@ -567,7 +567,7 @@ export default function ChatInterface({
       body: JSON.stringify({
         text,
         voice: 'zm_yunjian',
-        speed: 1.0,
+        speed: 0.95,
       }),
     });
 
