@@ -6,10 +6,18 @@ import os
 import io
 import wave
 import numpy as np
+import re
 
 router = APIRouter()
 
 _kokoro_pipeline = None
+
+SAMPLE_RATE = 24000
+LEADING_SILENCE_MS = 200
+PAUSE_MS_COMMA = 80
+PAUSE_MS_SENTENCE = 180
+PAUSE_MS_COLON = 250
+PAUSE_MS_LIST_ITEM_BEFORE = 200
 
 class TTSRequest(BaseModel):
     text: str
@@ -22,7 +30,7 @@ class KokoroTTSRequest(BaseModel):
     speed: float = 1.0
 
 
-def _float_audio_to_wav_bytes(audio: np.ndarray, sample_rate: int = 24000) -> bytes:
+def _float_audio_to_wav_bytes(audio: np.ndarray, sample_rate: int = SAMPLE_RATE) -> bytes:
     clipped = np.clip(audio, -1.0, 1.0)
     pcm16 = (clipped * 32767).astype(np.int16)
 
@@ -52,7 +60,7 @@ def _get_kokoro_pipeline():
     return _kokoro_pipeline
 
 
-def _synthesize_kokoro(text: str, voice: str, speed: float) -> bytes:
+def _synthesize_kokoro_segment(text: str, voice: str, speed: float) -> np.ndarray:
     pipeline = _get_kokoro_pipeline()
     audio_chunks = []
 
@@ -64,10 +72,85 @@ def _synthesize_kokoro(text: str, voice: str, speed: float) -> bytes:
         audio_chunks.append(np.asarray(audio, dtype=np.float32))
 
     if not audio_chunks:
+        return np.array([], dtype=np.float32)
+
+    return np.concatenate(audio_chunks)
+
+
+def _silence_audio(ms: int, sample_rate: int = SAMPLE_RATE) -> np.ndarray:
+    if ms <= 0:
+        return np.array([], dtype=np.float32)
+    samples = int(sample_rate * (ms / 1000.0))
+    return np.zeros(samples, dtype=np.float32)
+
+
+def _segment_text_with_pauses(text: str):
+    """
+    依語意切段並附帶停頓：
+    - 逗號: 80ms
+    - 句號/問號/驚嘆號: 180ms
+    - 冒號: 250ms
+    - 條列項目前: 200ms
+    """
+    segments = []
+    punct_split = re.compile(r"([，,。！？!?：:])")
+    list_item_pattern = re.compile(r"^\s*(?:[•\-]|\d+\.)\s*")
+
+    lines = text.splitlines() or [text]
+    for line in lines:
+        if not line or not line.strip():
+            continue
+
+        pre_pause_ms = PAUSE_MS_LIST_ITEM_BEFORE if list_item_pattern.match(line) else 0
+        parts = punct_split.split(line)
+        i = 0
+        while i < len(parts):
+            phrase = (parts[i] or "").strip()
+            punct = parts[i + 1] if i + 1 < len(parts) else ""
+            i += 2
+
+            if not phrase and not punct:
+                continue
+
+            chunk = f"{phrase}{punct}".strip()
+            if not chunk:
+                continue
+
+            post_pause_ms = 0
+            if punct in ("，", ","):
+                post_pause_ms = PAUSE_MS_COMMA
+            elif punct in ("。", "！", "？", "!", "?"):
+                post_pause_ms = PAUSE_MS_SENTENCE
+            elif punct in ("：", ":"):
+                post_pause_ms = PAUSE_MS_COLON
+
+            segments.append((chunk, pre_pause_ms, post_pause_ms))
+            pre_pause_ms = 0
+
+    return segments
+
+
+def _synthesize_kokoro(text: str, voice: str, speed: float) -> bytes:
+    segments = _segment_text_with_pauses(text)
+    if not segments:
+        raise RuntimeError("Kokoro received empty text after segmentation.")
+
+    all_audio = [_silence_audio(LEADING_SILENCE_MS)]
+    for segment_text, pre_pause_ms, post_pause_ms in segments:
+        if pre_pause_ms > 0:
+            all_audio.append(_silence_audio(pre_pause_ms))
+        seg_audio = _synthesize_kokoro_segment(segment_text, voice=voice, speed=speed)
+        if seg_audio.size == 0:
+            continue
+        all_audio.append(seg_audio)
+        if post_pause_ms > 0:
+            all_audio.append(_silence_audio(post_pause_ms))
+
+    if not all_audio:
         raise RuntimeError("Kokoro returned empty audio.")
 
-    combined = np.concatenate(audio_chunks)
-    return _float_audio_to_wav_bytes(combined, sample_rate=24000)
+    combined = np.concatenate(all_audio)
+    return _float_audio_to_wav_bytes(combined, sample_rate=SAMPLE_RATE)
 
 @router.post("/tts/edge")
 async def edge_tts_endpoint(request: TTSRequest):
