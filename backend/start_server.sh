@@ -1,9 +1,19 @@
 #!/bin/sh
 
+set -e
+
+# 確保在 backend 目錄執行，避免找不到 requirements.txt/init_nltk.py
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+cd "$SCRIPT_DIR"
+
+if [ ! -f "./venv/bin/activate" ]; then
+    echo "venv not found, creating ./venv ..."
+    python3 -m venv venv || echo "Warning: failed to create venv, will use system python."
+fi
 if [ -f "./venv/bin/activate" ]; then
     . ./venv/bin/activate
 else
-    echo "venv not found, use system python."
+    echo "venv not available, using system python."
 fi
 pip install --upgrade pip
 pip install -r requirements.txt
@@ -29,6 +39,6 @@ fi
 # ==========================================
 
 echo "Starting CHATBOT Platform server..."
-uvicorn main:app --host 0.0.0.0 --port 3100 &
+python3 -m uvicorn main:app --host 0.0.0.0 --port 3100 &
 echo $! > fastapi_app.pid
 echo "CHATBOT Platform server started with PID $(cat fastapi_app.pid)"
