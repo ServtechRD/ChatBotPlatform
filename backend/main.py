@@ -5,9 +5,7 @@ from starlette.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from routers import assistant, conversation, websocket, auth, embed, mfa, tts
-from models.database import Base, engine, SessionLocal
-from models.models import User
-from services.auth_service import get_password_hash
+from models.database import Base, engine
 from services.assistant_prompt_storage import ensure_description_use_file_column
 from utils.logger import setup_logging, get_logger
 
@@ -24,23 +22,6 @@ app = FastAPI()
 
 @app.on_event("startup")
 def startup_event():
-    db = SessionLocal()
-    try:
-        admin_user = db.query(User).filter(User.email == "admin").first()
-        if not admin_user:
-            db.add(
-                User(
-                    email="admin",
-                    password=get_password_hash("admin"),
-                    is_admin=True,
-                    permission_level=1,
-                )
-            )
-            db.commit()
-            logger.warning("Default admin user created: admin/admin")
-    finally:
-        db.close()
-
     logger.info("Application started.")
 
 app.add_middleware(
