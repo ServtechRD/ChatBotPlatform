@@ -51,6 +51,4 @@ app.include_router(websocket.router)
 app.include_router(auth.router, prefix="/auth")
 app.include_router(mfa.router, prefix="/auth/mfa")
 app.include_router(embed.router)
-app.include_router(tts.router, prefix="/api")
-# 兼容仍使用舊版前端資產（呼叫 /tts/*）的部署環境
 app.include_router(tts.router)
