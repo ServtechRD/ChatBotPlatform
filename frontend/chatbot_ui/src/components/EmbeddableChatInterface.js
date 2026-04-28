@@ -28,6 +28,7 @@ const CHAT_WIDTH = 398;
 const CHAT_HEIGHT = 598;
 const MESSAGE_TOP_LIMIT = CHAT_HEIGHT / 2;
 const WS_BASE_URL = getWsBaseUrl();
+const MIC_IDLE_TIMEOUT_MS = 3 * 60 * 1000;
 
 const DIGIT_TO_ZH = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
 function formatPhoneForSpeech(str) {
@@ -44,6 +45,8 @@ const EmbeddableChatInterface = ({
   //assistantName = null, // 可選參數
   //apiBaseUrl = '', // API基礎URL，方便跨域使用
   containerStyle = {}, // 容器樣式自定義
+  idleVideoIframeUrl = '/idle-video',
+  idleVideoSrc = '/videos/idle.mp4',
   onLoad = () => { }, // 加載完成回調
   onError = () => { }, // 錯誤回調
 }) => {
@@ -60,7 +63,11 @@ const EmbeddableChatInterface = ({
   // 語音辨識狀態
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef(null);
-  const noSpeechReconnectRef = useRef(false);
+  const [activeView, setActiveView] = useState('chat');
+  const lastMicActivatedAtRef = useRef(Date.now());
+  const isListeningRef = useRef(false);
+  const isEmbeddedInParent =
+    typeof window !== 'undefined' && window.parent !== window;
 
   // 語音播放設定
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -94,43 +101,55 @@ const EmbeddableChatInterface = ({
       // 自動送出
       sendMessage(transcript);
     };
-
-    recognition.onstart = () => setIsListening(true);
+    recognition.onstart = () => {
+      setIsListening(true);
+      setActiveView('chat');
+      lastMicActivatedAtRef.current = Date.now();
+      if (typeof window !== 'undefined' && window.parent !== window) {
+        try {
+          window.parent.postMessage(
+            { source: 'chatbot-embed', type: 'MIC_STATE', listening: true },
+            '*'
+          );
+        } catch (e) {
+          /* ignore */
+        }
+      }
+    };
     recognition.onend = () => {
       setIsListening(false);
       // 沒偵測到語音時在 onend 後重連（此時辨識已完全結束）
-      if (noSpeechReconnectRef.current) {
-        noSpeechReconnectRef.current = false;
-        const rec = recognitionRef.current;
-        setTimeout(() => {
-          if (rec) {
-            try {
-              rec.start();
-            } catch (e) {
-              console.warn('麥克風重連失敗', e);
-            }
-          }
-        }, 150);
+      if (typeof window !== 'undefined' && window.parent !== window) {
+        try {
+          window.parent.postMessage(
+            { source: 'chatbot-embed', type: 'MIC_STATE', listening: false },
+            '*'
+          );
+        } catch (e) {
+          /* ignore */
+        }
       }
     };
     recognition.onerror = err => {
       console.error('語音辨識錯誤:', err);
       setIsListening(false);
+      if (
+        typeof window !== 'undefined' &&
+        window.parent !== window &&
+        err.error !== 'aborted'
+      ) {
+        try {
+          window.parent.postMessage(
+            { source: 'chatbot-embed', type: 'MIC_STATE', listening: false },
+            '*'
+          );
+        } catch (e) {
+          /* ignore */
+        }
+      }
 
-      // 沒偵測到語音時標記重連，實際在 onend 裡執行；若 onend 已先觸發則由此處延遲重連
       if (err.error === 'no-speech') {
-        noSpeechReconnectRef.current = true;
-        const rec = recognitionRef.current;
-        setTimeout(() => {
-          if (noSpeechReconnectRef.current && rec) {
-            noSpeechReconnectRef.current = false;
-            try {
-              rec.start();
-            } catch (e) {
-              console.warn('麥克風重連失敗', e);
-            }
-          }
-        }, 400);
+        // 無語音時直接結束本次監聽，不自動重啟
         return;
       }
 
@@ -267,12 +286,6 @@ const EmbeddableChatInterface = ({
         setIsSpeaking(false);
         // Modify: Auto-restart microphone after bot finishes speaking
         console.log('Bot finished speaking, restarting microphone...');
-        // Small delay to avoid capturing the end of the bot's speech if using speakers
-        setTimeout(() => {
-          if (speechId === currentSpeechIdRef.current) { // Ensure we haven't started speaking something else
-            handleVoiceInput();
-          }
-        }, 500);
         return;
       }
 
@@ -420,20 +433,64 @@ const EmbeddableChatInterface = ({
       alert(errorMessage);
     }
   }
+  const handleVoiceInputRef = useRef(handleVoiceInput);
+  handleVoiceInputRef.current = handleVoiceInput;
 
-  // 自動啟動語音輸入
   useEffect(() => {
-    // 延遲一點時間確保組件完全加載
-    const timer = setTimeout(() => {
-      // 只有在還沒開始監聽且 recognitionRef 已初始化時才啟動
-      if (recognitionRef.current && !isListening) {
-        console.log('嘗試自動啟動語音輸入...');
+    isListeningRef.current = isListening;
+  }, [isListening]);
+
+  // 父層靜態頁以 postMessage 觸發與 F9 相同：切回聊天並開啟麥克風
+  useEffect(() => {
+    if (!isEmbeddedInParent) return undefined;
+    const onMessage = event => {
+      const d = event.data;
+      if (d?.source !== 'chatbot-parent' || d.type !== 'START_MIC') return;
+      setActiveView('chat');
+      lastMicActivatedAtRef.current = Date.now();
+      if (!isListeningRef.current) {
+        handleVoiceInputRef.current();
+      }
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [isEmbeddedInParent]);
+
+  // 透過 F9 快捷鍵啟用語音輸入（僅啟用，不切換關閉）
+  useEffect(() => {
+    const handleKeyDown = event => {
+      if (event.key !== 'F9') return;
+      event.preventDefault();
+      setActiveView('chat');
+      lastMicActivatedAtRef.current = Date.now();
+      if (!isListening) {
         handleVoiceInput();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isListening]);
+
+  // MIC 超過 3 分鐘未開啟時，切換到影片（嵌入父頁時改由父頁全畫面影片處理）
+  useEffect(() => {
+    if (!idleVideoIframeUrl || isEmbeddedInParent) return undefined;
+
+    const timer = setInterval(() => {
+      if (isListening) {
+        setActiveView('chat');
+        return;
+      }
+
+      if (Date.now() - lastMicActivatedAtRef.current >= MIC_IDLE_TIMEOUT_MS) {
+        setActiveView('idleVideo');
       }
     }, 1000);
 
-    return () => clearTimeout(timer);
-  }, []);
+    return () => clearInterval(timer);
+  }, [idleVideoIframeUrl, isListening, isEmbeddedInParent]);
 
   // 取得助手訊息
   useEffect(() => {
@@ -713,6 +770,47 @@ const EmbeddableChatInterface = ({
         ...containerStyle,
       }}
     >
+      {activeView === 'idleVideo' && idleVideoIframeUrl ? (
+        /^https?:\/\//i.test(idleVideoIframeUrl) ||
+        idleVideoIframeUrl !== '/idle-video' ? (
+          <iframe
+            title="idle-video-iframe"
+            src={idleVideoIframeUrl}
+            allow="autoplay; fullscreen"
+            style={{
+              width: '100%',
+              height: '100%',
+              border: 0,
+            }}
+          />
+        ) : (
+          <Box
+            sx={{
+              position: 'absolute',
+              inset: 0,
+              bgcolor: '#000',
+              overflow: 'hidden',
+              zIndex: 5,
+            }}
+          >
+            <video
+              src={idleVideoSrc}
+              autoPlay
+              muted
+              loop
+              playsInline
+              controls={false}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                display: 'block',
+              }}
+            />
+          </Box>
+        )
+      ) : (
+        <>
       {/* 背景媒體內容 */}
       {getBackgroundContent()}
 
@@ -762,18 +860,7 @@ const EmbeddableChatInterface = ({
             overflow: 'hidden', // 改為 hidden 防止內容超出
           }}
         >
-          {/* 上半部分 - 只顯示背景 */}
-          <Box
-            sx={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              height: '50%',
-              zIndex: 2, // 確保在消息上方
-              pointerEvents: 'none', // 防止干擾滾動和點選
-            }}
-          />
+          
           {/* 消息區域 */}
           <Box
             ref={messagesContainerRef}
@@ -804,10 +891,10 @@ const EmbeddableChatInterface = ({
             },
           }*/ {
                 position: 'absolute',
-                bottom: 0,
+                top: '50%',
                 left: 0,
                 right: 0,
-                height: '100%', // 固定高度為容器的一半
+                height: '50%', // 固定高度為容器的一半
                 overflowY: 'auto',
                 p: 2,
                 display: 'flex',
@@ -974,6 +1061,8 @@ const EmbeddableChatInterface = ({
           </Paper>
         </Box>
       </Box>
+      </>
+      )}
     </Box>
   );
 };
