@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -32,9 +34,16 @@ app.add_middleware(
 )
 
 # 配置靜態檔案：/public 與 /images（相容舊連結 /images/xxx.jpg）
-app.mount("/public", StaticFiles(directory="public"), name="public")
-app.mount("/images", StaticFiles(directory="public/images"), name="images")
-app.mount("/videos", StaticFiles(directory="public/videos"), name="videos")
+_backend_root = Path(__file__).resolve().parent
+_public_dir = _backend_root / "public"
+_images_dir = _public_dir / "images"
+_videos_dir = _public_dir / "videos"
+for _d in (_public_dir, _images_dir, _videos_dir):
+    _d.mkdir(parents=True, exist_ok=True)
+
+app.mount("/public", StaticFiles(directory=str(_public_dir)), name="public")
+app.mount("/images", StaticFiles(directory=str(_images_dir)), name="images")
+app.mount("/videos", StaticFiles(directory=str(_videos_dir)), name="videos")
 # 包含助理、對話、WebSocket 路由
 app.include_router(assistant.router)
 app.include_router(conversation.router)

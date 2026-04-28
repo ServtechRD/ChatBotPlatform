@@ -27,6 +27,7 @@
   "scripts": {
     "start": "cross-env PORT=36000 react-scripts start",
     "build": "react-scripts build",
+    "serve:prod": "serve -s build --listen tcp://0.0.0.0:3000",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
@@ -49,6 +50,7 @@
     ]
   },
   "devDependencies": {
-    "cross-env": "^10.1.0"
+    "cross-env": "^10.1.0",
+    "serve": "^14.2.4"
   }
 }

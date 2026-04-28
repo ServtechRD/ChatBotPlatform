@@ -14,8 +14,11 @@ echo "wait 6 sec"
 sleep 6
 
 cd /home/chatbot_platform/frontend/chatbot_ui/ || exit 1
-npm install cross-env
-HOST=0.0.0.0 PORT=3000 npm start &
+npm install cross-env serve
+if [ ! -f build/index.html ]; then
+  npm run build
+fi
+npm run serve:prod &
 FRONTEND_PID=$!
 
 echo "backend pid: ${BACKEND_PID}, frontend pid: ${FRONTEND_PID}"
