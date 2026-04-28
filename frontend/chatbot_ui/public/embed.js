@@ -7,11 +7,14 @@
   // 追蹤初始化狀態
   const initializedContainers = new Set();
 
-  // 主域名，應該是React應用部署的位置
+  // 預設使用當前頁面的來源，避免寫死主機與埠號
   const getDefaultHost = () => {
-    // 可以硬編碼為實際的生產環境域名
-    return 'cloud.servtech.com.tw';
+    return window.location.hostname || 'localhost';
   };
+  const getDefaultProtocol = () => window.location.protocol || 'https:';
+  const getDefaultPort = () => window.location.port || '';
+  const buildOrigin = (protocol, host, port) =>
+    `${protocol}//${host}${port ? `:${port}` : ''}`;
 
   /**
    * 初始化聊天窗口
@@ -43,8 +46,9 @@
       height: options.height || DEFAULT_HEIGHT,
       position: options.position || DEFAULT_POSITION,
       host: options.host || getDefaultHost(),
-      port: options.port || '3100',
-      protocol: options.protocol || 'https:',
+      protocol: options.protocol || getDefaultProtocol(),
+      appPort: options.appPort ?? getDefaultPort(),
+      apiPort: options.apiPort ?? options.port ?? getDefaultPort(),
       minimizable: Boolean(options.minimizable),
       theme: options.theme || 'light',
       ...options,
@@ -54,7 +58,7 @@
     const iframe = document.createElement('iframe');
 
     // 設置iframe的src，指向React應用的嵌入頁面
-    iframe.src = `${config.protocol}//${config.host}:36000/embed?id=${assistantId}`;
+    iframe.src = `${buildOrigin(config.protocol, config.host, config.appPort)}/embed?id=${assistantId}`;
 
     // 設置iframe的樣式
     iframe.style.width =
@@ -106,7 +110,7 @@
         };
 
         // // 設置圖片源
-        imgElement.src = `${config.protocol}//${config.host}:${config.port}/api/embed/assistant/${assistantId}/image`;
+        imgElement.src = `${buildOrigin(config.protocol, config.host, config.apiPort)}/api/embed/assistant/${assistantId}/image`;
 
         // 先清空按鈕內容，然後新增圖片
         toggleButton.innerHTML = '';
