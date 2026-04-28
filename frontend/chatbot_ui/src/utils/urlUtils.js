@@ -1,6 +1,39 @@
 // urlUtils.js
 // 處理圖片和影片 URL
 
+const trimTrailingSlash = value => value.replace(/\/+$/, '');
+const trimLeadingSlash = value => value.replace(/^\/+/, '');
+
+export const getApiBaseUrl = () => {
+  const envApiBaseUrl = process.env.REACT_APP_API_BASE_URL;
+  if (envApiBaseUrl) {
+    return trimTrailingSlash(envApiBaseUrl);
+  }
+
+  // env 未設定時，預設走同源 /api 反向代理
+  return `${window.location.origin}/api`;
+};
+
+export const buildApiUrl = path => {
+  const baseUrl = getApiBaseUrl();
+  return `${trimTrailingSlash(baseUrl)}/${trimLeadingSlash(path)}`;
+};
+
+export const getWsBaseUrl = () => {
+  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const envWsBaseUrl = process.env.REACT_APP_API_BASE_WS_URL;
+
+  if (envWsBaseUrl) {
+    const normalizedWsUrl =
+      envWsBaseUrl.startsWith('ws://') || envWsBaseUrl.startsWith('wss://')
+        ? envWsBaseUrl
+        : `${wsProtocol}//${envWsBaseUrl}`;
+    return trimTrailingSlash(normalizedWsUrl);
+  }
+
+  return `${wsProtocol}//${window.location.host}`;
+};
+
 /**
  * 格式化圖片 URL
  * @param {string} url - API 回傳的圖片路徑
@@ -27,17 +60,13 @@ export const formatImageUrl = url => {
     cleanUrl = '/' + cleanUrl;
   }
 
-  // 優先使用靜態資源專用 URL,如果沒有則使用 API URL
-  // const staticBaseUrl =
-  //   process.env.REACT_APP_STATIC_BASE_URL ||
-  //   process.env.REACT_APP_API_BASE_URL ||
-  //   '';
-  const staticBaseUrl = process.env.REACT_APP_API_BASE_URL || '';
+  // 優先使用 API URL（env 未設定時會 fallback 到同源 /api）
+  const staticBaseUrl = getApiBaseUrl();
 
   // 如果有設定基礎網址,就加上去
   if (staticBaseUrl) {
     // 移除結尾的斜線(如果有)
-    const baseUrl = staticBaseUrl.replace(/\/$/, '');
+    const baseUrl = trimTrailingSlash(staticBaseUrl);
     return `${baseUrl}${cleanUrl}`;
   }
 
@@ -54,10 +83,3 @@ export const formatVideoUrl = url => {
   return formatImageUrl(url);
 };
 
-/**
- * 取得 API 基礎 URL (用於 API 請求,不是靜態資源)
- * @returns {string} - API 基礎 URL
- */
-export const getApiBaseUrl = () => {
-  return process.env.REACT_APP_API_BASE_URL || '';
-};

@@ -20,19 +20,12 @@ import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import { v4 as uuidv4 } from 'uuid';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { formatImageUrl } from '../../utils/urlUtils';
+import { buildApiUrl, formatImageUrl, getWsBaseUrl } from '../../utils/urlUtils';
 
 const CHAT_WIDTH = 398;
 const CHAT_HEIGHT = 598;
 const MESSAGE_TOP_LIMIT = CHAT_HEIGHT / 2;
-const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-// 注意：樣板字串在 env 未設定時會變成 ws://undefined（仍為 truthy），導致 || 右側永遠不生效
-const WS_HOST =
-  process.env.REACT_APP_API_BASE_WS_URL || 'cloud.servtech.com.tw:36100';
-const WS_BASE_URL = `${protocol}//${WS_HOST}`;
-const API_HOST =
-  process.env.REACT_APP_API_BASE_HTTP_URL || 'cloud.servtech.com.tw:36100';
-const API_BASE_URL = `${window.location.protocol}//${API_HOST}`;
+const WS_BASE_URL = getWsBaseUrl();
 
 export default function ChatInterface({
   assistantid,
@@ -561,7 +554,7 @@ export default function ChatInterface({
     }
 
     const fetchStart = performance.now();
-    const response = await fetch(`${API_BASE_URL}/api/tts/kokoro`, {
+    const response = await fetch(buildApiUrl('/tts/kokoro'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

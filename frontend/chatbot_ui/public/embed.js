@@ -43,7 +43,7 @@
       height: options.height || DEFAULT_HEIGHT,
       position: options.position || DEFAULT_POSITION,
       host: options.host || getDefaultHost(),
-      port: options.port || '36100',
+      port: options.port || '3100',
       protocol: options.protocol || 'https:',
       minimizable: Boolean(options.minimizable),
       theme: options.theme || 'light',
@@ -106,9 +106,7 @@
         };
 
         // // 設置圖片源
-        imgElement.src = `${config.protocol}//${config.host}:36100/api/embed/assistant/${assistantId}/image`;
-        // 設置圖片源
-        // imgElement.src = `${config.protocol}//${config.host}:${config.port}/api/embed/assistant/${assistantId}/image`;
+        imgElement.src = `${config.protocol}//${config.host}:${config.port}/api/embed/assistant/${assistantId}/image`;
 
         // 先清空按鈕內容，然後新增圖片
         toggleButton.innerHTML = '';

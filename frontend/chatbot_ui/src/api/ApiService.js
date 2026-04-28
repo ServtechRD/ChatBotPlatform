@@ -1,7 +1,7 @@
 import axios from 'axios';
+import { getApiBaseUrl } from '../utils/urlUtils';
 
-const API_BASE_URL =
-  process.env.REACT_APP_API_BASE_URL || 'http://localhost:8080';
+const API_BASE_URL = getApiBaseUrl();
 
 class ApiService {
   constructor() {

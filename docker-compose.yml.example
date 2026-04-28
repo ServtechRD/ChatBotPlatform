@@ -35,7 +35,7 @@ services:
       DATABASE_URL: ${DATABASE_URL:-mysql+pymysql://chatbot_user:pass@mariadb:3306/chatbot_db}
     expose:
       - "3000"
-      - "36100"
+      - "3100"
     restart: unless-stopped
     logging:
       driver: "json-file"

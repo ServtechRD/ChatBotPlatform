@@ -18,13 +18,16 @@ import {
   VolumeUp as VolumeUpIcon,
 } from '@mui/icons-material';
 import { v4 as uuidv4 } from 'uuid';
-import { formatImageUrl } from '../utils/urlUtils';
+import {
+  buildApiUrl,
+  formatImageUrl,
+  getWsBaseUrl,
+} from '../utils/urlUtils';
 
 const CHAT_WIDTH = 398;
 const CHAT_HEIGHT = 598;
 const MESSAGE_TOP_LIMIT = CHAT_HEIGHT / 2;
-const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-const API_BASE_URL = `${window.location.protocol}//${window.location.hostname}:36100`;
+const WS_BASE_URL = getWsBaseUrl();
 
 const DIGIT_TO_ZH = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
 function formatPhoneForSpeech(str) {
@@ -207,7 +210,7 @@ const EmbeddableChatInterface = ({
   }
 
   async function fetchKokoroAudio(text) {
-    const response = await fetch(`${API_BASE_URL}/api/tts/kokoro`, {
+    const response = await fetch(buildApiUrl('/tts/kokoro'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -440,12 +443,10 @@ const EmbeddableChatInterface = ({
     const fetchAssistant = async () => {
       try {
         console.log('fetch Assistant');
-        const baseURL = `${window.location.protocol}//${window.location.hostname}:36100`;
+        const requestUrl = buildApiUrl(`/embed/assistant/${assistantUrl}`);
         // 從API取得助手訊息
-        console.log(`fetch api ${baseURL}/api/embed/assistant/${assistantUrl}`);
-        const response = await fetch(
-          `${baseURL}/api/embed/assistant/${assistantUrl}`
-        );
+        console.log(`fetch api ${requestUrl}`);
+        const response = await fetch(requestUrl);
 
         // 檢查組件是否仍然掛載
         if (!isMounted) return;
@@ -528,8 +529,7 @@ const EmbeddableChatInterface = ({
     }
 
     // 建立 WebSocket 連線
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.hostname}:36100/ws/assistant/${assistantId}/${customerIdRef.current}`;
+    const wsUrl = `${WS_BASE_URL}/ws/assistant/${assistantId}/${customerIdRef.current}`;
 
     socketRef.current = new WebSocket(wsUrl);
 
