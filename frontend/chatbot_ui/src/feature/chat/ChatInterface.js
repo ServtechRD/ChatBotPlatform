@@ -650,7 +650,7 @@ export default function ChatInterface({
     }
 
     const segments = cleaned
-      .split(/[。！？!?，,]/)
+      .split(/[。！？!?]/)
       .map(segment => segment.trim())
       .filter(Boolean);
 
@@ -659,7 +659,22 @@ export default function ChatInterface({
       return;
     }
 
+    const segmentFetchPromises = new Map();
+    const getOrCreateSegmentFetch = segmentIndex => {
+      if (segmentIndex < 0 || segmentIndex >= segments.length) return null;
+      if (segmentFetchPromises.has(segmentIndex)) {
+        return segmentFetchPromises.get(segmentIndex);
+      }
+      const promise = fetchKokoroAudio(segments[segmentIndex]);
+      segmentFetchPromises.set(segmentIndex, promise);
+      return promise;
+    };
+    const prefetchSegment = segmentIndex => {
+      getOrCreateSegmentFetch(segmentIndex);
+    };
+
     let index = 0;
+    prefetchSegment(0);
     const playNextSegment = () => {
       if (speechId !== currentSpeechIdRef.current) return;
 
@@ -671,14 +686,23 @@ export default function ChatInterface({
         return;
       }
 
-      const segmentText = segments[index];
-      fetchKokoroAudio(segmentText)
+      const currentIndex = index;
+      const segmentText = segments[currentIndex];
+      const segmentPromise = getOrCreateSegmentFetch(currentIndex);
+      if (!segmentPromise) {
+        index = currentIndex + 1;
+        Promise.resolve().then(playNextSegment);
+        return;
+      }
+
+      segmentPromise
         .then(blob => {
           if (speechId !== currentSpeechIdRef.current) return;
           console.info('[TTS] provider=kokoro status=ok');
           console.info(
-            `[TTS][frontend] segment_blob_ready index=${index + 1}/${segments.length} elapsed_ms=${(performance.now() - speakStart).toFixed(1)}`
+            `[TTS][frontend] segment_blob_ready index=${currentIndex + 1}/${segments.length} elapsed_ms=${(performance.now() - speakStart).toFixed(1)}`
           );
+          prefetchSegment(currentIndex + 1);
 
           stopCurrentAudio();
           const objectUrl = URL.createObjectURL(blob);
@@ -689,7 +713,7 @@ export default function ChatInterface({
           audio.onended = () => {
             stopCurrentAudio();
             if (speechId !== currentSpeechIdRef.current) return;
-            index += 1;
+            index = currentIndex + 1;
             speechTimeoutRef.current = setTimeout(() => {
               if (speechId !== currentSpeechIdRef.current) return;
               playNextSegment();
@@ -705,7 +729,7 @@ export default function ChatInterface({
 
           return waitAudioReady(audio).then(() => {
             console.info(
-              `[TTS][frontend] play_begin index=${index + 1}/${segments.length} elapsed_ms=${(performance.now() - speakStart).toFixed(1)}`
+              `[TTS][frontend] play_begin index=${currentIndex + 1}/${segments.length} elapsed_ms=${(performance.now() - speakStart).toFixed(1)}`
             );
             return audio.play();
           });
@@ -723,7 +747,7 @@ export default function ChatInterface({
             utterance.pitch = 1;
             utterance.onend = () => {
               if (speechId !== currentSpeechIdRef.current) return;
-              index += 1;
+              index = currentIndex + 1;
               speechTimeoutRef.current = setTimeout(() => {
                 if (speechId !== currentSpeechIdRef.current) return;
                 playNextSegment();
