@@ -405,35 +405,52 @@ const EmbeddableChatInterface = ({
 
     setIsSpeaking(true);
 
-    // 切割句子：以標點符號為界
-    const sentences = text.split(/[。！？!?，,]/);
+    // 切割句子：以標點符號為界（不含逗號）
+    const segments = text
+      .split(/[。！？!?]/)
+      .map(segment => cleanText(segment))
+      .filter(Boolean);
+    const segmentFetchPromises = new Map();
+    const getOrCreateSegmentFetch = segmentIndex => {
+      if (segmentIndex < 0 || segmentIndex >= segments.length) return null;
+      if (segmentFetchPromises.has(segmentIndex)) {
+        return segmentFetchPromises.get(segmentIndex);
+      }
+      const promise = fetchKokoroAudio(segments[segmentIndex]);
+      segmentFetchPromises.set(segmentIndex, promise);
+      return promise;
+    };
+    const prefetchSegment = segmentIndex => {
+      getOrCreateSegmentFetch(segmentIndex);
+    };
     let index = 0;
+    prefetchSegment(0);
 
     function speakNext() {
       // 檢查此播放序列是否仍有效
       if (speechId !== currentSpeechIdRef.current) return;
 
-      if (index >= sentences.length) {
+      if (index >= segments.length) {
         setIsSpeaking(false);
         // Modify: Auto-restart microphone after bot finishes speaking
         console.log('Bot finished speaking, restarting microphone...');
         return;
       }
 
-      const segment = sentences[index];
-      const cleaned = cleanText(segment);
-
-      if (!cleaned) {
-        // 如果清理後是空字串，則跳過並繼續
-        index++;
+      const currentIndex = index;
+      const segmentText = segments[currentIndex];
+      const segmentPromise = getOrCreateSegmentFetch(currentIndex);
+      if (!segmentPromise) {
+        index = currentIndex + 1;
         Promise.resolve().then(speakNext);
         return;
       }
 
-      fetchKokoroAudio(cleaned)
+      segmentPromise
         .then(blob => {
           if (speechId !== currentSpeechIdRef.current) return;
           console.info('[TTS] provider=kokoro status=ok');
+          prefetchSegment(currentIndex + 1);
 
           stopCurrentAudio();
           const objectUrl = URL.createObjectURL(blob);
@@ -446,7 +463,7 @@ const EmbeddableChatInterface = ({
             if (speechId !== currentSpeechIdRef.current) return;
             speechTimeoutRef.current = setTimeout(() => {
               if (speechId !== currentSpeechIdRef.current) return;
-              index++;
+              index = currentIndex + 1;
               speakNext();
             }, 80);
           };
@@ -465,7 +482,7 @@ const EmbeddableChatInterface = ({
           console.warn('[TTS] provider=web-speech-fallback reason=kokoro-failed');
           // Kokoro 失敗時維持可用性，退回瀏覽器語音
           try {
-            const utterance = new SpeechSynthesisUtterance(cleaned);
+            const utterance = new SpeechSynthesisUtterance(segmentText);
             if (voiceRef.current) {
               utterance.voice = voiceRef.current;
             }
@@ -476,7 +493,7 @@ const EmbeddableChatInterface = ({
               if (speechId !== currentSpeechIdRef.current) return;
               speechTimeoutRef.current = setTimeout(() => {
                 if (speechId !== currentSpeechIdRef.current) return;
-                index++;
+                index = currentIndex + 1;
                 speakNext();
               }, 80);
             };
