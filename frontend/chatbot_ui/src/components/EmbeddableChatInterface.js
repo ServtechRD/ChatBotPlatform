@@ -52,31 +52,8 @@ const spellAsciiForSpeech = raw =>
 
 function formatEmailForSpeech(input) {
   if (!input || typeof input !== 'string') return input;
-  let text = input;
-  const placeholderMap = [];
-  let placeholderIdx = 0;
-  const toPlaceholder = value => {
-    const token = `__MAIL_PLACEHOLDER_${placeholderIdx}__`;
-    placeholderMap.push({ token, value });
-    placeholderIdx += 1;
-    return token;
-  };
-
-  text = text.replace(
-    /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g,
-    email => {
-      const [local = '', domain = ''] = email.split('@');
-      if (!local || !domain) return email;
-      return toPlaceholder(
-        `${spellAsciiForSpeech(local)} 小老鼠 ${spellAsciiForSpeech(domain)}`
-      );
-    }
-  );
-
-  for (const item of placeholderMap) {
-    text = text.replace(item.token, item.value);
-  }
-  return text;
+  // Email 容易造成英文拼讀不自然，改為直接略過不朗讀
+  return input.replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, ' ');
 }
 
 function formatPhoneForSpeech(input) {
@@ -387,6 +364,37 @@ const EmbeddableChatInterface = ({
     }
   }
 
+  function waitAudioReady(audio, timeoutMs = 250) {
+    return new Promise(resolve => {
+      let done = false;
+      let timer = null;
+
+      const finish = () => {
+        if (done) return;
+        done = true;
+        if (timer) clearTimeout(timer);
+        audio.removeEventListener('canplaythrough', onReady);
+        audio.removeEventListener('loadeddata', onReady);
+        audio.removeEventListener('error', onReady);
+        resolve();
+      };
+
+      const onReady = () => finish();
+
+      // 已可播時直接返回，避免等待事件
+      if (audio.readyState >= 2) {
+        finish();
+        return;
+      }
+
+      audio.addEventListener('canplaythrough', onReady, { once: true });
+      audio.addEventListener('loadeddata', onReady, { once: true });
+      audio.addEventListener('error', onReady, { once: true });
+      // 保底：避免少數環境事件不回來
+      timer = setTimeout(finish, timeoutMs);
+    });
+  }
+
   function speakText(text) {
     if (!text) return;
 
@@ -475,7 +483,7 @@ const EmbeddableChatInterface = ({
             setIsSpeaking(false);
           };
 
-          return audio.play();
+          return waitAudioReady(audio).then(() => audio.play());
         })
         .catch(err => {
           console.error('Kokoro 語音合成錯誤:', err);

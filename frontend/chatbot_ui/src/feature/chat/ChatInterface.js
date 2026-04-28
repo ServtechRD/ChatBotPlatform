@@ -410,31 +410,8 @@ export default function ChatInterface({
 
   function formatEmailForSpeech(input) {
     if (!input || typeof input !== 'string') return input;
-    let text = input;
-    const placeholderMap = [];
-    let placeholderIdx = 0;
-    const toPlaceholder = value => {
-      const token = `__MAIL_PLACEHOLDER_${placeholderIdx}__`;
-      placeholderMap.push({ token, value });
-      placeholderIdx += 1;
-      return token;
-    };
-
-    text = text.replace(
-      /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g,
-      email => {
-        const [local = '', domain = ''] = email.split('@');
-        if (!local || !domain) return email;
-        return toPlaceholder(
-          `${spellAsciiForSpeech(local)} 小老鼠 ${spellAsciiForSpeech(domain)}`
-        );
-      }
-    );
-
-    for (const item of placeholderMap) {
-      text = text.replace(item.token, item.value);
-    }
-    return text;
+    // Email 容易造成英文拼讀不自然，改為直接略過不朗讀
+    return input.replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, ' ');
   }
 
   function formatPhoneForSpeech(input) {
@@ -591,7 +568,7 @@ export default function ChatInterface({
     }
   }
 
-  function waitAudioReady(audio, timeoutMs = 120) {
+  function waitAudioReady(audio, timeoutMs = 250) {
     return new Promise(resolve => {
       let done = false;
       let timer = null;
