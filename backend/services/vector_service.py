@@ -203,7 +203,7 @@ def load_vector_store(assistant_id: int):
         # 從磁碟載入 FAISS 索引
         index = faiss.read_index(load_path)
         # embeddings = OpenAIEmbeddings()  # 重新初始化 OpenAIEmbeddings
-        embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-base-zh-v1.5")
+        embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-small-zh-v1.5")
 
         # 載入 docstore 與 index_to_docstore_id
         with open(metadata_path, "rb") as f:
@@ -269,7 +269,7 @@ def _process_and_store_file_heavy_sync(
         documents = text_splitter.split_documents(documents)
         documents = process_documents_with_id(documents)
 
-        embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-base-zh-v1.5")
+        embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-small-zh-v1.5")
         if vs:
             test_emb = embeddings.embed_query("test")
             if len(test_emb) != vs.index.d:
@@ -652,7 +652,7 @@ async def update_knowledge_base_item(assistant_id: int, knowledge_id: int, new_c
 
     documents = process_documents_with_id(documents)
     
-    embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-base-zh-v1.5")
+    embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-small-zh-v1.5")
     
     # Add new documents to vector store
     if vs:
