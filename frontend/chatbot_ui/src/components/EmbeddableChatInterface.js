@@ -30,13 +30,139 @@ const MESSAGE_TOP_LIMIT = CHAT_HEIGHT / 2;
 const WS_BASE_URL = getWsBaseUrl();
 
 const DIGIT_TO_ZH = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
-function formatPhoneForSpeech(str) {
-  if (!str || typeof str !== 'string') return str;
-  const phoneRegex = /\(?0\d\)?[\s\-]*\d{4}[\s\-]*\d{4}|09[\s\-]*\d{2}[\s\-]*\d{6}/g;
-  return str.replace(phoneRegex, match => {
+const digitsToZhSpaced = digits =>
+  digits
+    .split('')
+    .map(d => DIGIT_TO_ZH[Number(d)] ?? d)
+    .join(' ');
+const spellAsciiForSpeech = raw =>
+  raw
+    .split('')
+    .map(ch => {
+      if (/[A-Za-z]/.test(ch)) return ch.toLowerCase();
+      if (/\d/.test(ch)) return DIGIT_TO_ZH[Number(ch)] ?? ch;
+      if (ch === '.') return '點';
+      if (ch === '-') return '減號';
+      if (ch === '_') return '底線';
+      if (ch === '+') return '加號';
+      return ch;
+    })
+    .join(' ');
+
+function formatEmailForSpeech(input) {
+  if (!input || typeof input !== 'string') return input;
+  let text = input;
+  const placeholderMap = [];
+  let placeholderIdx = 0;
+  const toPlaceholder = value => {
+    const token = `__MAIL_PLACEHOLDER_${placeholderIdx}__`;
+    placeholderMap.push({ token, value });
+    placeholderIdx += 1;
+    return token;
+  };
+
+  text = text.replace(
+    /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g,
+    email => {
+      const [local = '', domain = ''] = email.split('@');
+      if (!local || !domain) return email;
+      return toPlaceholder(
+        `${spellAsciiForSpeech(local)} 小老鼠 ${spellAsciiForSpeech(domain)}`
+      );
+    }
+  );
+
+  for (const item of placeholderMap) {
+    text = text.replace(item.token, item.value);
+  }
+  return text;
+}
+
+function formatPhoneForSpeech(input) {
+  if (!input || typeof input !== 'string') return input;
+  let text = input;
+  const placeholderMap = [];
+  let placeholderIdx = 0;
+  const toPlaceholder = value => {
+    const token = `__TEL_PLACEHOLDER_${placeholderIdx}__`;
+    placeholderMap.push({ token, value });
+    placeholderIdx += 1;
+    return token;
+  };
+
+  // 台灣市話 + 分機格式，如 02-26558899 轉 10090
+  text = text.replace(
+    /(0\d{1,2}[\-\s]?\d{6,8})\s*(?:轉|ext\.?|#)\s*(\d{1,10})/gi,
+    (_, mainNumber, extNumber) => {
+      const mainDigits = mainNumber.replace(/\D/g, '');
+      return toPlaceholder(
+        `${digitsToZhSpaced(mainDigits)} 轉 ${digitsToZhSpaced(extNumber)}`
+      );
+    }
+  );
+
+  // 台灣常見手機格式，如 0912-345-678 / 0912345678
+  text = text.replace(/09\d[\d\- ]{7,10}\d/g, match => {
     const digits = match.replace(/\D/g, '');
-    return digits.split('').map(d => DIGIT_TO_ZH[Number(d)]).join(' ');
+    return toPlaceholder(digitsToZhSpaced(digits));
   });
+
+  // 國碼手機格式，如 +886-912-345-678 / 886912345678
+  text = text.replace(/(?:\+?886[\-\s]?)9\d(?:[\-\s]?\d){7,8}/g, match => {
+    const digits = match.replace(/\D/g, '').replace(/^886/, '0');
+    return toPlaceholder(digitsToZhSpaced(digits));
+  });
+
+  // 含括號區碼市話，如 (02)26558899 / (02) 2655-8899
+  text = text.replace(
+    /\(0\d{1,2}\)\s*\d{3,4}[\-\s]?\d{3,4}/g,
+    match => toPlaceholder(digitsToZhSpaced(match.replace(/\D/g, '')))
+  );
+
+  // 純市話（不含分機），如 02-26558899 / 04 1234 5678
+  text = text.replace(/0\d{1,2}[\-\s]?\d{3,4}[\-\s]?\d{3,4}/g, match =>
+    toPlaceholder(digitsToZhSpaced(match.replace(/\D/g, '')))
+  );
+
+  // 電話/分機語境逐位念：如「電話10090」、「分機: 10090」、「轉 10090」、「ext 10090」
+  text = text.replace(
+    /((?:電話|專線|分機|轉|ext\.?|#)\s*[:：]?\s*)(\d{1,10})/gi,
+    (_, prefix, extDigits) => `${prefix}${toPlaceholder(digitsToZhSpaced(extDigits))}`
+  );
+
+  // 分機語境跨行：前一行含電話/分機語境，下一行純數字也當分機逐位念
+  const lines = text.split('\n');
+  const contextPattern = /(分機|專線|電話|轉|ext\.?|#)/i;
+  for (let i = 1; i < lines.length; i += 1) {
+    const prev = lines[i - 1] || '';
+    const current = (lines[i] || '').trim();
+    if (contextPattern.test(prev) && /^\d{3,10}$/.test(current)) {
+      lines[i] = toPlaceholder(digitsToZhSpaced(current));
+    }
+  }
+  text = lines.join('\n');
+
+  // 還原 placeholders
+  for (const item of placeholderMap) {
+    text = text.replace(item.token, item.value);
+  }
+  return text;
+}
+
+function formatDecimalAndPercentForSpeech(input) {
+  if (!input || typeof input !== 'string') return input;
+
+  let text = input;
+  // 百分比：12.5% -> 百分之12點五（小數逐位念）
+  text = text.replace(/(\d+)\.(\d+)%/g, (_, intPart, fracPart) => {
+    return `百分之${intPart}點${digitsToZhSpaced(fracPart)}`;
+  });
+  text = text.replace(/(\d+)%/g, (_, num) => `百分之${num}`);
+  // 小數：12.345 -> 12點一 二 三 四 五（小數逐位念）
+  text = text.replace(/(\d+)\.(\d+)/g, (_, intPart, fracPart) => {
+    return `${intPart}點${digitsToZhSpaced(fracPart)}`;
+  });
+  return text;
 }
 
 const EmbeddableChatInterface = ({
@@ -197,15 +323,20 @@ const EmbeddableChatInterface = ({
   const audioObjectUrlRef = useRef(null);
 
   function cleanText(text) {
-    return text
+    const normalized = formatDecimalAndPercentForSpeech(
+      formatPhoneForSpeech(formatEmailForSpeech(text))
+    );
+
+    return normalized
       // 替換 % 為 percent
-      .replace(/%/g, 'percent')
       // 移除 emoji
       .replace(/[\p{Extended_Pictographic}]/gu, '')
-      // 移除各種特殊符號 (保留文字、數字、空白)
-      .replace(/[^\p{L}\p{N}\s]/gu, ' ')
-      // 合併多餘空白
-      .replace(/\s+/g, ' ')
+      // 保留中英文常見斷句標點與換行，讓後端能正確做斷句停頓
+      .replace(/[^\p{L}\p{N}\s.%。，、！？!?：:；;、•\-]/gu, ' ')
+      // 保留換行（供條列偵測），僅壓縮同一行內多餘空白
+      .replace(/[^\S\r\n]+/g, ' ')
+      // 壓縮連續空行，避免過多靜音
+      .replace(/\n{3,}/g, '\n\n')
       .trim();
   }
 
@@ -215,8 +346,8 @@ const EmbeddableChatInterface = ({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         text,
-        voice: 'zf_xiaoni',
-        speed: 1.0,
+        voice: 'zm_yunjian',
+        speed: 0.95,
       }),
     });
 
@@ -277,8 +408,7 @@ const EmbeddableChatInterface = ({
       }
 
       const segment = sentences[index];
-      const withPhoneFormatted = formatPhoneForSpeech(segment);
-      const cleaned = cleanText(withPhoneFormatted);
+      const cleaned = cleanText(segment);
 
       if (!cleaned) {
         // 如果清理後是空字串，則跳過並繼續

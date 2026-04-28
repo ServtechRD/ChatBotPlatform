@@ -512,14 +512,14 @@ export default function ChatInterface({
     if (!input || typeof input !== 'string') return input;
 
     let text = input;
-    // 百分比：12.5% -> 百分之12點5
+    // 百分比：12.5% -> 百分之12點五（小數逐位念）
     text = text.replace(/(\d+)\.(\d+)%/g, (_, intPart, fracPart) => {
-      return `百分之${intPart}點${fracPart}`;
+      return `百分之${intPart}點${digitsToZhSpaced(fracPart)}`;
     });
     text = text.replace(/(\d+)%/g, (_, num) => `百分之${num}`);
-    // 小數：12.34 -> 12點34
+    // 小數：12.345 -> 12點一 二 三 四 五（小數逐位念）
     text = text.replace(/(\d+)\.(\d+)/g, (_, intPart, fracPart) => {
-      return `${intPart}點${fracPart}`;
+      return `${intPart}點${digitsToZhSpaced(fracPart)}`;
     });
     return text;
   }
@@ -649,71 +649,101 @@ export default function ChatInterface({
       return;
     }
 
-    fetchKokoroAudio(cleaned)
-      .then(blob => {
-        if (speechId !== currentSpeechIdRef.current) return;
-        console.info('[TTS] provider=kokoro status=ok');
+    const segments = cleaned
+      .split(/[。！？!?，,]/)
+      .map(segment => segment.trim())
+      .filter(Boolean);
+
+    if (!segments.length) {
+      setIsSpeaking(false);
+      return;
+    }
+
+    let index = 0;
+    const playNextSegment = () => {
+      if (speechId !== currentSpeechIdRef.current) return;
+
+      if (index >= segments.length) {
         console.info(
-          `[TTS][frontend] blob_ready elapsed_ms=${(performance.now() - speakStart).toFixed(1)}`
+          `[TTS][frontend] playback_ended total_ms=${(performance.now() - speakStart).toFixed(1)}`
         );
+        setIsSpeaking(false);
+        return;
+      }
 
-        stopCurrentAudio();
-        const objectUrl = URL.createObjectURL(blob);
-        const audio = new Audio(objectUrl);
-        audioRef.current = audio;
-        audioObjectUrlRef.current = objectUrl;
-
-        audio.onended = () => {
-          stopCurrentAudio();
+      const segmentText = segments[index];
+      fetchKokoroAudio(segmentText)
+        .then(blob => {
           if (speechId !== currentSpeechIdRef.current) return;
+          console.info('[TTS] provider=kokoro status=ok');
           console.info(
-            `[TTS][frontend] playback_ended total_ms=${(performance.now() - speakStart).toFixed(1)}`
+            `[TTS][frontend] segment_blob_ready index=${index + 1}/${segments.length} elapsed_ms=${(performance.now() - speakStart).toFixed(1)}`
           );
-          setIsSpeaking(false);
-        };
 
-        audio.onerror = err => {
           stopCurrentAudio();
-          console.error('Kokoro 語音播放錯誤:', err);
-          if (speechId !== currentSpeechIdRef.current) return;
-          setIsSpeaking(false);
-        };
+          const objectUrl = URL.createObjectURL(blob);
+          const audio = new Audio(objectUrl);
+          audioRef.current = audio;
+          audioObjectUrlRef.current = objectUrl;
 
-        return waitAudioReady(audio).then(() => {
-          console.info(
-            `[TTS][frontend] play_begin elapsed_ms=${(performance.now() - speakStart).toFixed(1)}`
-          );
-          return audio.play();
-        });
-      })
-      .catch(err => {
-        console.error('Kokoro 語音合成錯誤:', err);
-        console.warn('[TTS] provider=web-speech-fallback reason=kokoro-failed');
-        // Kokoro 失敗時，維持原本可用性，退回瀏覽器語音
-        try {
-          const utterance = new SpeechSynthesisUtterance(cleaned);
-          if (voiceRef.current) {
-            utterance.voice = voiceRef.current;
+          audio.onended = () => {
+            stopCurrentAudio();
+            if (speechId !== currentSpeechIdRef.current) return;
+            index += 1;
+            speechTimeoutRef.current = setTimeout(() => {
+              if (speechId !== currentSpeechIdRef.current) return;
+              playNextSegment();
+            }, 80);
+          };
+
+          audio.onerror = err => {
+            stopCurrentAudio();
+            console.error('Kokoro 語音播放錯誤:', err);
+            if (speechId !== currentSpeechIdRef.current) return;
+            setIsSpeaking(false);
+          };
+
+          return waitAudioReady(audio).then(() => {
+            console.info(
+              `[TTS][frontend] play_begin index=${index + 1}/${segments.length} elapsed_ms=${(performance.now() - speakStart).toFixed(1)}`
+            );
+            return audio.play();
+          });
+        })
+        .catch(err => {
+          console.error('Kokoro 語音合成錯誤:', err);
+          console.warn('[TTS] provider=web-speech-fallback reason=kokoro-failed');
+          try {
+            const utterance = new SpeechSynthesisUtterance(segmentText);
+            if (voiceRef.current) {
+              utterance.voice = voiceRef.current;
+            }
+            utterance.lang = 'zh-TW';
+            utterance.rate = 1;
+            utterance.pitch = 1;
+            utterance.onend = () => {
+              if (speechId !== currentSpeechIdRef.current) return;
+              index += 1;
+              speechTimeoutRef.current = setTimeout(() => {
+                if (speechId !== currentSpeechIdRef.current) return;
+                playNextSegment();
+              }, 80);
+            };
+            utterance.onerror = fallbackErr => {
+              console.error('Fallback 語音播放錯誤:', fallbackErr);
+              if (speechId !== currentSpeechIdRef.current) return;
+              setIsSpeaking(false);
+            };
+            speechSynthesisRef.current.speak(utterance);
+          } catch (fallbackError) {
+            console.error('Fallback 語音失敗:', fallbackError);
+            if (speechId !== currentSpeechIdRef.current) return;
+            setIsSpeaking(false);
           }
-          utterance.lang = 'zh-TW';
-          utterance.rate = 1;
-          utterance.pitch = 1;
-          utterance.onend = () => {
-            if (speechId !== currentSpeechIdRef.current) return;
-            setIsSpeaking(false);
-          };
-          utterance.onerror = fallbackErr => {
-            console.error('Fallback 語音播放錯誤:', fallbackErr);
-            if (speechId !== currentSpeechIdRef.current) return;
-            setIsSpeaking(false);
-          };
-          speechSynthesisRef.current.speak(utterance);
-        } catch (fallbackError) {
-          console.error('Fallback 語音失敗:', fallbackError);
-          if (speechId !== currentSpeechIdRef.current) return;
-          setIsSpeaking(false);
-        }
-      });
+        });
+    };
+
+    playNextSegment();
   }
 
   useEffect(() => {
