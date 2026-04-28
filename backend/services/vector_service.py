@@ -1,12 +1,12 @@
 from datetime import datetime
 
-# from langchain.embeddings import OpenAIEmbeddings
-from langchain.embeddings import HuggingFaceEmbeddings # pyright: ignore[reportMissingImports]
-from langchain.vectorstores import FAISS # pyright: ignore[reportMissingImports]
-from langchain.document_loaders import TextLoader, PyPDFLoader, UnstructuredWordDocumentLoader # pyright: ignore[reportMissingImports]
-from langchain.text_splitter import RecursiveCharacterTextSplitter # pyright: ignore[reportMissingImports]
-from langchain.schema import Document  # pyright: ignore[reportMissingImports]
-from langchain.chat_models import ChatOpenAI  # pyright: ignore[reportMissingImports]
+# from langchain_community.embeddings import OpenAIEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings # pyright: ignore[reportMissingImports]
+from langchain_community.vectorstores import FAISS # pyright: ignore[reportMissingImports]
+from langchain_community.document_loaders import TextLoader, PyPDFLoader, UnstructuredWordDocumentLoader # pyright: ignore[reportMissingImports]
+from langchain_text_splitters import RecursiveCharacterTextSplitter # pyright: ignore[reportMissingImports]
+from langchain_core.documents import Document  # pyright: ignore[reportMissingImports]
+from langchain_community.chat_models import ChatOpenAI  # pyright: ignore[reportMissingImports]
 from sqlalchemy.orm import Session  # pyright: ignore[reportMissingImports]
 from fastapi import UploadFile  # pyright: ignore[reportMissingImports]
 from starlette.concurrency import run_in_threadpool
@@ -14,7 +14,7 @@ from dotenv import load_dotenv  # pyright: ignore[reportMissingImports]
 from models.models import KnowledgeBase  # pyright: ignore[reportMissingImports]
 from transformers import pipeline  # pyright: ignore[reportMissingImports]
 from rake_nltk import Rake  # pyright: ignore[reportMissingImports]
-from langchain.schema import HumanMessage  # pyright: ignore[reportMissingImports]
+from langchain_core.messages import HumanMessage  # pyright: ignore[reportMissingImports]
 import faiss # pyright: ignore[reportMissingImports]
 import pickle
 
@@ -41,8 +41,11 @@ VLLM_SUMMARY_MODEL = os.getenv("VLLM_SUMMARY_MODEL", "").strip()
 # 用於取得向量儲存
 vector_store = {}
 
-# 載入預訓練的摘要產生模型
-summarizer = pipeline("summarization")
+# 載入預訓練的摘要產生模型（明確指定 model，避免 transformers 啟動警告）
+summarizer = pipeline(
+    "summarization",
+    model="sshleifer/distilbart-cnn-12-6",
+)
 
 
 def generate_doc_id():

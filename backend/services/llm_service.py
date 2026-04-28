@@ -1,4 +1,4 @@
-from langchain.chat_models import ChatOpenAI  # pyright: ignore[reportMissingImports]
+from langchain_community.chat_models import ChatOpenAI  # pyright: ignore[reportMissingImports]
 from langchain_core.messages import HumanMessage  # pyright: ignore[reportMissingImports]
 from services.vector_service import get_vector_store
 
@@ -21,8 +21,8 @@ load_dotenv()  # 載入 .env 檔案中的環境變數
 
 api_key = os.getenv("OPENAI_API_KEY")
 VLLM_API_KEY = os.getenv("VLLM_API_KEY", "EMPTY")
-VLLM_BASE_URL = os.getenv("VLLM_BASE_URL")
-VLLM_MODEL = os.getenv("VLLM_MODEL").strip()
+VLLM_BASE_URL = os.getenv("VLLM_BASE_URL", "http://127.0.0.1:8000/v1")
+VLLM_MODEL = os.getenv("VLLM_MODEL", "").strip()
 
 logger = get_logger(__name__)
 
