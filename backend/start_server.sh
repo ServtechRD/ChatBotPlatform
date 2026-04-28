@@ -1,5 +1,10 @@
 #!/bin/sh
-source ./venv/bin/activate
+
+if [ -f "./venv/bin/activate" ]; then
+    . ./venv/bin/activate
+else
+    echo "venv not found, use system python."
+fi
 pip install --upgrade pip
 pip install -r requirements.txt
 python3 init_nltk.py

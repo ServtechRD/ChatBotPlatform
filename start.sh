@@ -1,7 +1,5 @@
 #!/bin/bash
 
-service mariadb start
-
 echo "wait 5 sec"
 sleep 5
 

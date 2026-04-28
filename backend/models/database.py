@@ -6,10 +6,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # 使用MySQL (或MariaDB)
-#SQLALCHEMY_DATABASE_URL = "mysql+pymysql://chatbot_user:pass@localhost/chatbot_db"
+#SQLALCHEMY_DATABASE_URL = "mysql+pymysql://chatbot_user:pass@mariadb:3306/chatbot_db"
 
 # 從環境變數讀取資料庫連線字串
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "mysql+pymysql://chatbot_user:pass@localhost/chatbot_db")
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "mysql+pymysql://chatbot_user:pass@mariadb:3306/chatbot_db")
 
 
 # 建立引擎

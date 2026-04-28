@@ -1,15 +1,47 @@
 services:
+  mariadb:
+    image: mariadb:11.4
+    container_name: chatbot-platform-mariadb
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-rootpass}
+      MARIADB_DATABASE: ${MARIADB_DATABASE:-chatbot_db}
+      MARIADB_USER: ${MARIADB_USER:-chatbot_user}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:-pass}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mariadb-admin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MARIADB_ROOT_PASSWORD:-rootpass}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   server:
     image: nikolaik/python-nodejs:python3.10-nodejs20
     container_name: chatbot01
     working_dir: /home/chatbot_platform
     command: ["/bin/bash", "-c", "chmod +x /home/chatbot_platform/start.sh && /home/chatbot_platform/start.sh"]
+    depends_on:
+      mariadb:
+        condition: service_healthy
     volumes:
       - ${PROJECT_ROOT:-.}:/home/chatbot_platform
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-mysql+pymysql://chatbot_user:pass@mariadb:3306/chatbot_db}
     expose:
       - "3000"
       - "36100"
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   nginx:
     image: nginx:1.27-alpine
@@ -23,3 +55,11 @@ services:
       - ${PROJECT_ROOT:-.}/nginx/conf/default.conf:/etc/nginx/conf.d/default.conf:ro
       - ${PROJECT_ROOT:-.}/nginx/ssl:/etc/nginx/ssl:ro
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  mariadb_data:
