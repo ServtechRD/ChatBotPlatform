@@ -554,7 +554,7 @@ export default function ChatInterface({
     }
 
     const fetchStart = performance.now();
-    const response = await fetch(buildApiUrl('/tts/kokoro'), {
+    const response = await fetch(buildApiUrl('/api/tts/kokoro'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

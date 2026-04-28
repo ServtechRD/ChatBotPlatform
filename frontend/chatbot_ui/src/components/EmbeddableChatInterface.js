@@ -360,7 +360,7 @@ const EmbeddableChatInterface = ({
   }
 
   async function fetchKokoroAudio(text) {
-    const response = await fetch(buildApiUrl('/tts/kokoro'), {
+    const response = await fetch(buildApiUrl('/api/tts/kokoro'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

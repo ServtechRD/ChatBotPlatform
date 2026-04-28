@@ -15,8 +15,17 @@ export const getApiBaseUrl = () => {
 };
 
 export const buildApiUrl = path => {
-  const baseUrl = getApiBaseUrl();
-  return `${trimTrailingSlash(baseUrl)}/${trimLeadingSlash(path)}`;
+  const baseUrl = trimTrailingSlash(getApiBaseUrl());
+  const normalizedPath = `/${trimLeadingSlash(path)}`;
+  const baseHasApiSuffix = /\/api$/i.test(baseUrl);
+  const pathHasApiPrefix = /^\/api(?:\/|$)/i.test(normalizedPath);
+
+  // 避免 base 與 path 都帶 /api 造成 /api/api 重複
+  if (baseHasApiSuffix && pathHasApiPrefix) {
+    return `${baseUrl}${normalizedPath.replace(/^\/api/i, '')}`;
+  }
+
+  return `${baseUrl}${normalizedPath}`;
 };
 
 export const getWsBaseUrl = () => {
