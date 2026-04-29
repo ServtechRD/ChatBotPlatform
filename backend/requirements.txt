@@ -142,3 +142,4 @@ ordered-set
 pypinyin
 cn2an
 jieba
+pypinyin_dict
