@@ -694,7 +694,7 @@ export default function ChatInterface({
             speechTimeoutRef.current = setTimeout(() => {
               if (speechId !== currentSpeechIdRef.current) return;
               playNextSegment();
-            }, 80);
+            }, 30);
           };
 
           audio.onerror = err => {
@@ -728,7 +728,7 @@ export default function ChatInterface({
               speechTimeoutRef.current = setTimeout(() => {
                 if (speechId !== currentSpeechIdRef.current) return;
                 playNextSegment();
-              }, 80);
+              }, 30);
             };
             utterance.onerror = fallbackErr => {
               console.error('Fallback 語音播放錯誤:', fallbackErr);

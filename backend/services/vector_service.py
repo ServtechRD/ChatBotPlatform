@@ -216,7 +216,7 @@ def load_vector_store(assistant_id: int):
             index=index,
             docstore=docstore,
             index_to_docstore_id=index_to_docstore_id,
-            embedding_function=embeddings.embed_query
+            embedding_function=embeddings,
         )
 
         return vector_store[assistant_id]

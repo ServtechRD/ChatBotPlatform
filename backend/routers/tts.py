@@ -19,10 +19,6 @@ _kokoro_cache_lock = Lock()
 _kokoro_audio_cache = OrderedDict()
 
 SAMPLE_RATE = 24000
-LEADING_SILENCE_MS = 250
-PAUSE_MS_COMMA = 10
-PAUSE_MS_SENTENCE = 10
-PAUSE_MS_COLON = 10
 PAUSE_MS_LIST_ITEM_BEFORE = 10
 
 KOKORO_CACHE_MAX_ITEMS = 128
@@ -126,9 +122,9 @@ def _segment_text_with_pauses(text: str):
     """
     依語意切段並附帶停頓：
     - 逗號: 不切段（由模型自然停頓）
-    - 句號/問號/驚嘆號: 句尾切段 + 停頓
-    - 冒號: 切段 + 停頓
-    - 條列項目前: 200ms
+    - 句號/問號/驚嘆號: 句尾切段（不額外加靜音）
+    - 冒號: 切段（不額外加靜音）
+    - 條列項目前: 10ms
     """
     segments = []
     # 只在句尾與冒號切段，逗號保留在段內避免過度分段造成速度變慢。
@@ -155,13 +151,7 @@ def _segment_text_with_pauses(text: str):
             if not chunk:
                 continue
 
-            post_pause_ms = 0
-            if punct in ("。", "！", "？", "!", "?"):
-                post_pause_ms = PAUSE_MS_SENTENCE
-            elif punct in ("：", ":"):
-                post_pause_ms = PAUSE_MS_COLON
-
-            segments.append((chunk, pre_pause_ms, post_pause_ms))
+            segments.append((chunk, pre_pause_ms))
             pre_pause_ms = 0
 
     return segments
@@ -185,16 +175,14 @@ def _synthesize_kokoro(text: str, voice: str, speed: float) -> bytes:
     if not segments:
         raise RuntimeError("Kokoro received empty text after segmentation.")
 
-    all_audio = [_silence_audio(LEADING_SILENCE_MS)]
-    for segment_text, pre_pause_ms, post_pause_ms in segments:
+    all_audio = []
+    for segment_text, pre_pause_ms in segments:
         if pre_pause_ms > 0:
             all_audio.append(_silence_audio(pre_pause_ms))
         seg_audio = _synthesize_kokoro_segment(segment_text, voice=voice, speed=speed)
         if seg_audio.size == 0:
             continue
         all_audio.append(seg_audio)
-        if post_pause_ms > 0:
-            all_audio.append(_silence_audio(post_pause_ms))
 
     if not all_audio:
         raise RuntimeError("Kokoro returned empty audio.")
