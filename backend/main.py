@@ -23,6 +23,13 @@ app = FastAPI()
 @app.on_event("startup")
 def startup_event():
     logger.info("Application started.")
+    # 預熱 RAG embeddings，避免第一次請求時模型下載/初始化卡住造成連帶 TTS 504
+    try:
+        from services.vector_service import prewarm_bge_embeddings
+
+        prewarm_bge_embeddings()
+    except Exception as e:
+        logger.warning("Prewarm BGE embeddings failed (continuing): %s", e)
 
 app.add_middleware(
     CORSMiddleware,
