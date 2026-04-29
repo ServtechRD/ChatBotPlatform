@@ -13,6 +13,10 @@ from threading import Lock
 
 router = APIRouter()
 
+# Kokoro：可透過環境變數切換倉庫與 API 預設聲線（需重啟後端才生效）
+KOKORO_REPO_ID = os.getenv("KOKORO_REPO_ID", "hexgrad/Kokoro-82M")
+KOKORO_DEFAULT_VOICE = os.getenv("KOKORO_DEFAULT_VOICE", "zm_yunjian")
+
 _kokoro_pipeline = None
 _kokoro_warmed_up = False
 _kokoro_cache_lock = Lock()
@@ -30,7 +34,7 @@ class TTSRequest(BaseModel):
 
 class KokoroTTSRequest(BaseModel):
     text: str
-    voice: str = "zf_xiaoni"
+    voice: str = KOKORO_DEFAULT_VOICE
     speed: float = 1.0
 
 
@@ -60,12 +64,17 @@ def _get_kokoro_pipeline():
         ) from e
 
     # "z" language code supports Chinese generation in Kokoro pipeline.
-    _kokoro_pipeline = KPipeline(lang_code="z")
+    _kokoro_pipeline = KPipeline(
+        lang_code="z",
+        repo_id=KOKORO_REPO_ID,
+    )
 
     # 預熱：降低第一句冷啟動延遲，不影響實際語音規則。
     if not _kokoro_warmed_up:
         try:
-            for _, _, audio in _kokoro_pipeline("預熱", voice="zf_xiaoni", speed=1.0):
+            for _, _, audio in _kokoro_pipeline(
+                "預熱", voice=KOKORO_DEFAULT_VOICE, speed=1.0
+            ):
                 if audio is not None:
                     break
         except Exception as warmup_error:
