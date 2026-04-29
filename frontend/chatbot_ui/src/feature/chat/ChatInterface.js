@@ -537,7 +537,6 @@ export default function ChatInterface({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         text,
-        voice: KOKORO_VOICE,
         speed: 0.95,
       }),
     });
