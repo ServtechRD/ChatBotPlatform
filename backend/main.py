@@ -1,5 +1,10 @@
 from pathlib import Path
 
+from dotenv import load_dotenv
+# 必須在 import routers/tts 前先載入，因為部分模組在 import 時就會呼叫 os.getenv.
+_backend_dir = Path(__file__).resolve().parent
+load_dotenv(_backend_dir / ".env", override=False)
+
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -23,6 +28,7 @@ app = FastAPI()
 @app.on_event("startup")
 def startup_event():
     logger.info("Application started.")
+
     # 預熱 RAG embeddings，避免第一次請求時模型下載/初始化卡住造成連帶 TTS 504
     try:
         from services.vector_service import prewarm_bge_embeddings
@@ -38,8 +44,15 @@ def startup_event():
         def _prewarm_kokoro():
             try:
                 from routers.tts import prewarm_kokoro_pipeline
+                from routers import tts as tts_router
 
                 prewarm_kokoro_pipeline()
+                # 預熱完成後再印出，避免誤解成「尚未完成就印了」
+                logger.info(
+                    "[env][Kokoro][warmed] KOKORO_REPO_ID=%s KOKORO_DEFAULT_VOICE=%s",
+                    getattr(tts_router, "KOKORO_REPO_ID", None),
+                    getattr(tts_router, "KOKORO_DEFAULT_VOICE", None),
+                )
             except Exception as e:
                 logger.warning("Prewarm Kokoro pipeline failed (continuing): %s", e)
 
