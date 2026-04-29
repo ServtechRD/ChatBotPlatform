@@ -19,6 +19,7 @@ KOKORO_DEFAULT_VOICE = os.getenv("KOKORO_DEFAULT_VOICE", "zm_yunjian")
 
 _kokoro_pipeline = None
 _kokoro_warmed_up = False
+_kokoro_pipeline_lock = Lock()
 _kokoro_cache_lock = Lock()
 _kokoro_audio_cache = OrderedDict()
 
@@ -53,35 +54,45 @@ def _float_audio_to_wav_bytes(audio: np.ndarray, sample_rate: int = SAMPLE_RATE)
 
 def _get_kokoro_pipeline():
     global _kokoro_pipeline, _kokoro_warmed_up
-    if _kokoro_pipeline is not None:
+    # 保護 pipeline 初始化，避免背景預熱與第一筆請求同時觸發造成重複冷啟動
+    with _kokoro_pipeline_lock:
+        if _kokoro_pipeline is not None:
+            return _kokoro_pipeline
+
+        try:
+            from kokoro import KPipeline
+        except Exception as e:
+            raise RuntimeError(
+                "Kokoro is not available. Install it with `pip install kokoro`."
+            ) from e
+
+        # "z" language code supports Chinese generation in Kokoro pipeline.
+        _kokoro_pipeline = KPipeline(
+            lang_code="z",
+            repo_id=KOKORO_REPO_ID,
+        )
+
+        # 預熱：降低第一句冷啟動延遲，不影響實際語音規則。
+        if not _kokoro_warmed_up:
+            try:
+                for _, _, audio in _kokoro_pipeline(
+                    "預熱", voice=KOKORO_DEFAULT_VOICE, speed=1.0
+                ):
+                    if audio is not None:
+                        break
+            except Exception as warmup_error:
+                print(f"Kokoro warmup skipped: {warmup_error}")
+            finally:
+                _kokoro_warmed_up = True
         return _kokoro_pipeline
 
-    try:
-        from kokoro import KPipeline
-    except Exception as e:
-        raise RuntimeError(
-            "Kokoro is not available. Install it with `pip install kokoro`."
-        ) from e
 
-    # "z" language code supports Chinese generation in Kokoro pipeline.
-    _kokoro_pipeline = KPipeline(
-        lang_code="z",
-        repo_id=KOKORO_REPO_ID,
-    )
-
-    # 預熱：降低第一句冷啟動延遲，不影響實際語音規則。
-    if not _kokoro_warmed_up:
-        try:
-            for _, _, audio in _kokoro_pipeline(
-                "預熱", voice=KOKORO_DEFAULT_VOICE, speed=1.0
-            ):
-                if audio is not None:
-                    break
-        except Exception as warmup_error:
-            print(f"Kokoro warmup skipped: {warmup_error}")
-        finally:
-            _kokoro_warmed_up = True
-    return _kokoro_pipeline
+def prewarm_kokoro_pipeline():
+    """
+    觸發 Kokoro pipeline 初始化與預熱（供後端啟動時背景呼叫）。
+    不回傳任何資料，只確保後續第一次 TTS 不再冷啟動。
+    """
+    _get_kokoro_pipeline()
 
 
 def _kokoro_cache_get(text: str, voice: str, speed: float):

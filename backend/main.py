@@ -31,6 +31,22 @@ def startup_event():
     except Exception as e:
         logger.warning("Prewarm BGE embeddings failed (continuing): %s", e)
 
+    # 背景預熱 Kokoro pipeline：避免第一筆 /api/tts/kokoro 因冷啟動或權重載入而卡住
+    try:
+        import threading
+
+        def _prewarm_kokoro():
+            try:
+                from routers.tts import prewarm_kokoro_pipeline
+
+                prewarm_kokoro_pipeline()
+            except Exception as e:
+                logger.warning("Prewarm Kokoro pipeline failed (continuing): %s", e)
+
+        threading.Thread(target=_prewarm_kokoro, daemon=True).start()
+    except Exception as e:
+        logger.warning("Start Kokoro prewarm thread failed (continuing): %s", e)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
