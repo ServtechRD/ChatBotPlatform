@@ -26,6 +26,7 @@ const CHAT_WIDTH = 398;
 const CHAT_HEIGHT = 598;
 const MESSAGE_TOP_LIMIT = CHAT_HEIGHT / 2;
 const WS_BASE_URL = getWsBaseUrl();
+const KOKORO_VOICE = process.env.REACT_APP_KOKORO_VOICE || 'zm_yunjian';
 
 export default function ChatInterface({
   assistantid,
@@ -536,7 +537,6 @@ export default function ChatInterface({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         text,
-        voice: 'zm_yunjian',
         speed: 0.95,
       }),
     });
@@ -694,7 +694,7 @@ export default function ChatInterface({
             speechTimeoutRef.current = setTimeout(() => {
               if (speechId !== currentSpeechIdRef.current) return;
               playNextSegment();
-            }, 80);
+            }, 30);
           };
 
           audio.onerror = err => {
@@ -728,7 +728,7 @@ export default function ChatInterface({
               speechTimeoutRef.current = setTimeout(() => {
                 if (speechId !== currentSpeechIdRef.current) return;
                 playNextSegment();
-              }, 80);
+              }, 30);
             };
             utterance.onerror = fallbackErr => {
               console.error('Fallback 語音播放錯誤:', fallbackErr);

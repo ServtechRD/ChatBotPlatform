@@ -28,6 +28,7 @@ const CHAT_WIDTH = 398;
 const CHAT_HEIGHT = 598;
 const MESSAGE_TOP_LIMIT = CHAT_HEIGHT / 2;
 const WS_BASE_URL = getWsBaseUrl();
+const KOKORO_VOICE = process.env.REACT_APP_KOKORO_VOICE || 'zm_yunjian';
 const MIC_IDLE_TIMEOUT_MS = 3 * 60 * 1000;
 
 const DIGIT_TO_ZH = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
@@ -342,7 +343,6 @@ const EmbeddableChatInterface = ({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         text,
-        voice: 'zm_yunjian',
         speed: 0.95,
       }),
     });

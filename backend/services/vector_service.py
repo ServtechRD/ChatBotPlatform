@@ -41,6 +41,27 @@ VLLM_SUMMARY_MODEL = os.getenv("VLLM_SUMMARY_MODEL", "").strip()
 # 用於取得向量儲存
 vector_store = {}
 
+# 預熱 SentenceTransformer / BGE Embeddings（避免第一次 RAG 卡住造成連帶的 TTS 504）
+BGE_EMBEDDINGS_MODEL_NAME = "BAAI/bge-base-zh-v1.5"
+_bge_embeddings = None
+
+
+def prewarm_bge_embeddings():
+    """
+    在 server 啟動後（或背景執行）載入 bge-base-zh-v1.5 embeddings，
+    使第一次用到時不會再被 SentenceTransformer 下載/初始化卡住。
+    """
+    global _bge_embeddings
+    if _bge_embeddings is not None:
+        return _bge_embeddings
+    logger.info("[Prewarm][BGE] Loading HuggingFaceEmbeddings: %s", BGE_EMBEDDINGS_MODEL_NAME)
+    embeddings = HuggingFaceEmbeddings(model_name=BGE_EMBEDDINGS_MODEL_NAME)
+    # embed_query 會觸發 model/weights 的實際載入與 warmup
+    _ = embeddings.embed_query("預熱")
+    _bge_embeddings = embeddings
+    logger.info("[Prewarm][BGE] Embeddings ready.")
+    return _bge_embeddings
+
 # 載入預訓練的摘要產生模型（明確指定 model，避免 transformers 啟動警告）
 summarizer = pipeline(
     "summarization",
@@ -203,7 +224,9 @@ def load_vector_store(assistant_id: int):
         # 從磁碟載入 FAISS 索引
         index = faiss.read_index(load_path)
         # embeddings = OpenAIEmbeddings()  # 重新初始化 OpenAIEmbeddings
-        embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-base-zh-v1.5")
+        embeddings = _bge_embeddings or HuggingFaceEmbeddings(
+            model_name=BGE_EMBEDDINGS_MODEL_NAME
+        )
 
         # 載入 docstore 與 index_to_docstore_id
         with open(metadata_path, "rb") as f:
@@ -216,7 +239,7 @@ def load_vector_store(assistant_id: int):
             index=index,
             docstore=docstore,
             index_to_docstore_id=index_to_docstore_id,
-            embedding_function=embeddings.embed_query
+            embedding_function=embeddings,
         )
 
         return vector_store[assistant_id]
@@ -269,7 +292,9 @@ def _process_and_store_file_heavy_sync(
         documents = text_splitter.split_documents(documents)
         documents = process_documents_with_id(documents)
 
-        embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-base-zh-v1.5")
+        embeddings = _bge_embeddings or HuggingFaceEmbeddings(
+            model_name=BGE_EMBEDDINGS_MODEL_NAME
+        )
         if vs:
             test_emb = embeddings.embed_query("test")
             if len(test_emb) != vs.index.d:
@@ -652,7 +677,9 @@ async def update_knowledge_base_item(assistant_id: int, knowledge_id: int, new_c
 
     documents = process_documents_with_id(documents)
     
-    embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-base-zh-v1.5")
+    embeddings = _bge_embeddings or HuggingFaceEmbeddings(
+        model_name=BGE_EMBEDDINGS_MODEL_NAME
+    )
     
     # Add new documents to vector store
     if vs:

@@ -1,5 +1,5 @@
 from langchain_community.chat_models import ChatOpenAI  # pyright: ignore[reportMissingImports]
-from langchain_core.messages import HumanMessage  # pyright: ignore[reportMissingImports]
+from langchain_core.messages import HumanMessage, SystemMessage  # pyright: ignore[reportMissingImports]
 from services.vector_service import get_vector_store
 
 from dotenv import load_dotenv  # pyright: ignore[reportMissingImports]
@@ -25,6 +25,11 @@ VLLM_BASE_URL = os.getenv("VLLM_BASE_URL", "http://127.0.0.1:8000/v1")
 VLLM_MODEL = os.getenv("VLLM_MODEL", "").strip()
 
 logger = get_logger(__name__)
+
+STRICT_TRADITIONAL_CHINESE_SYSTEM_PROMPT = (
+    "你必須只使用繁體中文（zh-TW）回答。"
+    "不得使用簡體中文，不得混用繁簡字。"
+)
 
 
 def _tokenize_for_bm25(text: str) -> List[str]:
@@ -214,8 +219,9 @@ def _invoke_chat_text(
         f"\n...(以下省略，共 {total} 字元；可調環境變數 LLM_PROMPT_LOG_MAX_CHARS 提高上限)" if truncated else "",
     )
 
-    msg = HumanMessage(content=text)
-    result = llm.invoke([msg])
+    system_msg = SystemMessage(content=STRICT_TRADITIONAL_CHINESE_SYSTEM_PROMPT)
+    user_msg = HumanMessage(content=text)
+    result = llm.invoke([system_msg, user_msg])
     if hasattr(result, "content"):
         c = result.content
         if isinstance(c, str):

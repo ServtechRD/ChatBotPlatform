@@ -13,16 +13,17 @@ from threading import Lock
 
 router = APIRouter()
 
+# Kokoro：可透過環境變數切換倉庫與 API 預設聲線（需重啟後端才生效）
+KOKORO_REPO_ID = os.getenv("KOKORO_REPO_ID", "hexgrad/Kokoro-82M")
+KOKORO_DEFAULT_VOICE = os.getenv("KOKORO_DEFAULT_VOICE", "zm_yunjian")
+
 _kokoro_pipeline = None
 _kokoro_warmed_up = False
+_kokoro_pipeline_lock = Lock()
 _kokoro_cache_lock = Lock()
 _kokoro_audio_cache = OrderedDict()
 
 SAMPLE_RATE = 24000
-LEADING_SILENCE_MS = 250
-PAUSE_MS_COMMA = 10
-PAUSE_MS_SENTENCE = 10
-PAUSE_MS_COLON = 10
 PAUSE_MS_LIST_ITEM_BEFORE = 10
 
 KOKORO_CACHE_MAX_ITEMS = 128
@@ -34,7 +35,7 @@ class TTSRequest(BaseModel):
 
 class KokoroTTSRequest(BaseModel):
     text: str
-    voice: str = "zf_xiaoni"
+    voice: str = KOKORO_DEFAULT_VOICE
     speed: float = 1.0
 
 
@@ -53,30 +54,45 @@ def _float_audio_to_wav_bytes(audio: np.ndarray, sample_rate: int = SAMPLE_RATE)
 
 def _get_kokoro_pipeline():
     global _kokoro_pipeline, _kokoro_warmed_up
-    if _kokoro_pipeline is not None:
+    # 保護 pipeline 初始化，避免背景預熱與第一筆請求同時觸發造成重複冷啟動
+    with _kokoro_pipeline_lock:
+        if _kokoro_pipeline is not None:
+            return _kokoro_pipeline
+
+        try:
+            from kokoro import KPipeline
+        except Exception as e:
+            raise RuntimeError(
+                "Kokoro is not available. Install it with `pip install kokoro`."
+            ) from e
+
+        # "z" language code supports Chinese generation in Kokoro pipeline.
+        _kokoro_pipeline = KPipeline(
+            lang_code="z",
+            repo_id=KOKORO_REPO_ID,
+        )
+
+        # 預熱：降低第一句冷啟動延遲，不影響實際語音規則。
+        if not _kokoro_warmed_up:
+            try:
+                for _, _, audio in _kokoro_pipeline(
+                    "預熱", voice=KOKORO_DEFAULT_VOICE, speed=1.0
+                ):
+                    if audio is not None:
+                        break
+            except Exception as warmup_error:
+                print(f"Kokoro warmup skipped: {warmup_error}")
+            finally:
+                _kokoro_warmed_up = True
         return _kokoro_pipeline
 
-    try:
-        from kokoro import KPipeline
-    except Exception as e:
-        raise RuntimeError(
-            "Kokoro is not available. Install it with `pip install kokoro`."
-        ) from e
 
-    # "z" language code supports Chinese generation in Kokoro pipeline.
-    _kokoro_pipeline = KPipeline(lang_code="z")
-
-    # 預熱：降低第一句冷啟動延遲，不影響實際語音規則。
-    if not _kokoro_warmed_up:
-        try:
-            for _, _, audio in _kokoro_pipeline("預熱", voice="zf_xiaoni", speed=1.0):
-                if audio is not None:
-                    break
-        except Exception as warmup_error:
-            print(f"Kokoro warmup skipped: {warmup_error}")
-        finally:
-            _kokoro_warmed_up = True
-    return _kokoro_pipeline
+def prewarm_kokoro_pipeline():
+    """
+    觸發 Kokoro pipeline 初始化與預熱（供後端啟動時背景呼叫）。
+    不回傳任何資料，只確保後續第一次 TTS 不再冷啟動。
+    """
+    _get_kokoro_pipeline()
 
 
 def _kokoro_cache_get(text: str, voice: str, speed: float):
@@ -126,9 +142,9 @@ def _segment_text_with_pauses(text: str):
     """
     依語意切段並附帶停頓：
     - 逗號: 不切段（由模型自然停頓）
-    - 句號/問號/驚嘆號: 句尾切段 + 停頓
-    - 冒號: 切段 + 停頓
-    - 條列項目前: 200ms
+    - 句號/問號/驚嘆號: 句尾切段（不額外加靜音）
+    - 冒號: 切段（不額外加靜音）
+    - 條列項目前: 10ms
     """
     segments = []
     # 只在句尾與冒號切段，逗號保留在段內避免過度分段造成速度變慢。
@@ -155,13 +171,7 @@ def _segment_text_with_pauses(text: str):
             if not chunk:
                 continue
 
-            post_pause_ms = 0
-            if punct in ("。", "！", "？", "!", "?"):
-                post_pause_ms = PAUSE_MS_SENTENCE
-            elif punct in ("：", ":"):
-                post_pause_ms = PAUSE_MS_COLON
-
-            segments.append((chunk, pre_pause_ms, post_pause_ms))
+            segments.append((chunk, pre_pause_ms))
             pre_pause_ms = 0
 
     return segments
@@ -185,16 +195,14 @@ def _synthesize_kokoro(text: str, voice: str, speed: float) -> bytes:
     if not segments:
         raise RuntimeError("Kokoro received empty text after segmentation.")
 
-    all_audio = [_silence_audio(LEADING_SILENCE_MS)]
-    for segment_text, pre_pause_ms, post_pause_ms in segments:
+    all_audio = []
+    for segment_text, pre_pause_ms in segments:
         if pre_pause_ms > 0:
             all_audio.append(_silence_audio(pre_pause_ms))
         seg_audio = _synthesize_kokoro_segment(segment_text, voice=voice, speed=speed)
         if seg_audio.size == 0:
             continue
         all_audio.append(seg_audio)
-        if post_pause_ms > 0:
-            all_audio.append(_silence_audio(post_pause_ms))
 
     if not all_audio:
         raise RuntimeError("Kokoro returned empty audio.")
