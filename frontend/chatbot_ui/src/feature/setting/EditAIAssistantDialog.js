@@ -37,6 +37,13 @@ const UPLOAD_IMAGE_WIDTH = 398;
 const UPLOAD_IMAGE_HEIGHT = 598;
 const CROP_SIZE = 200;
 
+// 與 nginx client_max_body_size 一致；一次儲存 multipart 總量勿超過此值
+const MAX_ASSISTANT_REQUEST_BYTES = 500 * 1024 * 1024;
+
+function formatMb(bytes) {
+  return (bytes / (1024 * 1024)).toFixed(1);
+}
+
 const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
   const [description, setDescription] = useState('');
   const [language, setLanguage] = useState('Traditional Chinese');
@@ -219,6 +226,13 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
   const handleImageUpload = e => {
     const file = e.target.files[0];
     if (file) {
+      if (file.size > MAX_ASSISTANT_REQUEST_BYTES) {
+        alert(
+          `圖片過大（約 ${formatMb(file.size)} MB），單檔請勿超過 ${formatMb(MAX_ASSISTANT_REQUEST_BYTES)} MB。`
+        );
+        e.target.value = '';
+        return;
+      }
       const reader = new FileReader();
       /*reader.addEventListener('load', () => {
         setImageUrl(reader.result);
@@ -259,6 +273,13 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
   const handleVideoUpload1 = e => {
     const file = e.target.files[0];
     if (file) {
+      if (file.size > MAX_ASSISTANT_REQUEST_BYTES) {
+        alert(
+          `影片過大（約 ${formatMb(file.size)} MB），單檔請勿超過 ${formatMb(MAX_ASSISTANT_REQUEST_BYTES)} MB。`
+        );
+        e.target.value = '';
+        return;
+      }
       const reader = new FileReader();
       reader.addEventListener('load', () => {
         setVideoUrl1(reader.result);
@@ -271,6 +292,13 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
   const handleVideoUpload2 = e => {
     const file = e.target.files[0];
     if (file) {
+      if (file.size > MAX_ASSISTANT_REQUEST_BYTES) {
+        alert(
+          `影片過大（約 ${formatMb(file.size)} MB），單檔請勿超過 ${formatMb(MAX_ASSISTANT_REQUEST_BYTES)} MB。`
+        );
+        e.target.value = '';
+        return;
+      }
       const reader = new FileReader();
       reader.addEventListener('load', () => {
         setVideoUrl2(reader.result);
@@ -367,9 +395,30 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
     return new File([ab], filename, { type: mimeString });
   }
 
+  const estimatePayloadBytes = () => {
+    let n = 0;
+    if (video1) n += video1.size;
+    if (video2) n += video2.size;
+    if (hasNewImage && croppedImageUrl) {
+      n += base64ToFile(croppedImageUrl, 'crop_image.jpg').size;
+    }
+    if (hasNewImage && imageUrl) {
+      n += base64ToFile(imageUrl, 'assistant_image.jpg').size;
+    }
+    return n;
+  };
+
   const handleSave = async () => {
     // 處理儲存邏輯
     try {
+      const payloadBytes = estimatePayloadBytes();
+      if (payloadBytes > MAX_ASSISTANT_REQUEST_BYTES) {
+        alert(
+          `本次要上傳約 ${formatMb(payloadBytes)} MB（含影片與圖），超過單次請求上限 ${formatMb(MAX_ASSISTANT_REQUEST_BYTES)} MB。請縮短影片、降低解析度，或先儲存不含影片再分批更新。`
+        );
+        return;
+      }
+
       const formData = new FormData();
       formData.append('name', name);
       formData.append('description', description);
@@ -432,6 +481,9 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
       <DialogContent>
         <Typography variant="body2" color="textSecondary" gutterBottom>
           AI助理助理主要使用情境以及使用者知悉與其互動。對於表現演算結果的使用情境，請使用範本填入背景知識。請根據您的需求修改範本中的問題。
+        </Typography>
+        <Typography variant="caption" color="textSecondary" display="block" sx={{ mb: 1 }}>
+          單次儲存：描述＋圖＋兩支影片等合計請勿超過 500 MB（與伺服器上傳上限一致）。
         </Typography>
 
         {detailLoading ? (
