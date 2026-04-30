@@ -7,9 +7,10 @@ from fastapi.staticfiles import StaticFiles
 from routers import assistant, conversation, websocket, auth, embed, mfa, tts
 from models.database import Base, engine
 from services.assistant_prompt_storage import ensure_description_use_file_column
+from middleware.request_audit import RequestAuditMiddleware
 from utils.logger import setup_logging, get_logger
 
-# 日誌：寫入 ./log/yyyyMMdd.log
+# 日誌：寫入 ./log/（依日期與大小切檔，見 utils.logger）
 setup_logging()
 logger = get_logger(__name__)
 
@@ -30,8 +31,9 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["Content-Disposition"]
+    expose_headers=["Content-Disposition"],
 )
+app.add_middleware(RequestAuditMiddleware)
 
 # 配置靜態檔案：/public 與 /images（相容舊連結 /images/xxx.jpg）
 _backend_root = Path(__file__).resolve().parent
