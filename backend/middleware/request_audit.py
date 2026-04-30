@@ -18,7 +18,7 @@ from starlette.types import ASGIApp
 from services import auth_service
 from utils.logger import get_logger
 
-logger = get_logger("http_audit")
+logger = get_logger("http_request")
 
 # 含密碼或 token 的 key（不分大小寫比對）
 _SENSITIVE_KEY_RE = re.compile(
@@ -153,10 +153,9 @@ class RequestAuditMiddleware(BaseHTTPMiddleware):
             raise
 
         elapsed_ms = (time.perf_counter() - t0) * 1000
-        ua = request.headers.get("user-agent", "")[:200]
         log_msg = (
             f"ip={ip} method={method} path={path} query={query} "
-            f"status={status} elapsed_ms={elapsed_ms:.2f} actor={actor} ua={ua!r}"
+            f"status={status} elapsed_ms={elapsed_ms:.2f} {actor}"
         )
         if body_note:
             log_msg += f" body={body_note}"
