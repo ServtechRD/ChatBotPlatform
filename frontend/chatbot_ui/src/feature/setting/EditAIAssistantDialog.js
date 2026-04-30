@@ -51,6 +51,7 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
   const [aiAssistantUrl, setAiAssistantUrl] = useState('');
   const [name, setName] = useState('');
   const [detailLoading, setDetailLoading] = useState(false);
+  const [saveLoading, setSaveLoading] = useState(false);
 
   const [welcomeText, setWelcomeText] = useState('');
   const [unableToRespondText, setUnableToRespondText] = useState('');
@@ -410,15 +411,16 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
 
   const handleSave = async () => {
     // 處理儲存邏輯
-    try {
-      const payloadBytes = estimatePayloadBytes();
-      if (payloadBytes > MAX_ASSISTANT_REQUEST_BYTES) {
-        alert(
-          `本次要上傳約 ${formatMb(payloadBytes)} MB（含影片與圖），超過單次請求上限 ${formatMb(MAX_ASSISTANT_REQUEST_BYTES)} MB。請縮短影片、降低解析度，或先儲存不含影片再分批更新。`
-        );
-        return;
-      }
+    const payloadBytes = estimatePayloadBytes();
+    if (payloadBytes > MAX_ASSISTANT_REQUEST_BYTES) {
+      alert(
+        `本次要上傳約 ${formatMb(payloadBytes)} MB（含影片與圖），超過單次請求上限 ${formatMb(MAX_ASSISTANT_REQUEST_BYTES)} MB。請縮短影片、降低解析度，或先儲存不含影片再分批更新。`
+      );
+      return;
+    }
 
+    setSaveLoading(true);
+    try {
       const formData = new FormData();
       formData.append('name', name);
       formData.append('description', description);
@@ -470,11 +472,21 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
         error?.message ||
         String(error);
       alert(`${aiAssistant?.assistant_id ? '更新' : '建立'}失敗: ${msg}`);
+    } finally {
+      setSaveLoading(false);
     }
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <Dialog
+      open={open}
+      onClose={(e, reason) => {
+        if (saveLoading) return;
+        onClose(e, reason);
+      }}
+      maxWidth="md"
+      fullWidth
+    >
       <DialogTitle>
         {aiAssistant?.assistant_id ? '編輯AI助理' : '新AI助理'}
       </DialogTitle>
@@ -764,16 +776,27 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>取消</Button>
+        <Button onClick={onClose} disabled={saveLoading}>
+          取消
+        </Button>
         <Button
           onClick={handleSave}
           disabled={
-            detailLoading || !name.trim() || !description.trim()
+            detailLoading ||
+            saveLoading ||
+            !name.trim() ||
+            !description.trim()
           }
           variant="contained"
           color="primary"
         >
-          {aiAssistant?.assistant_id ? '更新' : '儲存'}
+          {saveLoading ? (
+            <CircularProgress size={22} color="inherit" />
+          ) : aiAssistant?.assistant_id ? (
+            '更新'
+          ) : (
+            '儲存'
+          )}
         </Button>
       </DialogActions>
     </Dialog>
