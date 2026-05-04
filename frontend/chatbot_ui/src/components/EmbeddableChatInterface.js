@@ -26,7 +26,6 @@ import {
 
 const CHAT_WIDTH = 398;
 const CHAT_HEIGHT = 598;
-const MESSAGE_TOP_LIMIT = CHAT_HEIGHT / 2;
 const WS_BASE_URL = getWsBaseUrl();
 const KOKORO_VOICE = process.env.REACT_APP_KOKORO_VOICE || 'zm_yunjian';
 const MIC_IDLE_TIMEOUT_MS = 3 * 60 * 1000;
@@ -172,6 +171,8 @@ const EmbeddableChatInterface = ({
   const isListeningRef = useRef(false);
   const isEmbeddedInParent =
     typeof window !== 'undefined' && window.parent !== window;
+  const rootWidth = isEmbeddedInParent ? '100%' : CHAT_WIDTH;
+  const rootHeight = isEmbeddedInParent ? '100%' : CHAT_HEIGHT;
 
   // 語音播放設定
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -874,8 +875,8 @@ const EmbeddableChatInterface = ({
     return (
       <Box
         sx={{
-          width: CHAT_WIDTH,
-          height: CHAT_HEIGHT,
+          width: rootWidth,
+          height: rootHeight,
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
@@ -892,8 +893,8 @@ const EmbeddableChatInterface = ({
     return (
       <Box
         sx={{
-          width: CHAT_WIDTH,
-          height: CHAT_HEIGHT,
+          width: rootWidth,
+          height: rootHeight,
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
@@ -913,8 +914,8 @@ const EmbeddableChatInterface = ({
   return (
     <Box
       sx={{
-        width: CHAT_WIDTH,
-        height: CHAT_HEIGHT,
+        width: rootWidth,
+        height: rootHeight,
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',
@@ -1069,6 +1070,7 @@ const EmbeddableChatInterface = ({
                       wordBreak: 'break-word',
                       lineHeight: 1.4,
                       flex: 1,
+                      fontSize: '24px',
                     }}
                   >
                     {message.text}
