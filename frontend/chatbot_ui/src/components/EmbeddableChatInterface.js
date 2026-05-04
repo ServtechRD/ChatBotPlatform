@@ -971,35 +971,6 @@ const EmbeddableChatInterface = ({
           height: '100%',
         }}
       >
-        {/* 標題區域 */}
-        <Box
-          sx={{
-            p: 1.5,
-            textAlign: 'left',
-          }}
-        >
-          <Paper
-            elevation={0}
-            sx={{
-              display: 'inline-block',
-              p: 1.5,
-              bgcolor: 'rgba(0, 0, 0, 0.6)',
-              borderRadius: 2,
-              maxWidth: '90%',
-            }}
-          >
-            <Typography
-              variant="body1"
-              sx={{
-                color: 'white',
-                textShadow: '1px 1px 2px rgba(0,0,0,0.5)',
-              }}
-            >
-              {assistant?.name || assistantName || '智能助理'}
-              {isConnected ? ' Connected' : ''}
-            </Typography>
-          </Paper>
-        </Box>
         <Box
           sx={{
             position: 'relative', // 設為相對定位，作為絕對定位的參考點
