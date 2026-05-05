@@ -796,7 +796,7 @@ const EmbeddableChatInterface = ({
             position: 'absolute',
             width: '100%',
             height: '100%',
-            objectFit: 'contain',
+            objectFit: 'cover',
             top: 0,
             left: 0,
             zIndex: 0,
@@ -815,7 +815,7 @@ const EmbeddableChatInterface = ({
             position: 'absolute',
             width: '100%',
             height: '100%',
-            objectFit: 'contain',
+            objectFit: 'cover',
             top: 0,
             left: 0,
             zIndex: 0,
@@ -831,7 +831,7 @@ const EmbeddableChatInterface = ({
           position: 'absolute',
           width: '100%',
           height: '100%',
-          objectFit: 'contain',
+          objectFit: 'cover',
           top: 0,
           left: 0,
           zIndex: 0,
@@ -959,7 +959,7 @@ const EmbeddableChatInterface = ({
               style={{
                 width: '100%',
                 height: '100%',
-                objectFit: 'contain',
+                objectFit: 'cover',
                 display: 'block',
               }}
             />
