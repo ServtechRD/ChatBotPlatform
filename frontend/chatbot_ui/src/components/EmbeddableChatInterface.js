@@ -1070,7 +1070,7 @@ const EmbeddableChatInterface = ({
                       wordBreak: 'break-word',
                       lineHeight: 1.4,
                       flex: 1,
-                      fontSize: '24px',
+                      fontSize: '34px',
                     }}
                   >
                     {message.text}
