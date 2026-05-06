@@ -344,7 +344,7 @@ const EmbeddableChatInterface = ({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         text,
-        speed: 0.95,
+        speed: 1.0,
       }),
     });
 
