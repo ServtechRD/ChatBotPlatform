@@ -37,6 +37,7 @@ const ENGLISH_ACRONYM_MAP = {
   "Musesai": "Muses.A.I",
   "MUSESAI": "Muses.A.I",
   "JARVI": "Jarvi",
+  "JARVIS": "Jarvis",
 };
 const MIC_IDLE_TIMEOUT_MS = 3 * 60 * 1000;
 

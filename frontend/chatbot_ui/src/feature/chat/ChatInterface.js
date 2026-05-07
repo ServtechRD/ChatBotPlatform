@@ -36,6 +36,7 @@ const ENGLISH_ACRONYM_MAP = {
   "Musesai": "Muses.A.I",
   "MUSESAI": "Muses.A.I",
   "JARVI": "Jarvi",
+  "JARVIS": "Jarvis",
 };
 
 export default function ChatInterface({
