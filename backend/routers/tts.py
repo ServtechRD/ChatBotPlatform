@@ -4,6 +4,7 @@ import edge_tts
 import tempfile
 import os
 import io
+import re
 
 router = APIRouter()
 
@@ -17,11 +18,38 @@ class TTSRequest(BaseModel):
     rate: str = EDGE_RATE
     voice: str = EDGE_DEFAULT_VOICE
 
+
+def preprocess_tts_text(text: str) -> str:
+    processed = text or ""
+
+    english_token = re.compile(r"[A-Za-z][A-Za-z0-9]*(?:[._-][A-Za-z0-9]+)*")
+    result_parts = []
+    last_idx = 0
+    for match in english_token.finditer(processed):
+        start, end = match.span()
+        token = match.group(0)
+        prev_char = processed[start - 1] if start > 0 else ""
+        next_char = processed[end] if end < len(processed) else ""
+
+        result_parts.append(processed[last_idx:start])
+        if prev_char != "，":
+            result_parts.append("，")
+        result_parts.append(token)
+        if next_char != "，":
+            result_parts.append("，")
+        last_idx = end
+
+    result_parts.append(processed[last_idx:])
+    processed = "".join(result_parts)
+    processed = re.sub(r"，{2,}", "，", processed)
+    return processed
+
 @router.post("/tts/edge")
 async def edge_tts_endpoint(request: TTSRequest):
     try:
         voice = (request.voice or EDGE_DEFAULT_VOICE).strip()
-        communicate = edge_tts.Communicate(request.text, voice, rate=request.rate)
+        processed_text = preprocess_tts_text(request.text)
+        communicate = edge_tts.Communicate(processed_text, voice, rate=request.rate)
         
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_file:
             temp_filename = temp_file.name
@@ -44,10 +72,10 @@ async def edge_tts_endpoint(request: TTSRequest):
         # but it ensures the service remains available.
         try:
             from gtts import gTTS
-            import io
             
             # gTTS save to memory
-            tts = gTTS(text=request.text, lang='zh-TW')
+            processed_text = preprocess_tts_text(request.text)
+            tts = gTTS(text=processed_text, lang='zh-TW')
             fp = io.BytesIO()
             tts.write_to_fp(fp)
             fp.seek(0)
