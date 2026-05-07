@@ -29,6 +29,12 @@ const CHAT_HEIGHT = 598;
 const WS_BASE_URL = getWsBaseUrl();
 const EDGE_VOICE = process.env.REACT_APP_EDGE_VOICE || 'zh-TW-HsiaoChenNeural';
 const EDGE_RATE = process.env.REACT_APP_EDGE_RATE || '-3%';
+const ENGLISH_ACRONYM_MAP = {
+  'SOP': 'S.O.P',
+  'JarvisAI': 'Jarvis.A.I',
+  "MusesAI": "Muses.A.I",
+  "MUSESAI": "Muses.A.I"
+};
 const MIC_IDLE_TIMEOUT_MS = 3 * 60 * 1000;
 
 const DIGIT_TO_ZH = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
@@ -141,6 +147,18 @@ function formatDecimalAndPercentForSpeech(input) {
   text = text.replace(/(\d+)\.(\d+)/g, (_, intPart, fracPart) => {
     return `${intPart}點${digitsToZhSpaced(fracPart)}`;
   });
+  return text;
+}
+
+function normalizeEnglishAcronymsForSpeech(input) {
+  if (!input || typeof input !== 'string') return input;
+  let text = input;
+  for (const [src, dst] of Object.entries(ENGLISH_ACRONYM_MAP)) {
+    const pattern = new RegExp(`\\b${src}\\b`, 'g');
+    text = text.replace(pattern, dst);
+  }
+  // 2~6 個全大寫英文字母（例如 AI/API/SOP/HTTP/ABCDE）改為 A.B.C 形式
+  text = text.replace(/\b[A-Z]{2,6}\b/g, token => token.split('').join('.'));
   return text;
 }
 
@@ -324,8 +342,8 @@ const EmbeddableChatInterface = ({
   const TTS_BLOB_CACHE_MAX_ITEMS = 48;
 
   function cleanText(text) {
-    const normalized = formatDecimalAndPercentForSpeech(
-      formatPhoneForSpeech(formatEmailForSpeech(text))
+    const normalized = normalizeEnglishAcronymsForSpeech(
+      formatDecimalAndPercentForSpeech(formatPhoneForSpeech(formatEmailForSpeech(text)))
     );
 
     return normalized
