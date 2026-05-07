@@ -29,11 +29,13 @@ const WS_BASE_URL = getWsBaseUrl();
 const EDGE_VOICE = process.env.REACT_APP_EDGE_VOICE || 'zh-TW-HsiaoChenNeural';
 const EDGE_RATE = process.env.REACT_APP_EDGE_RATE || '-3%';
 const ENGLISH_ACRONYM_MAP = {
-  'SOP': 'S.O.P',
   'JarvisAI': 'Jarvis.A.I',
+  "JARVISAI": "Jarvis.A.I",
+  "Jarvisai": "Jarvis.A.I",
   "MusesAI": "Muses.A.I",
-  "MUSESAI": "Muses.A.I"
-
+  "Musesai": "Muses.A.I",
+  "MUSESAI": "Muses.A.I",
+  "JARVI": "Jarvi",
 };
 
 export default function ChatInterface({
