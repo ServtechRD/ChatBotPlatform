@@ -137,9 +137,3 @@ pyotp==2.9.0
 qrcode==7.4.2
 edge-tts==7.2.8
 gTTS==2.5.1
-kokoro
-ordered-set
-pypinyin
-cn2an
-jieba
-pypinyin_dict

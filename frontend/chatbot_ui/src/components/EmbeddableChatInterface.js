@@ -27,10 +27,8 @@ import {
 const CHAT_WIDTH = 398;
 const CHAT_HEIGHT = 598;
 const WS_BASE_URL = getWsBaseUrl();
-const TTS_PROVIDER = (process.env.REACT_APP_TTS_PROVIDER || 'edge').toLowerCase();
 const EDGE_VOICE = process.env.REACT_APP_EDGE_VOICE || 'zh-TW-HsiaoChenNeural';
 const EDGE_RATE = process.env.REACT_APP_EDGE_RATE || '-3%';
-const KOKORO_VOICE = process.env.REACT_APP_KOKORO_VOICE || 'zm_yunjian';
 const MIC_IDLE_TIMEOUT_MS = 3 * 60 * 1000;
 
 const DIGIT_TO_ZH = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
@@ -344,9 +342,6 @@ const EmbeddableChatInterface = ({
   }
 
   function ttsCacheKey(segmentText) {
-    if (TTS_PROVIDER === 'kokoro') {
-      return `kokoro:${KOKORO_VOICE}:1:${segmentText}`;
-    }
     return `edge:${EDGE_VOICE}:${EDGE_RATE}:${segmentText}`;
   }
 
@@ -359,31 +354,18 @@ const EmbeddableChatInterface = ({
       return hit;
     }
 
-    let response;
-    if (TTS_PROVIDER === 'edge') {
-      response = await fetch(buildApiUrl('/api/tts/edge'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: segmentText,
-          voice: EDGE_VOICE,
-          rate: EDGE_RATE,
-        }),
-      });
-    } else {
-      response = await fetch(buildApiUrl('/api/tts/kokoro'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: segmentText,
-          voice: KOKORO_VOICE,
-          speed: 1.0,
-        }),
-      });
-    }
+    const response = await fetch(buildApiUrl('/api/tts/edge'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: segmentText,
+        voice: EDGE_VOICE,
+        rate: EDGE_RATE,
+      }),
+    });
 
     if (!response.ok) {
-      throw new Error(`TTS failed (${TTS_PROVIDER}): ${response.status}`);
+      throw new Error(`TTS failed (edge): ${response.status}`);
     }
     const blob = await response.blob();
     ttsBlobCacheRef.current.set(key, blob);
@@ -499,7 +481,7 @@ const EmbeddableChatInterface = ({
       segmentPromise
         .then(blob => {
           if (speechId !== currentSpeechIdRef.current) return;
-          console.info(`[TTS] provider=${TTS_PROVIDER} status=ok`);
+          console.info('[TTS] provider=edge status=ok');
           prefetchSegment(currentIndex + 1);
 
           stopCurrentAudio();
@@ -529,9 +511,7 @@ const EmbeddableChatInterface = ({
         })
         .catch(err => {
           console.error('TTS 語音合成錯誤:', err);
-          console.warn(
-            `[TTS] provider=web-speech-fallback reason=${TTS_PROVIDER}-failed`
-          );
+          console.warn('[TTS] provider=web-speech-fallback reason=edge-failed');
           // Kokoro 失敗時維持可用性，退回瀏覽器語音
           try {
             const utterance = new SpeechSynthesisUtterance(segmentText);
