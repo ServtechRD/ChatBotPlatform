@@ -33,10 +33,10 @@ def preprocess_tts_text(text: str) -> str:
 
         result_parts.append(processed[last_idx:start])
         if prev_char != "，":
-            result_parts.append("，")
+            result_parts.append(".")
         result_parts.append(token)
         if next_char != "，":
-            result_parts.append("，")
+            result_parts.append(".")
         last_idx = end
 
     result_parts.append(processed[last_idx:])
