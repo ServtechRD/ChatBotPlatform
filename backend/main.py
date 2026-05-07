@@ -38,28 +38,28 @@ def startup_event():
     except Exception as e:
         logger.warning("Prewarm BGE embeddings failed (continuing): %s", e)
 
-    # 背景預熱 Kokoro pipeline：避免第一筆 /api/tts/kokoro 因冷啟動或權重載入而卡住
-    try:
-        import threading
-
-        def _prewarm_kokoro():
-            try:
-                from routers.tts import prewarm_kokoro_pipeline
-                from routers import tts as tts_router
-
-                prewarm_kokoro_pipeline()
-                # 預熱完成後再印出，避免誤解成「尚未完成就印了」
-                logger.info(
-                    "[env][Kokoro][warmed] KOKORO_REPO_ID=%s KOKORO_DEFAULT_VOICE=%s",
-                    getattr(tts_router, "KOKORO_REPO_ID", None),
-                    getattr(tts_router, "KOKORO_DEFAULT_VOICE", None),
-                )
-            except Exception as e:
-                logger.warning("Prewarm Kokoro pipeline failed (continuing): %s", e)
-
-        threading.Thread(target=_prewarm_kokoro, daemon=True).start()
-    except Exception as e:
-        logger.warning("Start Kokoro prewarm thread failed (continuing): %s", e)
+    # 背景預熱 Kokoro pipeline：先暫時停用（需要時再打開）
+    # try:
+    #     import threading
+    #
+    #     def _prewarm_kokoro():
+    #         try:
+    #             from routers.tts import prewarm_kokoro_pipeline
+    #             from routers import tts as tts_router
+    #
+    #             prewarm_kokoro_pipeline()
+    #             # 預熱完成後再印出，避免誤解成「尚未完成就印了」
+    #             logger.info(
+    #                 "[env][Kokoro][warmed] KOKORO_REPO_ID=%s KOKORO_DEFAULT_VOICE=%s",
+    #                 getattr(tts_router, "KOKORO_REPO_ID", None),
+    #                 getattr(tts_router, "KOKORO_DEFAULT_VOICE", None),
+    #             )
+    #         except Exception as e:
+    #             logger.warning("Prewarm Kokoro pipeline failed (continuing): %s", e)
+    #
+    #     threading.Thread(target=_prewarm_kokoro, daemon=True).start()
+    # except Exception as e:
+    #     logger.warning("Start Kokoro prewarm thread failed (continuing): %s", e)
 
 app.add_middleware(
     CORSMiddleware,

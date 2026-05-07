@@ -254,7 +254,7 @@ async def edge_tts_endpoint(request: TTSRequest):
             import io
             
             # gTTS save to memory
-            tts = gTTS(text=request.text, lang='zh-tw')
+            tts = gTTS(text=request.text, lang='zh-TW')
             fp = io.BytesIO()
             tts.write_to_fp(fp)
             fp.seek(0)
