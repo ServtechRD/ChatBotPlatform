@@ -17,6 +17,10 @@ router = APIRouter()
 KOKORO_REPO_ID = os.getenv("KOKORO_REPO_ID", "hexgrad/Kokoro-82M")
 KOKORO_DEFAULT_VOICE = os.getenv("KOKORO_DEFAULT_VOICE", "zm_yunjian")
 
+# Edge TTS：預設聲線與語速（請求 body 可覆寫；需重啟後端才生效）
+EDGE_DEFAULT_VOICE = os.getenv("EDGE_DEFAULT_VOICE", "zh-TW-HsiaoChenNeural")
+EDGE_RATE = os.getenv("EDGE_RATE", "-3%")
+
 _kokoro_pipeline = None
 _kokoro_warmed_up = False
 _kokoro_pipeline_lock = Lock()
@@ -30,7 +34,8 @@ KOKORO_CACHE_MAX_ITEMS = 128
 
 class TTSRequest(BaseModel):
     text: str
-    rate: str = "+0%"
+    rate: str = EDGE_RATE
+    voice: str = EDGE_DEFAULT_VOICE
 
 
 class KokoroTTSRequest(BaseModel):
@@ -220,8 +225,7 @@ def _synthesize_kokoro(text: str, voice: str, speed: float) -> bytes:
 @router.post("/tts/edge")
 async def edge_tts_endpoint(request: TTSRequest):
     try:
-        # 使用微軟台灣男聲
-        voice = "zh-TW-YunJheNeural" 
+        voice = (request.voice or EDGE_DEFAULT_VOICE).strip()
         communicate = edge_tts.Communicate(request.text, voice, rate=request.rate)
         
         # 將音訊寫入記憶體或暫存檔
