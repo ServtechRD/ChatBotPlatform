@@ -32,16 +32,16 @@ def preprocess_tts_text(text: str) -> str:
         next_char = processed[end] if end < len(processed) else ""
 
         result_parts.append(processed[last_idx:start])
-        if prev_char != "，":
-            result_parts.append(".")
+        if prev_char and not prev_char.isspace():
+            result_parts.append(" ")
         result_parts.append(token)
-        if next_char != "，":
-            result_parts.append(".")
+        if next_char and not next_char.isspace():
+            result_parts.append(" ")
         last_idx = end
 
     result_parts.append(processed[last_idx:])
     processed = "".join(result_parts)
-    processed = re.sub(r"，{2,}", "，", processed)
+    processed = re.sub(r"[ \t]{2,}", " ", processed)
     return processed
 
 @router.post("/tts/edge")
