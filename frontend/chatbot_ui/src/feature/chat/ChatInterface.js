@@ -520,8 +520,8 @@ export default function ChatInterface({
       const pattern = new RegExp(`\\b${src}\\b`, 'g');
       text = text.replace(pattern, dst);
     }
-    // 2~6 個全大寫英文字母（例如 AI/API/SOP/HTTP/ABCDE）改為 A.B.C 形式
-    text = text.replace(/\b[A-Z]{2,6}\b/g, token => token.split('').join('.'));
+    // 2~6 個全大寫英文字母（例如 AI/API/SOP/HTTP/ABCDE）改為 A B C 形式
+    text = text.replace(/\b[A-Z]{2,6}\b/g, token => token.split('').join(' '));
     return text;
   }
 
