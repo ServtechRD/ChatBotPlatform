@@ -37,6 +37,8 @@ services:
       VLLM_BASE_URL: ${VLLM_BASE_URL:-http://vllm:8000/v1}
       VLLM_API_KEY: ${VLLM_API_KEY:-EMPTY}
       VLLM_MODEL: ${VLLM_MODEL:-Qwen/Qwen2.5-7B-Instruct-AWQ}
+      HF_TOKEN: ${HF_TOKEN:-}
+      HF_HUB_DISABLE_XET: ${HF_HUB_DISABLE_XET:-1}
     expose:
       - "3000"
       - "3100"
@@ -57,6 +59,7 @@ services:
       - ${HF_CACHE:-./hf-cache}:/root/.cache/huggingface
     environment:
       HF_TOKEN: ${HF_TOKEN:-}
+      HF_HUB_DISABLE_XET: ${HF_HUB_DISABLE_XET:-1}
       HF_REPO_ID: ${VLLM_MODEL:-Qwen/Qwen2.5-7B-Instruct-AWQ}
     command:
       [
@@ -90,6 +93,7 @@ services:
       - "${VLLM_PORT:-8000}:8000"
     environment:
       HF_TOKEN: ${HF_TOKEN:-}
+      HF_HUB_DISABLE_XET: ${HF_HUB_DISABLE_XET:-1}
     command:
       - --model
       - ${VLLM_MODEL:-Qwen/Qwen2.5-7B-Instruct-AWQ}
