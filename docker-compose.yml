@@ -33,9 +33,49 @@ services:
       - ${PROJECT_ROOT:-.}:/home/chatbot_platform
     environment:
       DATABASE_URL: ${DATABASE_URL:-mysql+pymysql://chatbot_user:pass@mariadb:3306/chatbot_db}
+      # 與同專案 vllm 服務名稱解析（預設無需在 .env 重複設定）
+      VLLM_BASE_URL: ${VLLM_BASE_URL:-http://vllm:8000/v1}
+      VLLM_API_KEY: ${VLLM_API_KEY:-EMPTY}
+      VLLM_MODEL: ${VLLM_MODEL:-Qwen/Qwen2.5-7B-Instruct-AWQ}
     expose:
       - "3000"
       - "3100"
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Hugging Face 快取：主機路徑（預設 ./hf-cache；與你原本一致可設 HF_CACHE=/home/stadmin/hf-cache）
+  # 需 NVIDIA Container Toolkit；與其他服務一併 docker compose up 即會啟動
+  vllm:
+    image: vllm/vllm-openai:latest
+    container_name: chatbot-platform-vllm
+    shm_size: "2gb"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    volumes:
+      - ${HF_CACHE:-./hf-cache}:/root/.cache/huggingface
+    ports:
+      - "${VLLM_PORT:-8000}:8000"
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+    command:
+      - --model
+      - Qwen/Qwen2.5-7B-Instruct-AWQ
+      - --quantization
+      - awq
+      - --trust-remote-code
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8000"
     restart: unless-stopped
     logging:
       driver: "json-file"

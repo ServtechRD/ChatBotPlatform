@@ -35,7 +35,7 @@ logger = get_logger(__name__)
 api_key = os.getenv("OPENAI_API_KEY")
 VLLM_API_KEY = os.getenv("VLLM_API_KEY", "EMPTY")
 VLLM_BASE_URL = os.getenv("VLLM_BASE_URL", "http://127.0.0.1:8000/v1")
-VLLM_MODEL = os.getenv("VLLM_MODEL", "").strip()
+VLLM_MODEL = (os.getenv("VLLM_MODEL") or "Qwen/Qwen2.5-7B-Instruct-AWQ").strip()
 VLLM_SUMMARY_MODEL = os.getenv("VLLM_SUMMARY_MODEL", "").strip()
 
 # 用於取得向量儲存
