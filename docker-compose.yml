@@ -47,11 +47,35 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # Hugging Face 快取：主機路徑（預設 ./hf-cache；與你原本一致可設 HF_CACHE=/home/stadmin/hf-cache）
-  # 需 NVIDIA Container Toolkit；與其他服務一併 docker compose up 即會啟動
+  # Hugging Face：先確保模型已在 HF_CACHE（與 vllm 同一掛載）。
+  # snapshot_download 會沿用快取；已完整下載時很快結束。失敗則 vllm 不會啟動。
+  # 單獨重跑下載：docker compose run --rm hf-model-ensure
+  hf-model-ensure:
+    image: python:3.11-slim
+    restart: "no"
+    volumes:
+      - ${HF_CACHE:-./hf-cache}:/root/.cache/huggingface
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+      HF_REPO_ID: ${VLLM_MODEL:-Qwen/Qwen2.5-7B-Instruct-AWQ}
+    command:
+      [
+        "bash",
+        "-lc",
+        "pip install -q -U huggingface_hub && python -c \"import os; from huggingface_hub import snapshot_download; snapshot_download(repo_id=os.environ['HF_REPO_ID'], cache_dir='/root/.cache/huggingface', resume_download=True)\"",
+      ]
+
+  # 對應：docker run --runtime nvidia --gpus all --ipc=host -p 8000:8000 -v HF_CACHE...
+  # HF_CACHE 預設 ./hf-cache；若與舊機一致請設 HF_CACHE=/home/stadmin/hf-cache
+  # ipc: host 僅 Linux 有效；Docker Desktop（Windows/Mac）若報錯請改註解掉並保留 shm_size
   vllm:
-    image: vllm/vllm-openai:latest
+    image: vllm/vllm-openai:v0.8.5
     container_name: chatbot-platform-vllm
+    depends_on:
+      hf-model-ensure:
+        condition: service_completed_successfully
+    runtime: nvidia
+    ipc: host
     shm_size: "2gb"
     deploy:
       resources:
@@ -68,14 +92,16 @@ services:
       HF_TOKEN: ${HF_TOKEN:-}
     command:
       - --model
-      - Qwen/Qwen2.5-7B-Instruct-AWQ
-      - --quantization
-      - awq
-      - --trust-remote-code
+      - ${VLLM_MODEL:-Qwen/Qwen2.5-7B-Instruct-AWQ}
       - --host
       - "0.0.0.0"
       - --port
       - "8000"
+      - --gpu-memory-utilization
+      - "0.85"
+      - --max-model-len
+      - "4096"
+      - --enforce-eager
     restart: unless-stopped
     logging:
       driver: "json-file"
