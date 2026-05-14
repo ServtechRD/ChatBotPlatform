@@ -21,6 +21,7 @@ import { v4 as uuidv4 } from 'uuid';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { buildApiUrl, formatImageUrl, getWsBaseUrl } from '../../utils/urlUtils';
+import { applyVoiceTranscriptCorrections } from '../../utils/voiceTranscriptCorrections';
 
 const CHAT_WIDTH = 398;
 const CHAT_HEIGHT = 598;
@@ -83,7 +84,11 @@ export default function ChatInterface({
     recognition.maxAlternatives = 1;
 
     recognition.onresult = event => {
-      const transcript = event.results[0][0].transcript;
+      const raw = event.results[0][0].transcript;
+      const transcript = applyVoiceTranscriptCorrections(raw);
+      if (transcript !== raw) {
+        console.log('語音辨識專有名詞修正:', { raw, transcript });
+      }
       console.log('辨識結果:', transcript);
       // setInputMessage(transcript);
       // 自動送出
