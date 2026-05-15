@@ -204,6 +204,12 @@ const EmbeddableChatInterface = ({
   const speechSynthesisRef = useRef(window.speechSynthesis);
   const voiceRef = useRef(null);
 
+    /**
+   * TODO: 字體大小
+   * 因應中興大學所以預設改成大字體，之後需修正回來
+   */
+  const isAITextNormalRef = useRef(false)
+
   const socketRef = useRef(null);
   const customerIdRef = useRef(uuidv4());
   const messagesEndRef = useRef(null);
@@ -674,6 +680,9 @@ const EmbeddableChatInterface = ({
       lastMicActivatedAtRef.current = Date.now();
       if (!isListeningRef.current) {
         handleVoiceInputRef.current();
+      }
+      if(d?.isAITextNormal) {
+        isAITextNormalRef.current = true
       }
     };
     window.addEventListener('message', onMessage);
@@ -1149,7 +1158,7 @@ const EmbeddableChatInterface = ({
                       wordBreak: 'break-word',
                       lineHeight: 1.4,
                       flex: 1,
-                      fontSize: '34px',
+                      fontSize: isAITextNormalRef.current ? '1.2rem' : '2.2px',
                     }}
                   >
                     {message.text}
