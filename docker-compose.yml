@@ -102,7 +102,7 @@ services:
       - --port
       - "8000"
       - --gpu-memory-utilization
-      - "0.85"
+      - "0.90"
       - --max-model-len
       - "4096"
       - --enforce-eager
