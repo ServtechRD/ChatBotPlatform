@@ -18,11 +18,7 @@ import {
   VolumeUp as VolumeUpIcon,
 } from '@mui/icons-material';
 import { v4 as uuidv4 } from 'uuid';
-import {
-  buildApiUrl,
-  formatImageUrl,
-  getWsBaseUrl,
-} from '../utils/urlUtils';
+import { buildApiUrl, formatImageUrl, getWsBaseUrl } from '../utils/urlUtils';
 import { applyVoiceTranscriptCorrections } from '../utils/voiceTranscriptCorrections';
 
 const CHAT_WIDTH = 398;
@@ -31,19 +27,30 @@ const WS_BASE_URL = getWsBaseUrl();
 const EDGE_VOICE = process.env.REACT_APP_EDGE_VOICE || 'zh-TW-HsiaoChenNeural';
 const EDGE_RATE = process.env.REACT_APP_EDGE_RATE || '-3%';
 const ENGLISH_ACRONYM_MAP = {
-  'JarvisAI': 'Jarvis AI',
-  "JARVISAI": "Jarvis AI",
-  "Jarvisai": "Jarvis AI",
-  "MusesAI": "Muses AI",
-  "Musesai": "Muses AI",
-  "MUSESAI": "Muses AI",
-  "JARVI": "Jarvi",
-  "JARVIS": "Jarvis",
-  "MUSES": "Muses",
+  JarvisAI: 'Jarvis AI',
+  JARVISAI: 'Jarvis AI',
+  Jarvisai: 'Jarvis AI',
+  MusesAI: 'Muses AI',
+  Musesai: 'Muses AI',
+  MUSESAI: 'Muses AI',
+  JARVI: 'Jarvi',
+  JARVIS: 'Jarvis',
+  MUSES: 'Muses',
 };
 const MIC_IDLE_TIMEOUT_MS = 3 * 60 * 1000;
 
-const DIGIT_TO_ZH = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
+const DIGIT_TO_ZH = [
+  '零',
+  '一',
+  '二',
+  '三',
+  '四',
+  '五',
+  '六',
+  '七',
+  '八',
+  '九',
+];
 const digitsToZhSpaced = digits =>
   digits
     .split('')
@@ -66,7 +73,10 @@ const spellAsciiForSpeech = raw =>
 function formatEmailForSpeech(input) {
   if (!input || typeof input !== 'string') return input;
   // Email 容易造成英文拼讀不自然，改為直接略過不朗讀
-  return input.replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, ' ');
+  return input.replace(
+    /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g,
+    ' '
+  );
 }
 
 function formatPhoneForSpeech(input) {
@@ -105,9 +115,8 @@ function formatPhoneForSpeech(input) {
   });
 
   // 含括號區碼市話，如 (02)26558899 / (02) 2655-8899
-  text = text.replace(
-    /\(0\d{1,2}\)\s*\d{3,4}[\-\s]?\d{3,4}/g,
-    match => toPlaceholder(digitsToZhSpaced(match.replace(/\D/g, '')))
+  text = text.replace(/\(0\d{1,2}\)\s*\d{3,4}[\-\s]?\d{3,4}/g, match =>
+    toPlaceholder(digitsToZhSpaced(match.replace(/\D/g, '')))
   );
 
   // 純市話（不含分機），如 02-26558899 / 04 1234 5678
@@ -118,7 +127,8 @@ function formatPhoneForSpeech(input) {
   // 電話/分機語境逐位念：如「電話10090」、「分機: 10090」、「轉 10090」、「ext 10090」
   text = text.replace(
     /((?:電話|專線|分機|轉|ext\.?|#)\s*[:：]?\s*)(\d{1,10})/gi,
-    (_, prefix, extDigits) => `${prefix}${toPlaceholder(digitsToZhSpaced(extDigits))}`
+    (_, prefix, extDigits) =>
+      `${prefix}${toPlaceholder(digitsToZhSpaced(extDigits))}`
   );
 
   // 分機語境跨行：前一行含電話/分機語境，下一行純數字也當分機逐位念
@@ -175,8 +185,8 @@ const EmbeddableChatInterface = ({
   containerStyle = {}, // 容器樣式自定義
   idleVideoIframeUrl = '/idle-video',
   idleVideoSrc = '/videos/idle.mp4',
-  onLoad = () => { }, // 加載完成回調
-  onError = () => { }, // 錯誤回調
+  onLoad = () => {}, // 加載完成回調
+  onError = () => {}, // 錯誤回調
 }) => {
   const [assistantId, setAssistantId] = useState([]);
   const [assistantName, setAssistantName] = useState([]);
@@ -204,11 +214,11 @@ const EmbeddableChatInterface = ({
   const speechSynthesisRef = useRef(window.speechSynthesis);
   const voiceRef = useRef(null);
 
-    /**
+  /**
    * TODO: 字體大小
    * 因應中興大學所以預設改成大字體，之後需修正回來
    */
-  const isAITextNormalRef = useRef(false)
+  const isAITextNormalRef = useRef(false);
 
   const socketRef = useRef(null);
   const customerIdRef = useRef(uuidv4());
@@ -240,8 +250,15 @@ const EmbeddableChatInterface = ({
       console.log('辨識結果:', transcript);
 
       // 關鍵字偵測：切換影片
-      const VIDEO_SWITCH_KEYWORDS = ['切換影片', '播放影片', '看影片', '影片切換'];
-      const isVideoSwitch = VIDEO_SWITCH_KEYWORDS.some(kw => transcript.includes(kw));
+      const VIDEO_SWITCH_KEYWORDS = [
+        '切換影片',
+        '播放影片',
+        '看影片',
+        '影片切換',
+      ];
+      const isVideoSwitch = VIDEO_SWITCH_KEYWORDS.some(kw =>
+        transcript.includes(kw)
+      );
       if (isVideoSwitch) {
         if (typeof window !== 'undefined' && window.parent !== window) {
           try {
@@ -249,7 +266,9 @@ const EmbeddableChatInterface = ({
               { source: 'chatbot-embed', type: 'VIDEO_SWITCH' },
               '*'
             );
-          } catch (e) { /* ignore */ }
+          } catch (e) {
+            /* ignore */
+          }
         }
         return;
       }
@@ -375,20 +394,24 @@ const EmbeddableChatInterface = ({
 
   function cleanText(text) {
     const normalized = normalizeEnglishAcronymsForSpeech(
-      formatDecimalAndPercentForSpeech(formatPhoneForSpeech(formatEmailForSpeech(text)))
+      formatDecimalAndPercentForSpeech(
+        formatPhoneForSpeech(formatEmailForSpeech(text))
+      )
     );
 
-    return normalized
-      // 替換 % 為 percent
-      // 移除 emoji
-      .replace(/[\p{Extended_Pictographic}]/gu, '')
-      // 保留中英文常見斷句標點與換行，讓後端能正確做斷句停頓
-      .replace(/[^\p{L}\p{N}\s.%。，、！？!?：:；;、•\-]/gu, ' ')
-      // 保留換行（供條列偵測），僅壓縮同一行內多餘空白
-      .replace(/[^\S\r\n]+/g, ' ')
-      // 壓縮連續空行，避免過多靜音
-      .replace(/\n{3,}/g, '\n\n')
-      .trim();
+    return (
+      normalized
+        // 替換 % 為 percent
+        // 移除 emoji
+        .replace(/[\p{Extended_Pictographic}]/gu, '')
+        // 保留中英文常見斷句標點與換行，讓後端能正確做斷句停頓
+        .replace(/[^\p{L}\p{N}\s.%。，、！？!?：:；;、•\-]/gu, ' ')
+        // 保留換行（供條列偵測），僅壓縮同一行內多餘空白
+        .replace(/[^\S\r\n]+/g, ' ')
+        // 壓縮連續空行，避免過多靜音
+        .replace(/\n{3,}/g, '\n\n')
+        .trim()
+    );
   }
 
   function ttsCacheKey(segmentText) {
@@ -675,14 +698,14 @@ const EmbeddableChatInterface = ({
     if (!isEmbeddedInParent) return undefined;
     const onMessage = event => {
       const d = event.data;
+      if (d?.isAITextNormal) {
+        isAITextNormalRef.current = true;
+      }
       if (d?.source !== 'chatbot-parent' || d.type !== 'START_MIC') return;
       setActiveView('chat');
       lastMicActivatedAtRef.current = Date.now();
       if (!isListeningRef.current) {
         handleVoiceInputRef.current();
-      }
-      if(d?.isAITextNormal) {
-        isAITextNormalRef.current = true
       }
     };
     window.addEventListener('message', onMessage);
@@ -918,7 +941,7 @@ const EmbeddableChatInterface = ({
   };
 
   // 抽出 sendMessage 邏輯以便語音輸入也能使用
-  const sendMessage = (text) => {
+  const sendMessage = text => {
     // 使用 socketRef 來檢查連線狀態，避免閉包問題導致讀取到舊的 isConnected 狀態
     const socket = socketRef.current;
     const isSocketConnected = socket && socket.readyState === WebSocket.OPEN;
@@ -927,7 +950,7 @@ const EmbeddableChatInterface = ({
       console.warn('無法發送訊息: 文字為空或 WebSocket 未連線', {
         text,
         isSocketConnected,
-        readyState: socket?.readyState
+        readyState: socket?.readyState,
       });
       return;
     }
@@ -943,13 +966,25 @@ const EmbeddableChatInterface = ({
   };
 
   const handleSendMessage = () => {
-    const VIDEO_SWITCH_KEYWORDS = ['切換影片', '播放影片', '看影片', '影片切換'];
-    const isVideoSwitch = VIDEO_SWITCH_KEYWORDS.some(kw => inputMessage.includes(kw));
+    const VIDEO_SWITCH_KEYWORDS = [
+      '切換影片',
+      '播放影片',
+      '看影片',
+      '影片切換',
+    ];
+    const isVideoSwitch = VIDEO_SWITCH_KEYWORDS.some(kw =>
+      inputMessage.includes(kw)
+    );
     if (isVideoSwitch) {
       if (typeof window !== 'undefined' && window.parent !== window) {
         try {
-          window.parent.postMessage({ source: 'chatbot-embed', type: 'VIDEO_SWITCH' }, '*');
-        } catch (e) { /* ignore */ }
+          window.parent.postMessage(
+            { source: 'chatbot-embed', type: 'VIDEO_SWITCH' },
+            '*'
+          );
+        } catch (e) {
+          /* ignore */
+        }
       }
       setInputMessage('');
       return;
@@ -1055,32 +1090,31 @@ const EmbeddableChatInterface = ({
         )
       ) : (
         <>
-      {/* 背景媒體內容 */}
-      {getBackgroundContent()}
+          {/* 背景媒體內容 */}
+          {getBackgroundContent()}
 
-      {/* 主要內容區域 */}
-      <Box
-        sx={{
-          position: 'relative',
-          zIndex: 2,
-          display: 'flex',
-          flexDirection: 'column',
-          height: '100%',
-        }}
-      >
-        <Box
-          sx={{
-            position: 'relative', // 設為相對定位，作為絕對定位的參考點
-            flexGrow: 1,
-            overflow: 'hidden', // 改為 hidden 防止內容超出
-          }}
-        >
-          
-          {/* 消息區域 */}
+          {/* 主要內容區域 */}
           <Box
-            ref={messagesContainerRef}
-            sx={
-              /*{
+            sx={{
+              position: 'relative',
+              zIndex: 2,
+              display: 'flex',
+              flexDirection: 'column',
+              height: '100%',
+            }}
+          >
+            <Box
+              sx={{
+                position: 'relative', // 設為相對定位，作為絕對定位的參考點
+                flexGrow: 1,
+                overflow: 'hidden', // 改為 hidden 防止內容超出
+              }}
+            >
+              {/* 消息區域 */}
+              <Box
+                ref={messagesContainerRef}
+                sx={
+                  /*{
             flexGrow: 1,
             overflowY: 'auto',
             p: 2,
@@ -1105,179 +1139,181 @@ const EmbeddableChatInterface = ({
               borderRadius: '2px',
             },
           }*/ {
-                position: 'absolute',
-                top: '50%',
-                left: 0,
-                right: 0,
-                height: '50%', // 固定高度為容器的一半
-                overflowY: 'auto',
-                p: 2,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 2,
-                '&::-webkit-scrollbar': {
-                  width: '4px',
-                },
-                '&::-webkit-scrollbar-track': {
-                  backgroundColor: 'rgba(0,0,0,0.1)',
-                },
-                '&::-webkit-scrollbar-thumb': {
-                  backgroundColor: 'rgba(255,255,255,0.3)',
-                  borderRadius: '2px',
-                },
-              }
-            }
-          >
-            {messages.map(message => (
-              <Box
-                key={message.id}
-                sx={{
-                  display: 'flex',
-                  justifyContent: message.isBot ? 'flex-start' : 'flex-end',
-                }}
-              >
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: 1.5,
-                    maxWidth: '85%',
-                    bgcolor: message.isBot
-                      ? 'rgba(255, 255, 255, 0.95)'
-                      : 'rgba(25, 118, 210, 0.95)',
-                    borderRadius: 2,
-                    backdropFilter: 'blur(5px)',
+                    position: 'absolute',
+                    top: '50%',
+                    left: 0,
+                    right: 0,
+                    height: '50%', // 固定高度為容器的一半
+                    overflowY: 'auto',
+                    p: 2,
                     display: 'flex',
-                    alignItems: 'flex-end',
-                    gap: 1,
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  <Typography
+                    flexDirection: 'column',
+                    gap: 2,
+                    '&::-webkit-scrollbar': {
+                      width: '4px',
+                    },
+                    '&::-webkit-scrollbar-track': {
+                      backgroundColor: 'rgba(0,0,0,0.1)',
+                    },
+                    '&::-webkit-scrollbar-thumb': {
+                      backgroundColor: 'rgba(255,255,255,0.3)',
+                      borderRadius: '2px',
+                    },
+                  }
+                }
+              >
+                {messages.map(message => (
+                  <Box
+                    key={message.id}
                     sx={{
-                      color: message.isBot ? 'black' : 'white',
-                      wordBreak: 'break-word',
-                      lineHeight: 1.4,
-                      flex: 1,
-                      fontSize: isAITextNormalRef.current ? '1.2rem' : '2.2px',
+                      display: 'flex',
+                      justifyContent: message.isBot ? 'flex-start' : 'flex-end',
                     }}
                   >
-                    {message.text}
-                  </Typography>
-
-                  {/* 🔊 AI 語音播放按鈕 */}
-                  {message.isBot && (
-                    <IconButton
-                      size="small"
-                      onClick={() => speakText(message.text)}
+                    <Paper
+                      elevation={0}
                       sx={{
-                        p: 0.5,
-                        color: message.isBot ? 'primary.main' : 'white',
-                        alignSelf: 'flex-end',
-                        '&:hover': {
-                          color: message.isBot ? 'primary.dark' : 'white',
-                        },
+                        p: 1.5,
+                        maxWidth: '85%',
+                        bgcolor: message.isBot
+                          ? 'rgba(255, 255, 255, 0.95)'
+                          : 'rgba(25, 118, 210, 0.95)',
+                        borderRadius: 2,
+                        backdropFilter: 'blur(5px)',
+                        display: 'flex',
+                        alignItems: 'flex-end',
+                        gap: 1,
+                        flexWrap: 'wrap',
                       }}
                     >
-                      <VolumeUpIcon fontSize="small" />
-                    </IconButton>
-                  )}
-                </Paper>
-              </Box>
-            ))}
+                      <Typography
+                        sx={{
+                          color: message.isBot ? 'black' : 'white',
+                          wordBreak: 'break-word',
+                          lineHeight: 1.4,
+                          flex: 1,
+                          fontSize: isAITextNormalRef.current
+                            ? '1.2rem'
+                            : '2.2rem',
+                        }}
+                      >
+                        {message.text}
+                      </Typography>
 
-            {isThinking && (
-              <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
-                <Paper
-                  elevation={0}
+                      {/* 🔊 AI 語音播放按鈕 */}
+                      {message.isBot && (
+                        <IconButton
+                          size="small"
+                          onClick={() => speakText(message.text)}
+                          sx={{
+                            p: 0.5,
+                            color: message.isBot ? 'primary.main' : 'white',
+                            alignSelf: 'flex-end',
+                            '&:hover': {
+                              color: message.isBot ? 'primary.dark' : 'white',
+                            },
+                          }}
+                        >
+                          <VolumeUpIcon fontSize="small" />
+                        </IconButton>
+                      )}
+                    </Paper>
+                  </Box>
+                ))}
+
+                {isThinking && (
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
+                    <Paper
+                      elevation={0}
+                      sx={{
+                        p: 1.5,
+                        bgcolor: 'rgba(255, 255, 255, 0.95)',
+                        borderRadius: 2,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                      }}
+                    >
+                      <CircularProgress size={20} />
+                      <Typography>思考中...</Typography>
+                    </Paper>
+                  </Box>
+                )}
+                <div
+                  ref={messagesEndRef}
+                  style={{ float: 'left', clear: 'both' }}
+                />
+              </Box>
+            </Box>
+            {/* 輸入區域 */}
+            <Box sx={{ p: 2 }}>
+              <Paper
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  p: 1,
+                  bgcolor: 'rgba(255, 255, 255, 0.95)',
+                  borderRadius: 3,
+                  backdropFilter: 'blur(5px)',
+                }}
+              >
+                <TextField
+                  fullWidth
+                  variant="standard"
+                  placeholder="Type here..."
+                  value={inputMessage}
+                  onChange={e => setInputMessage(e.target.value)}
+                  onKeyPress={e => e.key === 'Enter' && handleSendMessage()}
+                  InputProps={{
+                    disableUnderline: true,
+                    sx: {
+                      px: 2,
+                      '& input': {
+                        color: 'rgba(0, 0, 0, 0.87)',
+                      },
+                    },
+                  }}
+                />
+                <IconButton
+                  onClick={handleVoiceInput}
                   sx={{
-                    p: 1.5,
-                    bgcolor: 'rgba(255, 255, 255, 0.95)',
-                    borderRadius: 2,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
+                    m: 0.5,
+                    bgcolor: isListening ? 'error.main' : 'secondary.main',
+                    color: 'white',
+                    '&:hover': {
+                      bgcolor: isListening ? 'error.dark' : 'secondary.dark',
+                    },
                   }}
                 >
-                  <CircularProgress size={20} />
-                  <Typography>思考中...</Typography>
-                </Paper>
-              </Box>
-            )}
-            <div
-              ref={messagesEndRef}
-              style={{ float: 'left', clear: 'both' }}
-            />
+                  <MicIcon />
+                </IconButton>
+                <IconButton
+                  onClick={handleSendMessage}
+                  sx={{
+                    m: 0.5,
+                    bgcolor: 'primary.main',
+                    color: 'white',
+                    transform: 'rotate(-45deg)',
+                    '&:hover': {
+                      bgcolor: 'primary.dark',
+                    },
+                    '&:disabled': {
+                      bgcolor: 'action.disabledBackground',
+                    },
+                  }}
+                  disabled={!isConnected || !inputMessage.trim()}
+                >
+                  <SendIcon
+                    fontSize="small"
+                    sx={{
+                      fontSize: '1.2rem',
+                    }}
+                  />
+                </IconButton>
+              </Paper>
+            </Box>
           </Box>
-        </Box>
-        {/* 輸入區域 */}
-        <Box sx={{ p: 2 }}>
-          <Paper
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              p: 1,
-              bgcolor: 'rgba(255, 255, 255, 0.95)',
-              borderRadius: 3,
-              backdropFilter: 'blur(5px)',
-            }}
-          >
-            <TextField
-              fullWidth
-              variant="standard"
-              placeholder="Type here..."
-              value={inputMessage}
-              onChange={e => setInputMessage(e.target.value)}
-              onKeyPress={e => e.key === 'Enter' && handleSendMessage()}
-              InputProps={{
-                disableUnderline: true,
-                sx: {
-                  px: 2,
-                  '& input': {
-                    color: 'rgba(0, 0, 0, 0.87)',
-                  },
-                },
-              }}
-            />
-            <IconButton
-              onClick={handleVoiceInput}
-              sx={{
-                m: 0.5,
-                bgcolor: isListening ? 'error.main' : 'secondary.main',
-                color: 'white',
-                '&:hover': {
-                  bgcolor: isListening ? 'error.dark' : 'secondary.dark',
-                },
-              }}
-            >
-              <MicIcon />
-            </IconButton>
-            <IconButton
-              onClick={handleSendMessage}
-              sx={{
-                m: 0.5,
-                bgcolor: 'primary.main',
-                color: 'white',
-                transform: 'rotate(-45deg)',
-                '&:hover': {
-                  bgcolor: 'primary.dark',
-                },
-                '&:disabled': {
-                  bgcolor: 'action.disabledBackground',
-                },
-              }}
-              disabled={!isConnected || !inputMessage.trim()}
-            >
-              <SendIcon
-                fontSize="small"
-                sx={{
-                  fontSize: '1.2rem',
-                }}
-              />
-            </IconButton>
-          </Paper>
-        </Box>
-      </Box>
-      </>
+        </>
       )}
     </Box>
   );
