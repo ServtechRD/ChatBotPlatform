@@ -243,6 +243,7 @@ const EmbeddableChatInterface = ({
             '*'
           );
         } catch (e) { /* ignore */ }
+        return;
       }
 
       // 自動送出
@@ -931,6 +932,15 @@ const EmbeddableChatInterface = ({
   };
 
   const handleSendMessage = () => {
+    const VIDEO_SWITCH_KEYWORDS = ['切換影片', '播放影片', '看影片', '影片切換'];
+    const isVideoSwitch = VIDEO_SWITCH_KEYWORDS.some(kw => inputMessage.includes(kw));
+    if (isVideoSwitch && typeof window !== 'undefined' && window.parent !== window) {
+      try {
+        window.parent.postMessage({ source: 'chatbot-embed', type: 'VIDEO_SWITCH' }, '*');
+      } catch (e) { /* ignore */ }
+      setInputMessage('');
+      return;
+    }
     sendMessage(inputMessage);
     setInputMessage('');
   };
