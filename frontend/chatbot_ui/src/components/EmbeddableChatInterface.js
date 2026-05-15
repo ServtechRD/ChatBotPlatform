@@ -236,13 +236,15 @@ const EmbeddableChatInterface = ({
       // 關鍵字偵測：切換影片
       const VIDEO_SWITCH_KEYWORDS = ['切換影片', '播放影片', '看影片', '影片切換'];
       const isVideoSwitch = VIDEO_SWITCH_KEYWORDS.some(kw => transcript.includes(kw));
-      if (isVideoSwitch && typeof window !== 'undefined' && window.parent !== window) {
-        try {
-          window.parent.postMessage(
-            { source: 'chatbot-embed', type: 'VIDEO_SWITCH' },
-            '*'
-          );
-        } catch (e) { /* ignore */ }
+      if (isVideoSwitch) {
+        if (typeof window !== 'undefined' && window.parent !== window) {
+          try {
+            window.parent.postMessage(
+              { source: 'chatbot-embed', type: 'VIDEO_SWITCH' },
+              '*'
+            );
+          } catch (e) { /* ignore */ }
+        }
         return;
       }
 
@@ -934,10 +936,12 @@ const EmbeddableChatInterface = ({
   const handleSendMessage = () => {
     const VIDEO_SWITCH_KEYWORDS = ['切換影片', '播放影片', '看影片', '影片切換'];
     const isVideoSwitch = VIDEO_SWITCH_KEYWORDS.some(kw => inputMessage.includes(kw));
-    if (isVideoSwitch && typeof window !== 'undefined' && window.parent !== window) {
-      try {
-        window.parent.postMessage({ source: 'chatbot-embed', type: 'VIDEO_SWITCH' }, '*');
-      } catch (e) { /* ignore */ }
+    if (isVideoSwitch) {
+      if (typeof window !== 'undefined' && window.parent !== window) {
+        try {
+          window.parent.postMessage({ source: 'chatbot-embed', type: 'VIDEO_SWITCH' }, '*');
+        } catch (e) { /* ignore */ }
+      }
       setInputMessage('');
       return;
     }
