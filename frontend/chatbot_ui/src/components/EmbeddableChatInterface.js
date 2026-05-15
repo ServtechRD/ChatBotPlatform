@@ -232,6 +232,19 @@ const EmbeddableChatInterface = ({
         console.log('語音辨識專有名詞修正:', { raw, transcript });
       }
       console.log('辨識結果:', transcript);
+
+      // 關鍵字偵測：切換影片
+      const VIDEO_SWITCH_KEYWORDS = ['切換影片', '播放影片', '看影片', '影片切換'];
+      const isVideoSwitch = VIDEO_SWITCH_KEYWORDS.some(kw => transcript.includes(kw));
+      if (isVideoSwitch && typeof window !== 'undefined' && window.parent !== window) {
+        try {
+          window.parent.postMessage(
+            { source: 'chatbot-embed', type: 'VIDEO_SWITCH' },
+            '*'
+          );
+        } catch (e) { /* ignore */ }
+      }
+
       // 自動送出
       sendMessage(transcript);
     };
