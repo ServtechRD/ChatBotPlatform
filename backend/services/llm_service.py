@@ -173,7 +173,7 @@ def _normalize_lang_label(lang: str) -> str:
 
 
 def _build_user_prompt(assistant_description: str, lang: str, user_query: str, retrieval_context: Optional[str]) -> str:
-    """以 DB 儲存的助理描述為系統指令本體；其後依助理設定的語系加上回覆指示，再加上使用者問題；若有檢索結果一併附上。"""
+    """以 DB 儲存的助理描述為系統指令本體；語系指示後為檢索結果（若有），最後為使用者問題。"""
     blocks: List[str] = []
     desc = (assistant_description or "").strip()
     lang_label = _normalize_lang_label(lang)
@@ -181,9 +181,9 @@ def _build_user_prompt(assistant_description: str, lang: str, user_query: str, r
         blocks.append(desc)
     if lang_label:
         blocks.append(f"請使用{lang_label}回答\n")
-    blocks.append(f"### 使用者問題\n{user_query}")
     if retrieval_context:
-        blocks.append(f"### 檢索結果\n{retrieval_context}")
+        blocks.append(f"### 檢索結果 ###\n{retrieval_context}")
+    blocks.append(f"### 使用者問題 ###\n{user_query}")
     return "\n\n".join(blocks)
 
 
