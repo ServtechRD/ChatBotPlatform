@@ -27,15 +27,17 @@ const WS_BASE_URL = getWsBaseUrl();
 const EDGE_VOICE = process.env.REACT_APP_EDGE_VOICE || 'zh-TW-HsiaoChenNeural';
 const EDGE_RATE = process.env.REACT_APP_EDGE_RATE || '-3%';
 const ENGLISH_ACRONYM_MAP = {
-  JarvisAI: 'Jarvis AI',
-  JARVISAI: 'Jarvis AI',
-  Jarvisai: 'Jarvis AI',
-  MusesAI: 'Muses AI',
-  Musesai: 'Muses AI',
-  MUSESAI: 'Muses AI',
-  JARVI: 'Jarvi',
-  JARVIS: 'Jarvis',
-  MUSES: 'Muses',
+  'JarvisAI': 'Jarvis AI',
+  "JARVISAI": "Jarvis AI",
+  "Jarvisai": "Jarvis AI",
+  "MusesAI": "Muses AI",
+  "Musesai": "Muses AI",
+  "MUSESAI": "Muses AI",
+  "MUSES": "Muses",
+  "JARVI": "Jarvi",
+  "JARVIS": "Jarvis",
+  "AutoML": 'Auto ML',
+  "AUTOML": 'Auto ML',
 };
 const MIC_IDLE_TIMEOUT_MS = 3 * 60 * 1000;
 

@@ -245,7 +245,7 @@ def _invoke_chat_text(
     raw = _extract_llm_text(result)
     converted = to_traditional_tw(raw)
     if converted != raw:
-        logger.debug(
+        logger.info(
             "[簡轉繁] assistant_uuid=%s branch=%s 已轉換 (raw_len=%d out_len=%d)",
             assistant_uuid,
             log_branch,

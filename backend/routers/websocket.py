@@ -132,7 +132,7 @@ async def websocket_endpoint(
 
             response = await process_message_through_llm(
                 data,
-                assistant_uuid,
+                assistant.assistant_id,
                 customer_id,
                 lang,
                 model,

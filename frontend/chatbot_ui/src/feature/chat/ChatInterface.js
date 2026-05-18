@@ -39,6 +39,8 @@ const ENGLISH_ACRONYM_MAP = {
   "MUSES": "Muses",
   "JARVI": "Jarvi",
   "JARVIS": "Jarvis",
+  "AutoML": 'Auto ML',
+  "AUTOML": 'Auto ML',
 };
 
 export default function ChatInterface({
