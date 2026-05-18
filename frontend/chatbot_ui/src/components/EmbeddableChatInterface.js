@@ -208,17 +208,12 @@ const EmbeddableChatInterface = ({
     typeof window !== 'undefined' && window.parent !== window;
   const rootWidth = isEmbeddedInParent ? '100%' : CHAT_WIDTH;
   const rootHeight = isEmbeddedInParent ? '100%' : CHAT_HEIGHT;
+  const messageFontSize = isEmbeddedInParent ? '2.2rem' : '1.2rem';
 
   // 語音播放設定
   const [isSpeaking, setIsSpeaking] = useState(false);
   const speechSynthesisRef = useRef(window.speechSynthesis);
   const voiceRef = useRef(null);
-
-  /**
-   * TODO: 字體大小
-   * 因應中興大學所以預設改成大字體，之後需修正回來
-   */
-  const isAITextNormalRef = useRef(false);
 
   const socketRef = useRef(null);
   const customerIdRef = useRef(uuidv4());
@@ -698,9 +693,6 @@ const EmbeddableChatInterface = ({
     if (!isEmbeddedInParent) return undefined;
     const onMessage = event => {
       const d = event.data;
-      if (d?.isAITextNormal) {
-        isAITextNormalRef.current = true;
-      }
       if (d?.source !== 'chatbot-parent' || d.type !== 'START_MIC') return;
       setActiveView('chat');
       lastMicActivatedAtRef.current = Date.now();
@@ -1192,9 +1184,7 @@ const EmbeddableChatInterface = ({
                           wordBreak: 'break-word',
                           lineHeight: 1.4,
                           flex: 1,
-                          fontSize: isAITextNormalRef.current
-                            ? '1.2rem'
-                            : '2.2rem',
+                          fontSize: messageFontSize,
                         }}
                       >
                         {message.text}
