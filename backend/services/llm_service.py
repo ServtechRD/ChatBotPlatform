@@ -9,6 +9,7 @@ import math
 import re
 
 from utils.logger import get_logger
+from utils.chinese_convert import to_traditional_tw
 from typing import List, Optional, Dict, Any
 
 import asyncio
@@ -186,6 +187,25 @@ def _build_user_prompt(assistant_description: str, lang: str, user_query: str, r
     return "\n\n".join(blocks)
 
 
+def _extract_llm_text(result) -> str:
+    if hasattr(result, "content"):
+        c = result.content
+        if isinstance(c, str):
+            return c
+        if isinstance(c, list):
+            parts = []
+            for block in c:
+                if isinstance(block, str):
+                    parts.append(block)
+                elif isinstance(block, dict) and "text" in block:
+                    parts.append(str(block["text"]))
+                else:
+                    parts.append(str(block))
+            return "".join(parts)
+        return str(c)
+    return str(result)
+
+
 def _invoke_chat_text(
     llm: ChatOpenAI,
     text: str,
@@ -222,22 +242,17 @@ def _invoke_chat_text(
     system_msg = SystemMessage(content=STRICT_TRADITIONAL_CHINESE_SYSTEM_PROMPT)
     user_msg = HumanMessage(content=text)
     result = llm.invoke([system_msg, user_msg])
-    if hasattr(result, "content"):
-        c = result.content
-        if isinstance(c, str):
-            return c
-        if isinstance(c, list):
-            parts = []
-            for block in c:
-                if isinstance(block, str):
-                    parts.append(block)
-                elif isinstance(block, dict) and "text" in block:
-                    parts.append(str(block["text"]))
-                else:
-                    parts.append(str(block))
-            return "".join(parts)
-        return str(c)
-    return str(result)
+    raw = _extract_llm_text(result)
+    converted = to_traditional_tw(raw)
+    if converted != raw:
+        logger.debug(
+            "[簡轉繁] assistant_uuid=%s branch=%s 已轉換 (raw_len=%d out_len=%d)",
+            assistant_uuid,
+            log_branch,
+            len(raw),
+            len(converted),
+        )
+    return converted
 
 
 def _synch_process_llm(data, assistant_uuid, customer_unique_id, lang, model, assistant_description, welcome, noidea):
