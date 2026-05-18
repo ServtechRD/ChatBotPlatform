@@ -72,7 +72,7 @@ def _hybrid_retrieve(vector_store, query: str) -> List[Any]:
     """
     向量 + BM25 混合檢索，回傳依混合分數排序的文件列表。
     """
-    top_k = max(1, int(os.getenv("RAG_TOP_K", "5")))
+    top_k = max(1, int(os.getenv("RAG_TOP_K", "3")))
     vector_fetch_k = max(top_k, int(os.getenv("RAG_VECTOR_FETCH_K", "20")))
     bm25_corpus_limit = max(vector_fetch_k, int(os.getenv("RAG_BM25_CORPUS_LIMIT", "1500")))
     bm25_fetch_k = max(top_k, int(os.getenv("RAG_BM25_FETCH_K", "20")))
@@ -327,7 +327,7 @@ def _synch_process_llm(data, assistant_uuid, customer_unique_id, lang, model, as
         )
         return response
 
-    retrieval_text = "\n\n---\n\n".join(
+    retrieval_text = "\n\n----------------------------------\n\n".join(
         (d.page_content or "").strip() for d in relevant_docs if (d.page_content or "").strip()
     )
     logger.info("[LLM] 有相關文件，使用助理 description + 使用者問題 + 檢索結果呼叫 LLM")
