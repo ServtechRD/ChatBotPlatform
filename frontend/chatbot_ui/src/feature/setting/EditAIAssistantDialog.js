@@ -32,6 +32,7 @@ import { formatImageUrl } from '../../utils/urlUtils';
 
 import ApiService from '../../api/ApiService';
 import { DEFAULT_ASSISTANT_DESCRIPTION_TEMPLATE } from './defaultAssistantDescriptionTemplate';
+import { ASSISTANT_DESCRIPTION_WRITING_GUIDE } from './assistantDescriptionWritingGuide';
 
 const UPLOAD_IMAGE_WIDTH = 398;
 const UPLOAD_IMAGE_HEIGHT = 598;
@@ -46,6 +47,7 @@ function formatMb(bytes) {
 
 const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
   const [description, setDescription] = useState('');
+  const [writingGuideOpen, setWritingGuideOpen] = useState(false);
   const [language, setLanguage] = useState('Traditional Chinese');
   const [allowLiveChat, setAllowLiveChat] = useState(false);
   const [aiAssistantUrl, setAiAssistantUrl] = useState('');
@@ -525,15 +527,56 @@ const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
               />
             </Box>
 
-            <Box sx={{ display: 'flex', justifyContent: 'flex-start', my: 1 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-start', gap: 1, my: 1 }}>
               <Button variant="outlined" size="small" onClick={handleReloadTemplate}>
                 重新載入範本
               </Button>
+              <Button
+                variant="text"
+                size="small"
+                onClick={() => setWritingGuideOpen(true)}
+              >
+                撰寫指引
+              </Button>
             </Box>
+
+            <Dialog
+              open={writingGuideOpen}
+              onClose={() => setWritingGuideOpen(false)}
+              maxWidth="sm"
+              fullWidth
+            >
+              <DialogTitle>助理描述撰寫指引</DialogTitle>
+              <DialogContent dividers>
+                {ASSISTANT_DESCRIPTION_WRITING_GUIDE.map((section) => (
+                  <Box key={section.title} sx={{ mb: 2 }}>
+                    <Typography variant="subtitle2" gutterBottom>
+                      {section.title}
+                    </Typography>
+                    <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
+                      {section.items.map((item) => (
+                        <Typography
+                          component="li"
+                          variant="body2"
+                          color="text.secondary"
+                          key={item}
+                          sx={{ mb: 0.5 }}
+                        >
+                          {item}
+                        </Typography>
+                      ))}
+                    </Box>
+                  </Box>
+                ))}
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setWritingGuideOpen(false)}>關閉</Button>
+              </DialogActions>
+            </Dialog>
 
             <TextField
               label="描述（專屬 prompt）"
-              helperText="儲存後，系統會在對話時自動附上：預設回覆語系、使用者問題，以及有知識庫時的檢索結果。請在此處撰寫角色、語氣、禁忌與業務規則等專屬指示。"
+              helperText="此內容為對話時的助理專屬指示；詳細撰寫說明請見「撰寫指引」。"
               multiline
               minRows={10}
               fullWidth
