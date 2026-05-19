@@ -241,10 +241,11 @@ const EmbeddableChatInterface = ({
     recognition.onresult = event => {
       const raw = event.results[0][0].transcript;
       const transcript = applyVoiceTranscriptCorrections(raw);
-      if (transcript !== raw) {
-        console.log('語音辨識專有名詞修正:', { raw, transcript });
-      }
-      console.log('辨識結果:', transcript);
+      console.log('[VoiceInput]', {
+        raw,
+        corrected: transcript,
+        changed: transcript !== raw,
+      });
 
       // 關鍵字偵測：切換影片
       const VIDEO_SWITCH_KEYWORDS = [
