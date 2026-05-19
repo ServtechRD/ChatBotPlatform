@@ -15,7 +15,7 @@ sleep 6
 
 cd /home/chatbot_platform/frontend/chatbot_ui/ || exit 1
 npm install serve
-if [ ! -f dist/index.html ]; then
+if [ ! -f build/index.html ]; then
   npm run build
 fi
 npm run serve:prod &
