@@ -24,8 +24,8 @@ import { applyVoiceTranscriptCorrections } from '../utils/voiceTranscriptCorrect
 const CHAT_WIDTH = 398;
 const CHAT_HEIGHT = 598;
 const WS_BASE_URL = getWsBaseUrl();
-const EDGE_VOICE = process.env.REACT_APP_EDGE_VOICE || 'zh-TW-HsiaoChenNeural';
-const EDGE_RATE = process.env.REACT_APP_EDGE_RATE || '-3%';
+const EDGE_VOICE = import.meta.env.VITE_EDGE_VOICE || 'zh-TW-HsiaoChenNeural';
+const EDGE_RATE = import.meta.env.VITE_EDGE_RATE || '-3%';
 const ENGLISH_ACRONYM_MAP = {
   'JarvisAI': 'Jarvis AI',
   "JARVISAI": "Jarvis AI",

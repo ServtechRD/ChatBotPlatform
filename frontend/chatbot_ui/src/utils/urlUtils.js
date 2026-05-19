@@ -5,7 +5,7 @@ const trimTrailingSlash = value => value.replace(/\/+$/, '');
 const trimLeadingSlash = value => value.replace(/^\/+/, '');
 
 export const getApiBaseUrl = () => {
-  const envApiBaseUrl = process.env.REACT_APP_API_BASE_URL;
+  const envApiBaseUrl = import.meta.env.VITE_API_BASE_URL;
   if (envApiBaseUrl) {
     return trimTrailingSlash(envApiBaseUrl);
   }
@@ -30,7 +30,7 @@ export const buildApiUrl = path => {
 
 export const getWsBaseUrl = () => {
   const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const envWsBaseUrl = process.env.REACT_APP_API_BASE_WS_URL;
+  const envWsBaseUrl = import.meta.env.VITE_API_BASE_WS_URL;
 
   if (envWsBaseUrl) {
     const normalizedWsUrl =
