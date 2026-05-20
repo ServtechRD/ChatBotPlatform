@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from routers import assistant, conversation, websocket, auth, embed, mfa, tts
+from routers import assistant, conversation, websocket, auth, embed, mfa, tts, stt
 from models.database import Base, engine
 from services.assistant_prompt_storage import ensure_description_use_file_column
 from middleware.request_audit import RequestAuditMiddleware
@@ -37,6 +37,13 @@ def startup_event():
         prewarm_bge_embeddings()
     except Exception as e:
         logger.warning("Prewarm BGE embeddings failed (continuing): %s", e)
+
+    try:
+        from services.stt_service import get_stt_model
+
+        get_stt_model()
+    except Exception as e:
+        logger.warning("Prewarm STT model failed (continuing): %s", e)
 
 app.add_middleware(
     CORSMiddleware,
@@ -67,3 +74,4 @@ app.include_router(auth.router, prefix="/auth")
 app.include_router(mfa.router, prefix="/auth/mfa")
 app.include_router(embed.router)
 app.include_router(tts.router)
+app.include_router(stt.router)
