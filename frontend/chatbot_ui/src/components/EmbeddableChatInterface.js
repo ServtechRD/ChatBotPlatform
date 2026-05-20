@@ -336,8 +336,12 @@ const EmbeddableChatInterface = ({
             '麥克風權限被拒絕。請在瀏覽器設定中允許使用麥克風，或確保網站使用 HTTPS。';
           break;
         case 'audio-capture':
-          errorMessage = '找不到麥克風設備，請檢查麥克風是否已連接。';
-          break;
+          // USB 麥克風可能瞬間斷線，自動重啟而非顯示錯誤
+          console.warn('麥克風設備異常，嘗試自動重新啟動...');
+          setTimeout(() => {
+            try { recognitionRef.current?.start(); } catch (e) { /* ignore */ }
+          }, 500);
+          return;
         case 'network':
           errorMessage = '網路錯誤，請檢查網路連線。';
           break;
@@ -352,6 +356,27 @@ const EmbeddableChatInterface = ({
     };
 
     recognitionRef.current = recognition;
+
+    // USB 麥克風斷線保護：監聽設備變化，若正在聆聽則自動重啟
+    const handleDeviceChange = () => {
+      console.log('device changed!');
+      if (isListeningRef.current) {
+        console.log('Mic track ended, restarting recognition...');
+        try { recognitionRef.current?.stop(); } catch (e) { /* ignore */ }
+        setTimeout(() => {
+          if (!isListeningRef.current) {
+            try { recognitionRef.current?.start(); } catch (e) {
+              console.error('重啟語音辨識失敗:', e);
+            }
+          }
+        }, 500);
+      }
+    };
+    navigator.mediaDevices?.addEventListener('devicechange', handleDeviceChange);
+
+    return () => {
+      navigator.mediaDevices?.removeEventListener('devicechange', handleDeviceChange);
+    };
   }, []);
 
   // 語音播放初始化
