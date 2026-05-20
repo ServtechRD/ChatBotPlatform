@@ -11,7 +11,7 @@ _model = None
 STT_MODEL_SIZE = os.getenv("STT_MODEL_SIZE", "medium")
 STT_INITIAL_PROMPT = os.getenv(
     "STT_INITIAL_PROMPT",
-    "科智企業, MusesAI, JarvisAI, AI SOP, 場域, AMR"
+    "科智企業, 中興大學, MusesAI, JarvisAI, AI SOP, 場域, AMR"
 )
 
 

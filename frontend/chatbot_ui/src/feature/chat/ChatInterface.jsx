@@ -235,6 +235,43 @@ export default function ChatInterface({
       const recorder = new MediaRecorder(stream);
       mediaRecorderRef.current = recorder;
 
+      // VAD：靜音超過 1.5 秒自動停止，模擬 Web Speech API 的自動結束行為
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const source = audioCtx.createMediaStreamSource(stream);
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 512;
+      source.connect(analyser);
+      const vadData = new Uint8Array(analyser.fftSize);
+      const SILENCE_THRESHOLD = 8;
+      const SILENCE_MS = 1500;
+      let silenceStart = null;
+      const vadLoop = () => {
+        if (!mediaRecorderRef.current || mediaRecorderRef.current.state !== 'recording') {
+          audioCtx.close();
+          return;
+        }
+        analyser.getByteTimeDomainData(vadData);
+        let sum = 0;
+        for (let i = 0; i < vadData.length; i++) {
+          const v = (vadData[i] - 128) / 128;
+          sum += v * v;
+        }
+        const rms = Math.sqrt(sum / vadData.length) * 100;
+        if (rms < SILENCE_THRESHOLD) {
+          if (silenceStart === null) silenceStart = Date.now();
+          else if (Date.now() - silenceStart >= SILENCE_MS) {
+            console.log('[STT] VAD 偵測到靜音，自動停止錄音');
+            mediaRecorderRef.current?.stop();
+            audioCtx.close();
+            return;
+          }
+        } else {
+          silenceStart = null;
+        }
+        requestAnimationFrame(vadLoop);
+      };
+      requestAnimationFrame(vadLoop);
+
       recorder.ondataavailable = e => {
         if (e.data.size > 0) audioChunksRef.current.push(e.data);
       };
