@@ -24,18 +24,20 @@ import { applyVoiceTranscriptCorrections } from '../utils/voiceTranscriptCorrect
 const CHAT_WIDTH = 398;
 const CHAT_HEIGHT = 598;
 const WS_BASE_URL = getWsBaseUrl();
-const EDGE_VOICE = process.env.REACT_APP_EDGE_VOICE || 'zh-TW-HsiaoChenNeural';
-const EDGE_RATE = process.env.REACT_APP_EDGE_RATE || '-3%';
+const EDGE_VOICE = import.meta.env.VITE_EDGE_VOICE || 'zh-TW-HsiaoChenNeural';
+const EDGE_RATE = import.meta.env.VITE_EDGE_RATE || '-3%';
 const ENGLISH_ACRONYM_MAP = {
-  JarvisAI: 'Jarvis AI',
-  JARVISAI: 'Jarvis AI',
-  Jarvisai: 'Jarvis AI',
-  MusesAI: 'Muses AI',
-  Musesai: 'Muses AI',
-  MUSESAI: 'Muses AI',
-  JARVI: 'Jarvi',
-  JARVIS: 'Jarvis',
-  MUSES: 'Muses',
+  'JarvisAI': 'Jarvis AI',
+  "JARVISAI": "Jarvis AI",
+  "Jarvisai": "Jarvis AI",
+  "MusesAI": "Muses AI",
+  "Musesai": "Muses AI",
+  "MUSESAI": "Muses AI",
+  "MUSES": "Muses",
+  "JARVI": "Jarvi",
+  "JARVIS": "Jarvis",
+  "AutoML": 'Auto ML',
+  "AUTOML": 'Auto ML',
 };
 const MIC_IDLE_TIMEOUT_MS = 3 * 60 * 1000;
 
@@ -208,17 +210,12 @@ const EmbeddableChatInterface = ({
     typeof window !== 'undefined' && window.parent !== window;
   const rootWidth = isEmbeddedInParent ? '100%' : CHAT_WIDTH;
   const rootHeight = isEmbeddedInParent ? '100%' : CHAT_HEIGHT;
+  const messageFontSize = isEmbeddedInParent ? '2.2rem' : '1.2rem';
 
   // 語音播放設定
   const [isSpeaking, setIsSpeaking] = useState(false);
   const speechSynthesisRef = useRef(window.speechSynthesis);
   const voiceRef = useRef(null);
-
-  /**
-   * TODO: 字體大小
-   * 因應中興大學所以預設改成大字體，之後需修正回來
-   */
-  const isAITextNormalRef = useRef(false);
 
   const socketRef = useRef(null);
   const customerIdRef = useRef(uuidv4());
@@ -723,9 +720,6 @@ const EmbeddableChatInterface = ({
     if (!isEmbeddedInParent) return undefined;
     const onMessage = event => {
       const d = event.data;
-      if (d?.isAITextNormal) {
-        isAITextNormalRef.current = true;
-      }
       if (d?.source !== 'chatbot-parent' || d.type !== 'START_MIC') return;
       setActiveView('chat');
       lastMicActivatedAtRef.current = Date.now();
@@ -1217,9 +1211,7 @@ const EmbeddableChatInterface = ({
                           wordBreak: 'break-word',
                           lineHeight: 1.4,
                           flex: 1,
-                          fontSize: isAITextNormalRef.current
-                            ? '1.2rem'
-                            : '2.2rem',
+                          fontSize: messageFontSize,
                         }}
                       >
                         {message.text}

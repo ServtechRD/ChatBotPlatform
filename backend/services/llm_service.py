@@ -9,6 +9,7 @@ import math
 import re
 
 from utils.logger import get_logger
+from utils.chinese_convert import to_traditional_tw
 from typing import List, Optional, Dict, Any
 
 import asyncio
@@ -71,7 +72,7 @@ def _hybrid_retrieve(vector_store, query: str) -> List[Any]:
     """
     向量 + BM25 混合檢索，回傳依混合分數排序的文件列表。
     """
-    top_k = max(1, int(os.getenv("RAG_TOP_K", "5")))
+    top_k = max(1, int(os.getenv("RAG_TOP_K", "3")))
     vector_fetch_k = max(top_k, int(os.getenv("RAG_VECTOR_FETCH_K", "20")))
     bm25_corpus_limit = max(vector_fetch_k, int(os.getenv("RAG_BM25_CORPUS_LIMIT", "1500")))
     bm25_fetch_k = max(top_k, int(os.getenv("RAG_BM25_FETCH_K", "20")))
@@ -172,7 +173,7 @@ def _normalize_lang_label(lang: str) -> str:
 
 
 def _build_user_prompt(assistant_description: str, lang: str, user_query: str, retrieval_context: Optional[str]) -> str:
-    """以 DB 儲存的助理描述為系統指令本體；其後依助理設定的語系加上回覆指示，再加上使用者問題；若有檢索結果一併附上。"""
+    """以 DB 儲存的助理描述為系統指令本體；語系指示後為檢索結果（若有），最後為使用者問題。"""
     blocks: List[str] = []
     desc = (assistant_description or "").strip()
     lang_label = _normalize_lang_label(lang)
@@ -180,10 +181,29 @@ def _build_user_prompt(assistant_description: str, lang: str, user_query: str, r
         blocks.append(desc)
     if lang_label:
         blocks.append(f"請使用{lang_label}回答\n")
-    blocks.append(f"### 使用者問題\n{user_query}")
     if retrieval_context:
-        blocks.append(f"### 檢索結果\n{retrieval_context}")
+        blocks.append(f"### 檢索結果 ###\n{retrieval_context}")
+    blocks.append(f"### 使用者問題 ###\n{user_query}")
     return "\n\n".join(blocks)
+
+
+def _extract_llm_text(result) -> str:
+    if hasattr(result, "content"):
+        c = result.content
+        if isinstance(c, str):
+            return c
+        if isinstance(c, list):
+            parts = []
+            for block in c:
+                if isinstance(block, str):
+                    parts.append(block)
+                elif isinstance(block, dict) and "text" in block:
+                    parts.append(str(block["text"]))
+                else:
+                    parts.append(str(block))
+            return "".join(parts)
+        return str(c)
+    return str(result)
 
 
 def _invoke_chat_text(
@@ -222,22 +242,17 @@ def _invoke_chat_text(
     system_msg = SystemMessage(content=STRICT_TRADITIONAL_CHINESE_SYSTEM_PROMPT)
     user_msg = HumanMessage(content=text)
     result = llm.invoke([system_msg, user_msg])
-    if hasattr(result, "content"):
-        c = result.content
-        if isinstance(c, str):
-            return c
-        if isinstance(c, list):
-            parts = []
-            for block in c:
-                if isinstance(block, str):
-                    parts.append(block)
-                elif isinstance(block, dict) and "text" in block:
-                    parts.append(str(block["text"]))
-                else:
-                    parts.append(str(block))
-            return "".join(parts)
-        return str(c)
-    return str(result)
+    raw = _extract_llm_text(result)
+    converted = to_traditional_tw(raw)
+    if converted != raw:
+        logger.info(
+            "[簡轉繁] assistant_uuid=%s branch=%s 已轉換 (raw_len=%d out_len=%d)",
+            assistant_uuid,
+            log_branch,
+            len(raw),
+            len(converted),
+        )
+    return converted
 
 
 def _synch_process_llm(data, assistant_uuid, customer_unique_id, lang, model, assistant_description, welcome, noidea):
@@ -312,7 +327,7 @@ def _synch_process_llm(data, assistant_uuid, customer_unique_id, lang, model, as
         )
         return response
 
-    retrieval_text = "\n\n---\n\n".join(
+    retrieval_text = "\n\n----------------------------------\n\n".join(
         (d.page_content or "").strip() for d in relevant_docs if (d.page_content or "").strip()
     )
     logger.info("[LLM] 有相關文件，使用助理 description + 使用者問題 + 檢索結果呼叫 LLM")

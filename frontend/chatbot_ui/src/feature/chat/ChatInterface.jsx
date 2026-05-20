@@ -27,8 +27,8 @@ const CHAT_WIDTH = 398;
 const CHAT_HEIGHT = 598;
 const MESSAGE_TOP_LIMIT = CHAT_HEIGHT / 2;
 const WS_BASE_URL = getWsBaseUrl();
-const EDGE_VOICE = process.env.REACT_APP_EDGE_VOICE || 'zh-TW-HsiaoChenNeural';
-const EDGE_RATE = process.env.REACT_APP_EDGE_RATE || '-3%';
+const EDGE_VOICE = import.meta.env.VITE_EDGE_VOICE || 'zh-TW-HsiaoChenNeural';
+const EDGE_RATE = import.meta.env.VITE_EDGE_RATE || '-3%';
 const ENGLISH_ACRONYM_MAP = {
   'JarvisAI': 'Jarvis AI',
   "JARVISAI": "Jarvis AI",
@@ -39,6 +39,8 @@ const ENGLISH_ACRONYM_MAP = {
   "MUSES": "Muses",
   "JARVI": "Jarvi",
   "JARVIS": "Jarvis",
+  "AutoML": 'Auto ML',
+  "AUTOML": 'Auto ML',
 };
 
 export default function ChatInterface({

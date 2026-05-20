@@ -14,7 +14,7 @@ echo "wait 6 sec"
 sleep 6
 
 cd /home/chatbot_platform/frontend/chatbot_ui/ || exit 1
-npm install cross-env serve
+npm install serve
 if [ ! -f build/index.html ]; then
   npm run build
 fi

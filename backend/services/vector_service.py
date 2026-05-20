@@ -38,8 +38,60 @@ VLLM_BASE_URL = os.getenv("VLLM_BASE_URL", "http://127.0.0.1:8000/v1")
 VLLM_MODEL = (os.getenv("VLLM_MODEL") or "Qwen/Qwen2.5-7B-Instruct-AWQ").strip()
 VLLM_SUMMARY_MODEL = os.getenv("VLLM_SUMMARY_MODEL", "").strip()
 
-# 用於取得向量儲存
+# 用於取得向量儲存（key 一律為 int 型別的 assistant_id）
 vector_store = {}
+
+
+def normalize_assistant_id(assistant_id) -> int:
+    """WebSocket 路徑參數為 str，上傳 API 為 int；統一為 int 以免快取分裂。"""
+    if isinstance(assistant_id, bool):
+        raise TypeError("assistant_id must be int or numeric str")
+    if isinstance(assistant_id, int):
+        return assistant_id
+    if isinstance(assistant_id, str):
+        s = assistant_id.strip()
+        if s.isdigit():
+            return int(s)
+    raise TypeError(f"Invalid assistant_id: {assistant_id!r}")
+
+
+def _vector_store_paths(assistant_id: int) -> tuple[str, str]:
+    aid = normalize_assistant_id(assistant_id)
+    base = f"./vector_stores/assistant_{aid}"
+    return f"{base}.index", f"{base}_metadata.pkl"
+
+
+def disk_vector_store_exists(assistant_id) -> bool:
+    index_path, metadata_path = _vector_store_paths(assistant_id)
+    return os.path.exists(index_path) and os.path.exists(metadata_path)
+
+
+def invalidate_vector_store_cache(assistant_id) -> None:
+    """清除記憶體快取（含歷史 str key），避免上傳後對話仍讀到舊向量。"""
+    aid = normalize_assistant_id(assistant_id)
+    vector_store.pop(aid, None)
+    vector_store.pop(str(aid), None)
+
+
+def set_vector_store_cache(assistant_id, store) -> None:
+    """寫入快取前清除同助理的 int/str 雙 key 殘留。"""
+    aid = normalize_assistant_id(assistant_id)
+    invalidate_vector_store_cache(aid)
+    if store is not None:
+        vector_store[aid] = store
+
+
+def clear_vector_store_files(assistant_id) -> None:
+    """刪除磁碟上的 FAISS 索引（例如助理刪除後 ID 重用、或 DB 與磁碟不一致）。"""
+    index_path, metadata_path = _vector_store_paths(assistant_id)
+    invalidate_vector_store_cache(assistant_id)
+    for path in (index_path, metadata_path):
+        if os.path.isfile(path):
+            try:
+                os.remove(path)
+                logger.info("[向量庫] 已刪除殘留檔案 path=%s", path)
+            except OSError as e:
+                logger.warning("[向量庫] 刪除檔案失敗 path=%s error=%s", path, e)
 
 # 預熱 SentenceTransformer / BGE Embeddings（避免第一次 RAG 卡住造成連帶的 TTS 504）
 BGE_EMBEDDINGS_MODEL_NAME = "BAAI/bge-base-zh-v1.5"
@@ -200,25 +252,25 @@ def calculate_token_count(documents):
 
 
 # 用於儲存向量資料庫
-def save_vector_store(assistant_id: int, vector_store):
-    save_path = f"./vector_stores/assistant_{assistant_id}.index"
+def save_vector_store(assistant_id: int, faiss_store):
+    aid = normalize_assistant_id(assistant_id)
+    save_path, metadata_path = _vector_store_paths(aid)
     if not os.path.exists("./vector_stores"):
         os.makedirs("./vector_stores")
-    faiss.write_index(vector_store.index, save_path)
+    faiss.write_index(faiss_store.index, save_path)
 
     # 儲存 docstore 與 index_to_docstore_id
-    metadata_path = f"./vector_stores/assistant_{assistant_id}_metadata.pkl"
     with open(metadata_path, "wb") as f:
         metadata = {
-            "docstore": vector_store.docstore,
-            "index_to_docstore_id": vector_store.index_to_docstore_id
+            "docstore": faiss_store.docstore,
+            "index_to_docstore_id": faiss_store.index_to_docstore_id
         }
         pickle.dump(metadata, f)
 
 
 def load_vector_store(assistant_id: int):
-    load_path = f"./vector_stores/assistant_{assistant_id}.index"
-    metadata_path = f"./vector_stores/assistant_{assistant_id}_metadata.pkl"
+    aid = normalize_assistant_id(assistant_id)
+    load_path, metadata_path = _vector_store_paths(aid)
 
     if os.path.exists(load_path) and os.path.exists(metadata_path):
         # 從磁碟載入 FAISS 索引
@@ -235,14 +287,14 @@ def load_vector_store(assistant_id: int):
             index_to_docstore_id = metadata["index_to_docstore_id"]
 
         # 使用 from_index 方法載入既有的 FAISS 索引
-        vector_store[assistant_id] = FAISS(
+        loaded = FAISS(
             index=index,
             docstore=docstore,
             index_to_docstore_id=index_to_docstore_id,
             embedding_function=embeddings,
         )
-
-        return vector_store[assistant_id]
+        vector_store[aid] = loaded
+        return loaded
     else:
         # 傳回空的 FAISS 物件
         return None
@@ -304,11 +356,12 @@ def _process_and_store_file_heavy_sync(
                 )
             doc_ids = [doc.metadata["doc_id"] for doc in documents]
             vs.add_documents(documents, ids=doc_ids)
-            vector_store[assistant_id] = vs
+            vector_store[normalize_assistant_id(assistant_id)] = vs
         else:
             doc_ids = [doc.metadata["doc_id"] for doc in documents]
-            vector_store[assistant_id] = FAISS.from_documents(documents, embeddings, ids=doc_ids)
-            vs = vector_store[assistant_id]
+            aid = normalize_assistant_id(assistant_id)
+            vector_store[aid] = FAISS.from_documents(documents, embeddings, ids=doc_ids)
+            vs = vector_store[aid]
 
         save_vector_store(assistant_id, vs)
         token_count = calculate_token_count(documents)
@@ -344,13 +397,25 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
     )
 
     try:
+        aid = normalize_assistant_id(assistant_id)
         # 輕量步驟留在主執行緒：查詢 DB 與向量庫
         t_q = time.perf_counter()
         existing_entry = db.query(KnowledgeBase).filter(
-            KnowledgeBase.assistant_id == assistant_id,
+            KnowledgeBase.assistant_id == aid,
             KnowledgeBase.file_name == filename
         ).first()
-        vs = get_vector_store(assistant_id)
+        kb_count = db.query(KnowledgeBase).filter(
+            KnowledgeBase.assistant_id == aid
+        ).count()
+        if kb_count == 0 and disk_vector_store_exists(aid):
+            logger.warning(
+                "[上傳檔案] 磁碟有殘留向量庫但 DB 無知識庫紀錄（可能為刪除後 ID 重用），將清除 assistant_id=%s",
+                aid,
+            )
+            clear_vector_store_files(aid)
+            vs = None
+        else:
+            vs = get_vector_store(aid)
         t_q_s = time.perf_counter() - t_q
         logger.info(
             "[上傳檔案] 查詢既有知識庫與向量庫 完成 existing=%s vs_exists=%s (耗時=%.3f s)",
@@ -382,7 +447,7 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
                 except Exception as e:
                     logger.warning("[上傳檔案] 刪除舊向量失敗（非致命，繼續上傳） filename=%s error=%s", filename, e)
 
-        save_directory = f"./uploaded_files/assistant_{assistant_id}"
+        save_directory = f"./uploaded_files/assistant_{aid}"
         os.makedirs(save_directory, exist_ok=True)
         file_location = os.path.join(save_directory, filename)
 
@@ -402,7 +467,7 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
         # 重邏輯丟到線程池，避免阻塞其他 API
         heavy_result = await run_in_threadpool(
             _process_and_store_file_heavy_sync,
-            assistant_id,
+            aid,
             file_location,
             filename,
             file_extension,
@@ -443,7 +508,7 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
         else:
             logger.info("[上傳檔案] 新增 DB 紀錄 filename=%s", filename)
             new_entry = KnowledgeBase(
-                assistant_id=assistant_id,
+                assistant_id=aid,
                 file_name=filename,
                 file_type=f"{file_extension.upper()}",
                 summary=summary,
@@ -458,11 +523,12 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
             db.refresh(new_entry)
             entry_to_return = new_entry
 
-        vs = vector_store.get(assistant_id)
+        set_vector_store_cache(aid, vector_store.get(aid))
+        vs = vector_store.get(aid)
         t_total_s = time.perf_counter() - t_start
         logger.info(
             "[上傳檔案 完成] assistant_id=%s filename=%s token_count=%d 總耗時=%.3f s",
-            assistant_id, filename, token_count, t_total_s
+            aid, filename, token_count, t_total_s
         )
         return {
             "vector_store": vs,
@@ -551,13 +617,16 @@ def list_knowledge(assistant_id: int, db: Session):
     ]
 
 
-def get_vector_store(assistant_id: int):
-    if assistant_id not in vector_store:
-        # 若向量儲存不在記憶體中，則從磁碟載入
-        return load_vector_store(assistant_id)
-        # raise ValueError("Vector store for this assistant is not initialized.")
-
-    return vector_store[assistant_id]
+def get_vector_store(assistant_id):
+    aid = normalize_assistant_id(assistant_id)
+    # 相容舊版以 str 為 key 的快取，遷移後刪除
+    stale = vector_store.pop(str(aid), None)
+    if stale is not None and aid not in vector_store:
+        vector_store[aid] = stale
+        logger.info("[向量庫] 已將 str key 快取遷移為 int assistant_id=%s", aid)
+    if aid not in vector_store:
+        return load_vector_store(aid)
+    return vector_store[aid]
 
 
 def get_knowledge_content(assistant_id: int, knowledge_id: int, db: Session):
@@ -604,12 +673,14 @@ def delete_knowledge_base_item(assistant_id: int, knowledge_id: int, db: Session
             )
             vs.delete(old_doc_ids)
             save_vector_store(assistant_id, vs)
+            set_vector_store_cache(assistant_id, vs)
         except Exception as e:
             logger.warning("Could not delete vectors (continuing DB/file delete): %s", e)
     elif vs and not old_doc_ids:
         logger.info("No doc_ids on record knowledge_id=%s, skipping vector delete", knowledge_id)
 
-    save_directory = f"./uploaded_files/assistant_{assistant_id}"
+    aid = normalize_assistant_id(assistant_id)
+    save_directory = f"./uploaded_files/assistant_{aid}"
     file_path = os.path.join(save_directory, file_name)
     if os.path.isfile(file_path):
         try:
@@ -695,12 +766,14 @@ async def update_knowledge_base_item(assistant_id: int, knowledge_id: int, new_c
         vs.add_documents(documents, ids=doc_ids)
     else:
         # Create new if didn't exist
-        logger.info(f"Creating new vector store for assistant {assistant_id}")
+        aid = normalize_assistant_id(assistant_id)
+        logger.info(f"Creating new vector store for assistant {aid}")
         doc_ids = [doc.metadata["doc_id"] for doc in documents]
-        vector_store[assistant_id] = FAISS.from_documents(documents, embeddings, ids=doc_ids)
-        vs = vector_store[assistant_id]
+        vector_store[aid] = FAISS.from_documents(documents, embeddings, ids=doc_ids)
+        vs = vector_store[aid]
     
     save_vector_store(assistant_id, vs)
+    set_vector_store_cache(assistant_id, vs)
 
     # 6. Update DB Record
     # Calculate new token count
