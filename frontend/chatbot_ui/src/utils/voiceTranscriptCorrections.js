@@ -16,6 +16,23 @@ export const VOICE_TRANSCRIPT_CORRECTIONS = {
   'justice AI': 'JarvisAI',
   'Justice AI': 'JarvisAI',
   'justice ai': 'JarvisAI',
+  家旅行i: 'JarvisAI',
+  家的AI: 'JarvisAI',
+  家庭AI: 'JarvisAI',
+  專利cai: 'JarvisAI',
+  專利Cai: 'JarvisAI',
+  你誰來: 'JarvisAI',
+  Drive: 'JarvisAI',
+  drive: 'JarvisAI',
+  jaba: 'JarvisAI',
+  Jaba: 'JarvisAI',
+  jsa: 'JarvisAI',
+  Jsa: 'JarvisAI',
+
+  // Jarvi
+  Garmin: 'Jarvi',
+  garmin: 'Jarvi',
+  家裡: 'Jarvi',
 
   // MusesAI
   Musesian: 'MusesAI',
