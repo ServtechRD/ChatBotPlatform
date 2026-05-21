@@ -109,7 +109,7 @@ export default function LoginPage() {
       setMfaStage('setup');
     } catch (err) {
       console.error('MFA Setup Init Error', err);
-      setError('MFA 初始化失敗');
+      setError(err.response?.data?.detail || 'MFA 初始化失敗');
       setMfaStage('login');
     } finally {
       setIsLoading(false);
@@ -132,7 +132,7 @@ export default function LoginPage() {
       navigate('/', { replace: true });
     } catch (err) {
       console.error('MFA Verify failed:', err);
-      setError('驗證碼錯誤，請重新輸入');
+      setError(err.response?.data?.detail || '驗證碼錯誤，請重新輸入');
       setIsLoading(false);
     }
   }
@@ -143,7 +143,7 @@ export default function LoginPage() {
       alert('註冊成功！請使用新帳號登入。');
       setOpenRegister(false);
     } catch (error) {
-      alert('註冊失敗，請稍後再試。');
+      alert(error.response?.data?.detail || '註冊失敗，請稍後再試。');
     }
   }
 

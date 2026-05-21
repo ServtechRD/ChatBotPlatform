@@ -48,6 +48,13 @@ def startup_event():
     except Exception as e:
         logger.warning("Prewarm BGE embeddings failed (continuing): %s", e)
 
+    try:
+        from services.stt_service import get_stt_model
+
+        get_stt_model()
+    except Exception as e:
+        logger.warning("Prewarm STT model failed (continuing): %s", e)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -77,4 +84,8 @@ app.include_router(auth.router, prefix="/auth")
 app.include_router(mfa.router, prefix="/auth/mfa")
 app.include_router(embed.router)
 app.include_router(tts.router)
+<<<<<<< HEAD
 app.include_router(speech_correction_rule.router, prefix="/speech_correction_rule")
+=======
+app.include_router(stt.router)
+>>>>>>> 0f63dafe0299a21159ad44ec2887ad8f89189865
