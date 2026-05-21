@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional
 from datetime import datetime
 
@@ -95,3 +95,61 @@ class Conversation(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+# 語音文字正規化規則
+class SpeechCorrectionRuleOut(BaseModel):
+    id: int
+    wrong_text: str
+    correct_text: str
+    enabled: bool
+    priority: int
+    created_by: Optional[int] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class SpeechCorrectionRuleGroup(BaseModel):
+    correct_text: str
+    rules: List[SpeechCorrectionRuleOut]
+
+
+class SpeechCorrectionRuleCreate(BaseModel):
+    correct_text: str
+    wrong_texts: List[str] = Field(..., min_length=1)
+    priority: int = 100
+
+    @field_validator("correct_text")
+    @classmethod
+    def strip_correct_text(cls, v: str) -> str:
+        s = (v or "").strip()
+        if not s:
+            raise ValueError("correct_text must not be empty")
+        return s
+
+    @field_validator("wrong_texts")
+    @classmethod
+    def validate_wrong_texts_non_empty_strings(cls, v: List[str]) -> List[str]:
+        if not v:
+            raise ValueError("wrong_texts must contain at least one item")
+        return v
+
+
+class SpeechCorrectionRuleUpdate(BaseModel):
+    wrong_text: Optional[str] = None
+    correct_text: Optional[str] = None
+    enabled: Optional[bool] = None
+    priority: Optional[int] = None
+
+    @field_validator("wrong_text", "correct_text")
+    @classmethod
+    def strip_optional_text(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        s = v.strip()
+        if not s:
+            raise ValueError("text fields must not be empty when provided")
+        return s

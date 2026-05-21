@@ -106,3 +106,23 @@ class KnowledgeBase(Base):
 
     # 關聯至助理
     assistant = relationship("AIAssistant", back_populates="knowledges")
+
+
+class SpeechCorrectionRule(Base):
+    __tablename__ = "speech_correction_rules"
+
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    wrong_text = Column(String(512), nullable=False, unique=True, index=True)
+    correct_text = Column(String(512), nullable=False)
+    enabled = Column(Boolean, default=True, nullable=False)
+    priority = Column(Integer, default=100, nullable=False)
+    created_by = Column(Integer, ForeignKey("users.user_id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )
+
+    creator = relationship("User", foreign_keys=[created_by])
