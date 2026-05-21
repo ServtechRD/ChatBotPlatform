@@ -1,8 +1,5 @@
-import { createContext, useState, useEffect } from 'react';
-import { auth } from '../api/auth.js';
-import { user as userApi } from '../api/user.js';
-import { storage } from '../api/storage.js';
-import { speechCorrectionRulesStore } from '../store/speechCorrectionRulesStore';
+import { createContext, useState, useEffect, useCallback } from 'react';
+import ApiService from '../api/ApiService';
 
 export const AuthContext = createContext(null);
 
@@ -14,13 +11,16 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
-      auth.get()
-        .then(userData => {
-          setIsAuthenticated(true);
+      ApiService.fetchUserData()
+        .then((userData) => {
+          setIsAuthenticated(true)
           setUser(userData);
         })
         .catch(() => {
-          storage.clearAuthData();
+          localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
+          localStorage.removeItem('userData');
+          localStorage.removeItem('assistantsData');
           setIsAuthenticated(false);
           setUser(null);
         })
@@ -30,20 +30,21 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  async function login(token) {
+  const login = token => {
     localStorage.setItem('token', token);
     setIsAuthenticated(true);
-    const userData = await auth.get();
-    setUser(userData);
-    await userApi.getAssistants();
-  }
+    // Fetch user data immediately after login to populate user state
+    ApiService.fetchUserData().then(data => setUser(data));
+  };
 
-  function logout() {
-    storage.clearAuthData();
-    speechCorrectionRulesStore.resetSpeechCorrectionRulesStore();
+  const logout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('userData');
+    localStorage.removeItem('assistantsData');
     setIsAuthenticated(false);
     setUser(null);
-  }
+  };
 
   return (
     <AuthContext.Provider value={{ isAuthenticated, user, loading, login, logout }}>

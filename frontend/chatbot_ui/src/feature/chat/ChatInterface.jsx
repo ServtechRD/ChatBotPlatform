@@ -21,8 +21,7 @@ import { v4 as uuidv4 } from 'uuid';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { buildApiUrl, formatImageUrl, getWsBaseUrl } from '../../utils/urlUtils';
-import { applyRules } from '../../utils/speechCorrectionEngine';
-import { useSpeechCorrectionRules } from '../../hook/useSpeechCorrectionRules';
+import { applyVoiceTranscriptCorrections } from '../../utils/voiceTranscriptCorrections';
 
 const CHAT_WIDTH = 398;
 const CHAT_HEIGHT = 598;
@@ -72,14 +71,6 @@ export default function ChatInterface({
   const pendingSpeakTextRef = useRef('');
   const speakDebounceTimerRef = useRef(null);
 
-  const { activeRules, ensureLoaded } = useSpeechCorrectionRules();
-  const activeRulesRef = useRef(activeRules);
-  activeRulesRef.current = activeRules;
-
-  useEffect(() => {
-    ensureLoaded();
-  }, [ensureLoaded]);
-
   // 語音輸入初始化
   useEffect(() => {
     const SpeechRecognition =
@@ -96,11 +87,12 @@ export default function ChatInterface({
 
     recognition.onresult = event => {
       const raw = event.results[0][0].transcript;
-      const transcript = applyRules(raw, activeRulesRef.current);
-      if (transcript !== raw) {
-        console.log('語音辨識專有名詞修正:', { raw, transcript });
-      }
-      console.log('辨識結果:', transcript);
+      const transcript = applyVoiceTranscriptCorrections(raw);
+      console.log('[VoiceInput]', {
+        raw,
+        corrected: transcript,
+        changed: transcript !== raw,
+      });
       // setInputMessage(transcript);
       // 自動送出
       sendMessage(transcript);
@@ -143,7 +135,7 @@ export default function ChatInterface({
 
   // 語音播放初始化
   useEffect(() => {
-    function handleVoicesChanged() {
+    const handleVoicesChanged = () => {
       const voices = speechSynthesisRef.current.getVoices();
       // 優先選擇中文語音
       const zhVoice = voices.find(
@@ -155,7 +147,7 @@ export default function ChatInterface({
       if (zhVoice) {
         voiceRef.current = zhVoice;
       }
-    }
+    };
 
     speechSynthesisRef.current.addEventListener(
       'voiceschanged',
@@ -618,7 +610,7 @@ export default function ChatInterface({
       let done = false;
       let timer = null;
 
-      function finish() {
+      const finish = () => {
         if (done) return;
         done = true;
         if (timer) clearTimeout(timer);
@@ -626,11 +618,9 @@ export default function ChatInterface({
         audio.removeEventListener('loadeddata', onReady);
         audio.removeEventListener('error', onReady);
         resolve();
-      }
+      };
 
-      function onReady() {
-        finish();
-      }
+      const onReady = () => finish();
 
       // 若已可播，直接通過，避免多等
       if (audio.readyState >= 2) {
@@ -699,7 +689,7 @@ export default function ChatInterface({
 
     let index = 0;
     prefetchSegment(0);
-    function playNextSegment() {
+    const playNextSegment = () => {
       if (speechId !== currentSpeechIdRef.current) return;
 
       if (index >= segments.length) {
@@ -789,7 +779,7 @@ export default function ChatInterface({
             setIsSpeaking(false);
           }
         });
-    }
+    };
 
     playNextSegment();
   }

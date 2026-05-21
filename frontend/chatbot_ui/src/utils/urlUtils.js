@@ -1,15 +1,10 @@
 // urlUtils.js
 // 處理圖片和影片 URL
 
-function trimTrailingSlash(value) {
-  return value.replace(/\/+$/, '');
-}
+const trimTrailingSlash = value => value.replace(/\/+$/, '');
+const trimLeadingSlash = value => value.replace(/^\/+/, '');
 
-function trimLeadingSlash(value) {
-  return value.replace(/^\/+/, '');
-}
-
-export function getApiBaseUrl() {
+export const getApiBaseUrl = () => {
   const envApiBaseUrl = import.meta.env.VITE_API_BASE_URL;
   if (envApiBaseUrl) {
     return trimTrailingSlash(envApiBaseUrl);
@@ -17,9 +12,9 @@ export function getApiBaseUrl() {
 
   // env 未設定時，預設走同源 /api 反向代理
   return `${window.location.origin}/api`;
-}
+};
 
-export function buildApiUrl(path) {
+export const buildApiUrl = path => {
   const baseUrl = trimTrailingSlash(getApiBaseUrl());
   const normalizedPath = `/${trimLeadingSlash(path)}`;
   const baseHasApiSuffix = /\/api$/i.test(baseUrl);
@@ -31,9 +26,9 @@ export function buildApiUrl(path) {
   }
 
   return `${baseUrl}${normalizedPath}`;
-}
+};
 
-export function getWsBaseUrl() {
+export const getWsBaseUrl = () => {
   const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const envWsBaseUrl = import.meta.env.VITE_API_BASE_WS_URL;
 
@@ -46,14 +41,14 @@ export function getWsBaseUrl() {
   }
 
   return `${wsProtocol}//${window.location.host}`;
-}
+};
 
 /**
  * 格式化圖片 URL
  * @param {string} url - API 回傳的圖片路徑
  * @returns {string} - 完整的圖片 URL
  */
-export function formatImageUrl(url) {
+export const formatImageUrl = url => {
   if (!url) return '';
 
   // 如果已經是完整的 http/https URL,直接返回
@@ -86,13 +81,14 @@ export function formatImageUrl(url) {
 
   // 沒有設定就使用相對路徑
   return cleanUrl;
-}
+};
 
 /**
  * 格式化影片 URL (與圖片邏輯相同)
  * @param {string} url - API 回傳的影片路徑
  * @returns {string} - 完整的影片 URL
  */
-export function formatVideoUrl(url) {
+export const formatVideoUrl = url => {
   return formatImageUrl(url);
-}
+};
+

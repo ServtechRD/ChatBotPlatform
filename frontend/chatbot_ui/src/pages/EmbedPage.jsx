@@ -7,7 +7,7 @@ import EmbeddableChatInterface from '../components/EmbeddableChatInterface';
  * 嵌入頁面組件
  * 用於提供嵌入到第三方網站的介面
  */
-export default function EmbedPage() {
+const EmbedPage = () => {
   const { assistantId } = useParams(); // 如果使用路由參數
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
@@ -100,4 +100,6 @@ export default function EmbedPage() {
       )}
     </Box>
   );
-}
+};
+
+export default EmbedPage;

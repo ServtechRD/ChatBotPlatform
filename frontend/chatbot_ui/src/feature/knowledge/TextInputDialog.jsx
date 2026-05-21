@@ -13,10 +13,10 @@ import {
   IconButton,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import { knowledge } from '../../api/knowledge.js';
-import { assistant } from '../../api/assistant.js';
+// 導入 ApiService
+import ApiService from '../../api/ApiService';
 
-export default function TextInputDialog({
+const TextInputDialog = ({
   isOpen,
   onClose,
   onSubmitComplete,
@@ -26,7 +26,7 @@ export default function TextInputDialog({
   knowledgeId,
   initialFileName,
   isLoadingEditContent = false,
-}) {
+}) => {
   const [textContent, setTextContent] = useState('');
   const [fileName, setFileName] = useState('');
 
@@ -46,33 +46,33 @@ export default function TextInputDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState(null); // 'success' | 'error' | null
 
-  function handleTextChange(event) {
+  const handleTextChange = event => {
     setTextContent(event.target.value);
-  }
+  };
 
-  function handleFileNameChange(event) {
+  const handleFileNameChange = event => {
     setFileName(event.target.value);
-  }
+  };
 
-  function resetDialog() {
+  const resetDialog = () => {
     setTextContent('');
     setFileName('');
     setSubmitStatus(null);
     setIsSubmitting(false);
-  }
+  };
 
-  function handleClose() {
+  const handleClose = () => {
     resetDialog();
     onClose();
-  }
+  };
 
   const isBlockingClose = isSubmitting || isLoadingEditContent;
 
-  function handleClear() {
+  const handleClear = () => {
     setTextContent('');
-  }
+  };
 
-  async function handleSubmit() {
+  const handleSubmit = async () => {
     if (!textContent.trim()) {
       alert('請輸入文字內容');
       return;
@@ -85,14 +85,14 @@ export default function TextInputDialog({
       let response;
       if (isEditMode && knowledgeId) {
         // Edit Mode: Overwrite existsing
-        response = await knowledge.update(
+        response = await ApiService.updateKnowledge(
           assistantId,
           knowledgeId,
           textContent
         );
       } else {
         // Create Mode
-        response = await assistant.submitText(
+        response = await ApiService.submitText(
           assistantId,
           textContent,
           fileName
@@ -100,7 +100,7 @@ export default function TextInputDialog({
       }
 
       setSubmitStatus('success');
-      onSubmitComplete(response?.data ?? response);
+      onSubmitComplete(response.data);
 
       // 延遲關閉對話框，讓使用者看到成功訊息
       setTimeout(() => {
@@ -115,7 +115,7 @@ export default function TextInputDialog({
         setIsSubmitting(false);
       }, 3000);
     }
-  }
+  };
 
   const charCount = textContent.length;
 
@@ -267,4 +267,6 @@ export default function TextInputDialog({
       </DialogActions>
     </Dialog>
   );
-}
+};
+
+export default TextInputDialog;

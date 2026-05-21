@@ -16,7 +16,7 @@ import {
   Phone as PhoneIcon 
 } from '@mui/icons-material';
 
-export default function AccountProfile() {
+const AccountProfile = () => {
   const [profile, setProfile] = useState({
     email: 'jacokao5@gmail.com',
     firstName: 'kao',
@@ -24,15 +24,15 @@ export default function AccountProfile() {
     phone: ''
   });
 
-  function handleChange(e) {
+  const handleChange = (e) => {
     setProfile({ ...profile, [e.target.name]: e.target.value });
-  }
+  };
 
-  function handleSubmit(e) {
+  const handleSubmit = (e) => {
     e.preventDefault();
     // Here you would typically send the updated profile to your backend
     console.log('Profile updated:', profile);
-  }
+  };
 
   return (
     <Box sx={{ p: 6, maxWidth: '4xl', mx: 'auto' }}>
@@ -136,4 +136,6 @@ export default function AccountProfile() {
       </Card>
     </Box>
   );
-}
+};
+
+export default AccountProfile;

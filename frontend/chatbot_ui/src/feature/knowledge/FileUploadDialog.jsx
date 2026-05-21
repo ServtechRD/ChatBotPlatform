@@ -15,15 +15,16 @@ import {
   Alert,
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-import { assistant } from '../../api/assistant.js';
+// 匯入 ApiService
+import ApiService from '../../api/ApiService';
 
-export default function FileUploadDialog({
+const FileUploadDialog = ({
   isOpen,
   onClose,
   onUploadComplete,
   uploadType,
   assistantId,
-}) {
+}) => {
   const [isDragging, setIsDragging] = useState(false);
   const [url, setUrl] = useState('');
   const [importText, setImportText] = useState(true);
@@ -33,24 +34,24 @@ export default function FileUploadDialog({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState(null); // 'success' | 'error' | null
 
-  function handleDragEnter(e) {
+  const handleDragEnter = e => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(true);
-  }
+  };
 
-  function handleDragLeave(e) {
+  const handleDragLeave = e => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
-  }
+  };
 
-  function handleDragOver(e) {
+  const handleDragOver = e => {
     e.preventDefault();
     e.stopPropagation();
-  }
+  };
 
-  function handleDrop(e) {
+  const handleDrop = e => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
@@ -59,27 +60,27 @@ export default function FileUploadDialog({
     if (droppedFile) {
       setSelectedFile(droppedFile);
     }
-  }
+  };
 
-  function handleFileSelect(event) {
+  const handleFileSelect = event => {
     setSelectedFile(event.target.files[0]);
-  }
+  };
 
-  function resetDialog() {
+  const resetDialog = () => {
     setUrl('');
     setSelectedFile(null);
     setImportText(true);
     setHideWebpage(false);
     setUploadStatus(null);
     setIsUploading(false);
-  }
+  };
 
-  function handleClose() {
+  const handleClose = () => {
     resetDialog();
     onClose();
-  }
+  };
 
-  async function handleUpload() {
+  const handleUpload = async () => {
     if (!selectedFile && !url) {
       alert('請選擇文件或輸入URL');
       return;
@@ -93,9 +94,9 @@ export default function FileUploadDialog({
       if (selectedFile) {
         const formData = new FormData();
         formData.append('file', selectedFile);
-        response = await assistant.uploadFile(assistantId, formData);
+        response = await ApiService.uploadFile(assistantId, formData);
       } else if (url) {
-        response = await assistant.uploadUrl(assistantId, url);
+        response = await ApiService.uploadUrl(assistantId, url);
       }
 
       setUploadStatus('success');
@@ -115,7 +116,7 @@ export default function FileUploadDialog({
         setIsUploading(false);
       }, 3000);
     }
-  }
+  };
 
   return (
     <Dialog
@@ -238,4 +239,6 @@ export default function FileUploadDialog({
       </DialogActions>
     </Dialog>
   );
-}
+};
+
+export default FileUploadDialog;

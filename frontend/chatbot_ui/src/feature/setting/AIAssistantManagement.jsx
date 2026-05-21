@@ -21,14 +21,13 @@ import {
   ViewList as ListViewIcon,
 } from '@mui/icons-material';
 import EditAIAssistantDialog from './EditAIAssistantDialog';
-import { user as userApi } from '../../api/user.js';
-import { assistant } from '../../api/assistant.js';
+import ApiService from '../../api/ApiService';
 import useAuth from '../../hook/useAuth';
 
-export default function AIAssistantManagement({ open, onRefresh }) {
+const AIAssistantManagement = ({ onRefresh }) => {
   const { user } = useAuth();
   const [assistants, setAssistants] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState('list');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingAssistant, setEditingAssistant] = useState(null);
@@ -36,7 +35,7 @@ export default function AIAssistantManagement({ open, onRefresh }) {
   const fetchAssistants = useCallback(async () => {
     try {
       setIsLoading(true);
-      const data = await userApi.getAssistants();
+      const data = await ApiService.fetchAssistants();
       console.log('fetchAssistants data:', data);
       setAssistants(data);
     } catch (error) {
@@ -48,11 +47,10 @@ export default function AIAssistantManagement({ open, onRefresh }) {
   }, []);
 
   useEffect(() => {
-    if (!open) return;
     fetchAssistants();
-  }, [open, fetchAssistants]);
+  }, [fetchAssistants]);
 
-  async function handleStatusChange(id, nextChecked) {
+  const handleStatusChange = async (id, nextChecked) => {
     const prev = assistants.find(a => a.assistant_id === id);
     const prevStatus = prev?.status;
     setAssistants(
@@ -63,7 +61,7 @@ export default function AIAssistantManagement({ open, onRefresh }) {
       )
     );
     try {
-      await assistant.toggleStatus(id);
+      await ApiService.toggleAssistantStatus(id);
     } catch (e) {
       setAssistants(
         assistants.map(assistant =>
@@ -76,22 +74,22 @@ export default function AIAssistantManagement({ open, onRefresh }) {
         e?.response?.data?.detail || e?.message || String(e);
       alert(`更新助理狀態失敗: ${msg}`);
     }
-  }
+  };
 
-  function handleOpenDialog(assistant = null) {
+  const handleOpenDialog = (assistant = null) => {
     console.log('open dialog');
     console.log(assistant);
 
     setEditingAssistant(assistant);
     setIsDialogOpen(true);
-  }
+  };
 
-  function handleCloseDialog() {
+  const handleCloseDialog = () => {
     setIsDialogOpen(false);
     setEditingAssistant(null);
-  }
+  };
 
-  async function handleSaveAssistant(updatedAssistant) {
+  const handleSaveAssistant = async updatedAssistant => {
     /*
     if (editingAssistant) {
       setAssistants(
@@ -108,7 +106,7 @@ export default function AIAssistantManagement({ open, onRefresh }) {
     if (onRefresh) {
       onRefresh();
     }
-  }
+  };
 
   return (
     <Box sx={{ p: 3 }}>
@@ -212,4 +210,6 @@ export default function AIAssistantManagement({ open, onRefresh }) {
       />
     </Box>
   );
-}
+};
+
+export default AIAssistantManagement;

@@ -35,7 +35,8 @@ import AIAssistantManagement from '../feature/setting/AIAssistantManagement';
 import AccountProfile from '../feature/setting/AccountProfile';
 import ConversationManagement from '../feature/chat/ConversationManagement';
 
-import { storage } from '../api/storage.js';
+// 導入 ApiService 和 useAuth
+import ApiService from '../api/ApiService';
 import useAuth from '../hook/useAuth';
 
 export default function AppLayout() {
@@ -86,10 +87,10 @@ export default function AppLayout() {
   }
 
   useEffect(() => {
-    async function initializeData() {
+    const initializeData = async () => {
       try {
-        setWorkspace(storage.getUserEmail() || 'default');
-        const alreadyAgents = storage.getAssistants() || [];
+        setWorkspace(ApiService.getUserEmail() || 'default');
+        const alreadyAgents = (await ApiService.getAssistatns()) || [];
         setAgents(alreadyAgents);
         if (alreadyAgents.length > 0) {
           setCurrentAgent(alreadyAgents[0]);
@@ -99,27 +100,27 @@ export default function AppLayout() {
       } finally {
         setIsLoading(false);
       }
-    }
+    };
 
     initializeData();
 
     // 監聽 storage 變化，當 userData 或 assistantsData 更新時重新讀取
-    function handleStorageChange(e) {
+    const handleStorageChange = e => {
       if (e.key === 'userData' || e.type === 'userDataUpdated') {
-        const newEmail = storage.getUserEmail();
+        const newEmail = ApiService.getUserEmail();
         if (newEmail) {
           setWorkspace(newEmail);
         }
       }
-    }
+    };
 
-    function handleAssistantsChange(e) {
-      const assistants = e.detail || storage.getAssistants() || [];
+    const handleAssistantsChange = e => {
+      const assistants = e.detail || ApiService.getAssistatns() || [];
       setAgents(assistants);
       if (assistants.length > 0 && !currentAgent) {
         setCurrentAgent(assistants[0]);
       }
-    }
+    };
 
     // 監聽 storage 事件（跨 tab 同步）
     window.addEventListener('storage', handleStorageChange);
@@ -139,7 +140,7 @@ export default function AppLayout() {
   }, []);
 
   async function refreshAgents() {
-    const alreadyAgents = storage.getAssistants() || [];
+    const alreadyAgents = (await ApiService.getAssistatns()) || [];
     setAgents(alreadyAgents);
   }
 
@@ -306,10 +307,7 @@ export default function AppLayout() {
             </Typography>
           </Toolbar>
         </AppBar>
-        <AIAssistantManagement
-          open={isAIManagementDialogOpen}
-          onRefresh={refreshAgents}
-        />
+        <AIAssistantManagement onRefresh={refreshAgents} />
       </Dialog>
     </Box >
   );
