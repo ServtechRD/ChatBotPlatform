@@ -22,8 +22,7 @@ import {
 } from '@mui/icons-material';
 
 import useAuth from '../hook/useAuth';
-import { auth } from '../api/auth.js';
-import { mfa } from '../api/mfa.js';
+import ApiService from '../api/ApiService';
 
 const Logo = styled('img')({
   width: 150,
@@ -64,7 +63,7 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const response = await auth.login(email, password);
+      const response = await ApiService.login(email, password);
 
       // Check for MFA requirements (decision made by backend based on DB)
       if (response.mfa_setup_required) {
@@ -83,6 +82,8 @@ export default function LoginPage() {
       const token = response.access_token;
       if (token) {
         await login(token);
+        await ApiService.fetchUserData();
+        await ApiService.fetchAssistants();
         navigate('/', { replace: true });
       } else {
         // Fallback for unexpected response
@@ -101,9 +102,9 @@ export default function LoginPage() {
     }
   }
 
-  async function startMfaSetup(token) {
+  const startMfaSetup = async token => {
     try {
-      const data = await mfa.setupInit(token);
+      const data = await ApiService.mfaSetupInit(token);
       setQrCode(data.qr_code);
       setMfaSecret(data.secret);
       setMfaStage('setup');
@@ -114,38 +115,44 @@ export default function LoginPage() {
     } finally {
       setIsLoading(false);
     }
-  }
+  };
 
-  async function handleMfaVerify() {
+  const handleMfaVerify = async () => {
     setError('');
     setIsLoading(true);
     try {
       let response;
       if (mfaStage === 'setup') {
-        response = await mfa.setupVerify(tempToken, mfaSecret, mfaCode);
+        response = await ApiService.mfaSetupVerify(
+          tempToken,
+          mfaSecret,
+          mfaCode
+        );
       } else {
-        response = await mfa.verify(tempToken, mfaCode);
+        response = await ApiService.verifyMfa(tempToken, mfaCode);
       }
 
       const token = response.access_token;
       await login(token);
+      await ApiService.fetchUserData();
+      await ApiService.fetchAssistants();
       navigate('/', { replace: true });
     } catch (err) {
       console.error('MFA Verify failed:', err);
       setError('驗證碼錯誤，請重新輸入');
       setIsLoading(false);
     }
-  }
+  };
 
-  async function handleRegister() {
+  const handleRegister = async () => {
     try {
-      await auth.register(registerEmail, registerPassword);
+      await ApiService.register(registerEmail, registerPassword);
       alert('註冊成功！請使用新帳號登入。');
       setOpenRegister(false);
     } catch (error) {
       alert('註冊失敗，請稍後再試。');
     }
-  }
+  };
 
   return (
     <Container component="main" maxWidth="xs">

@@ -30,7 +30,7 @@ import 'react-image-crop/dist/ReactCrop.css';
 
 import { formatImageUrl } from '../../utils/urlUtils';
 
-import { assistant } from '../../api/assistant.js';
+import ApiService from '../../api/ApiService';
 import { DEFAULT_ASSISTANT_DESCRIPTION_TEMPLATE } from './defaultAssistantDescriptionTemplate';
 import { ASSISTANT_DESCRIPTION_WRITING_GUIDE } from './assistantDescriptionWritingGuide';
 
@@ -45,12 +45,7 @@ function formatMb(bytes) {
   return (bytes / (1024 * 1024)).toFixed(1);
 }
 
-export default function EditAIAssistantDialog({
-  open,
-  onClose,
-  aiAssistant,
-  onSaved,
-}) {
+const EditAIAssistantDialog = ({ open, onClose, aiAssistant, onSaved }) => {
   const [description, setDescription] = useState('');
   const [writingGuideOpen, setWritingGuideOpen] = useState(false);
   const [language, setLanguage] = useState('Traditional Chinese');
@@ -161,11 +156,11 @@ export default function EditAIAssistantDialog({
     if (!open) return undefined;
     let cancelled = false;
 
-    async function run() {
+    const run = async () => {
       if (aiAssistant?.assistant_id) {
         setDetailLoading(true);
         try {
-          const d = await assistant.get(aiAssistant.assistant_id);
+          const d = await ApiService.fetchAssistant(aiAssistant.assistant_id);
           if (!cancelled) {
             applyAssistantDetail(d);
           }
@@ -187,7 +182,7 @@ export default function EditAIAssistantDialog({
         setDetailLoading(true);
         resetFormForCreate();
         try {
-          const tmpl = await assistant.getDescriptionTemplate();
+          const tmpl = await ApiService.fetchDescriptionTemplate();
           if (!cancelled) {
             setDescription(
               (tmpl && String(tmpl).trim()) ||
@@ -204,7 +199,7 @@ export default function EditAIAssistantDialog({
           }
         }
       }
-    }
+    };
 
     run();
     return () => {
@@ -218,9 +213,9 @@ export default function EditAIAssistantDialog({
     // onClose 不列入：避免父層重繪時重複載入
   ]);
 
-  async function handleReloadTemplate() {
+  const handleReloadTemplate = async () => {
     try {
-      const tmpl = await assistant.getDescriptionTemplate();
+      const tmpl = await ApiService.fetchDescriptionTemplate();
       setDescription(
         (tmpl && String(tmpl).trim()) ||
           DEFAULT_ASSISTANT_DESCRIPTION_TEMPLATE
@@ -228,10 +223,10 @@ export default function EditAIAssistantDialog({
     } catch {
       setDescription(DEFAULT_ASSISTANT_DESCRIPTION_TEMPLATE);
     }
-  }
+  };
 
   // 處理圖片上傳
-  function handleImageUpload(e) {
+  const handleImageUpload = e => {
     const file = e.target.files[0];
     if (file) {
       if (file.size > MAX_ASSISTANT_REQUEST_BYTES) {
@@ -275,10 +270,10 @@ export default function EditAIAssistantDialog({
       });
       reader.readAsDataURL(file);
     }
-  }
+  };
 
   // 處理影片上傳
-  function handleVideoUpload1(e) {
+  const handleVideoUpload1 = e => {
     const file = e.target.files[0];
     if (file) {
       if (file.size > MAX_ASSISTANT_REQUEST_BYTES) {
@@ -295,9 +290,9 @@ export default function EditAIAssistantDialog({
       });
       reader.readAsDataURL(file);
     }
-  }
+  };
 
-  function handleVideoUpload2(e) {
+  const handleVideoUpload2 = e => {
     const file = e.target.files[0];
     if (file) {
       if (file.size > MAX_ASSISTANT_REQUEST_BYTES) {
@@ -314,7 +309,7 @@ export default function EditAIAssistantDialog({
       });
       reader.readAsDataURL(file);
     }
-  }
+  };
 
   // 生成裁剪後的圖片
   /*const generateCroppedImage = async () => {
@@ -403,7 +398,7 @@ export default function EditAIAssistantDialog({
     return new File([ab], filename, { type: mimeString });
   }
 
-  function estimatePayloadBytes() {
+  const estimatePayloadBytes = () => {
     let n = 0;
     if (video1) n += video1.size;
     if (video2) n += video2.size;
@@ -414,9 +409,9 @@ export default function EditAIAssistantDialog({
       n += base64ToFile(imageUrl, 'assistant_image.jpg').size;
     }
     return n;
-  }
+  };
 
-  async function handleSave() {
+  const handleSave = async () => {
     // 處理儲存邏輯
     const payloadBytes = estimatePayloadBytes();
     if (payloadBytes > MAX_ASSISTANT_REQUEST_BYTES) {
@@ -460,10 +455,10 @@ export default function EditAIAssistantDialog({
         formData.append('video_2', video2);
       }
       if (aiAssistant?.assistant_id) {
-        await assistant.update(aiAssistant.assistant_id, formData);
+        await ApiService.updateAssistant(aiAssistant.assistant_id, formData);
         alert('更新成功！');
       } else {
-        await assistant.create(formData);
+        await ApiService.createAssistant(formData);
         alert('建立成功！');
       }
 
@@ -482,7 +477,7 @@ export default function EditAIAssistantDialog({
     } finally {
       setSaveLoading(false);
     }
-  }
+  };
 
   return (
     <Dialog
@@ -849,4 +844,6 @@ export default function EditAIAssistantDialog({
       </DialogActions>
     </Dialog>
   );
-}
+};
+
+export default EditAIAssistantDialog;

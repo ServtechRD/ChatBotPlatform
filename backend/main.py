@@ -9,18 +9,8 @@ from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from routers import (
-    assistant,
-    conversation,
-    websocket,
-    auth,
-    embed,
-    mfa,
-    tts,
-    speech_correction_rule,
-)
+from routers import assistant, conversation, websocket, auth, embed, mfa, tts
 from models.database import Base, engine
-from models.models import SpeechCorrectionRule  # noqa: F401 — register table before create_all
 from services.assistant_prompt_storage import ensure_description_use_file_column
 from middleware.request_audit import RequestAuditMiddleware
 from utils.logger import setup_logging, get_logger
@@ -77,4 +67,3 @@ app.include_router(auth.router, prefix="/auth")
 app.include_router(mfa.router, prefix="/auth/mfa")
 app.include_router(embed.router)
 app.include_router(tts.router)
-app.include_router(speech_correction_rule.router, prefix="/speech_correction_rule")

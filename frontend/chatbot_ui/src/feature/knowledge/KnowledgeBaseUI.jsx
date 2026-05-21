@@ -38,16 +38,14 @@ import {
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
   Delete as DeleteIcon,
-  RecordVoiceOver as RecordVoiceOverIcon,
 } from '@mui/icons-material';
 
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import FileUploadDialog from './FileUploadDialog';
 import TextInputDialog from './TextInputDialog';
-import { knowledge } from '../../api/knowledge.js';
+import ApiService from '../../api/ApiService';
 import useAuth from '../../hook/useAuth';
-import SpeechCorrectionRulesPanel from '../speechCorrection/SpeechCorrectionRulesPanel';
 
 function IconWrapper({ children }) {
   return (
@@ -126,7 +124,7 @@ export default function KnowledgeBaseUI({ currentAssistant }) {
     try {
       setIsLoading(true);
       const assistantId = currentAssistant?.assistant_id;
-      const response = await knowledge.get(assistantId);
+      const response = await ApiService.getKnowledgeBases(assistantId);
       setKnowledgeItems(response.data);
     } catch (error) {
       console.error('Error fetch knowledge items:', error);
@@ -148,21 +146,12 @@ export default function KnowledgeBaseUI({ currentAssistant }) {
 
   async function handleTextSubmitComplete(data) {
     try {
-      if (uploadType === 'edit_text' && data?.id) {
-        setKnowledgeItems(prev =>
-          prev.map(item => (item.id === data.id ? { ...item, ...data } : item))
-        );
-      } else if (data?.id) {
-        setKnowledgeItems(prev => [data, ...prev]);
-      } else {
-        await fetchKnowledgeItems();
-      }
+      if (data && data.id) setKnowledgeItems(prev => [data, ...prev]);
+      else await fetchKnowledgeItems();
     } catch (err) {
       console.error('更新知識清單失敗:', err);
     } finally {
       setIsTextDialogOpen(false);
-      setSelectedItem(null);
-      setUploadType(null);
     }
   }
 
@@ -364,7 +353,7 @@ export default function KnowledgeBaseUI({ currentAssistant }) {
     );
     if (!ok) return;
     try {
-      await knowledge.del(assistantId, item.id);
+      await ApiService.deleteKnowledge(assistantId, item.id);
       await fetchKnowledgeItems();
     } catch (err) {
       console.error('刪除知識失敗:', err);
@@ -381,7 +370,10 @@ export default function KnowledgeBaseUI({ currentAssistant }) {
     setIsTextDialogOpen(true);
     try {
       const assistantId = currentAssistant?.assistant_id;
-      const response = await knowledge.getContent(assistantId, item.id);
+      const response = await ApiService.getKnowledgeContent(
+        assistantId,
+        item.id
+      );
       setEditingContent(response.content);
     } catch (err) {
       console.error('Failed to load content:', err);
@@ -402,12 +394,12 @@ export default function KnowledgeBaseUI({ currentAssistant }) {
           知識庫
         </Typography>
 
-        <Box sx={{ mb: 4 , display: 'flex', gap: 2 }}>
+        <Box sx={{ mb: 4 }}>
           <Button
             variant={activeTab === 'new' ? 'contained' : 'outlined'}
             onClick={() => handleTabChange('new')}
             startIcon={<AddIcon />}
-            // sx={{ mr: 2 }}
+            sx={{ mr: 2 }}
             disabled={user?.permission_level < 2}
           >
             新增知識
@@ -419,21 +411,10 @@ export default function KnowledgeBaseUI({ currentAssistant }) {
           >
             現有知識
           </Button>
-          <Button
-            variant={activeTab === 'rules' ? 'contained' : 'outlined'}
-            onClick={() => handleTabChange('rules')}
-            startIcon={<RecordVoiceOverIcon />}
-          >
-            語音誤字對照表
-          </Button>
         </Box>
 
         <Divider sx={{ mb: 4 }} />
-        {activeTab === 'new' && renderNewKnowledge()}
-        {activeTab === 'existing' && renderExistingKnowledge()}
-        {activeTab === 'rules' && (
-          <SpeechCorrectionRulesPanel canEdit={user?.permission_level >= 2} />
-        )}
+        {activeTab === 'new' ? renderNewKnowledge() : renderExistingKnowledge()}
 
         <Menu
           anchorEl={knowledgeMenuAnchor}

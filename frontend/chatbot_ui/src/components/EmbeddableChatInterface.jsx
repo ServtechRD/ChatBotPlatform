@@ -19,8 +19,7 @@ import {
 } from '@mui/icons-material';
 import { v4 as uuidv4 } from 'uuid';
 import { buildApiUrl, formatImageUrl, getWsBaseUrl } from '../utils/urlUtils';
-import { applyRules } from '../utils/speechCorrectionEngine';
-import { useSpeechCorrectionRules } from '../hook/useSpeechCorrectionRules';
+import { applyVoiceTranscriptCorrections } from '../utils/voiceTranscriptCorrections';
 
 const CHAT_WIDTH = 398;
 const CHAT_HEIGHT = 598;
@@ -54,15 +53,13 @@ const DIGIT_TO_ZH = [
   '八',
   '九',
 ];
-function digitsToZhSpaced(digits) {
-  return digits
+const digitsToZhSpaced = digits =>
+  digits
     .split('')
     .map(d => DIGIT_TO_ZH[Number(d)] ?? d)
     .join(' ');
-}
-
-function spellAsciiForSpeech(raw) {
-  return raw
+const spellAsciiForSpeech = raw =>
+  raw
     .split('')
     .map(ch => {
       if (/[A-Za-z]/.test(ch)) return ch.toLowerCase();
@@ -74,7 +71,6 @@ function spellAsciiForSpeech(raw) {
       return ch;
     })
     .join(' ');
-}
 
 function formatEmailForSpeech(input) {
   if (!input || typeof input !== 'string') return input;
@@ -184,7 +180,7 @@ function normalizeEnglishAcronymsForSpeech(input) {
   return text;
 }
 
-export default function EmbeddableChatInterface({
+const EmbeddableChatInterface = ({
   assistantUrl, // 助手ID作為參數傳入
   //assistantName = null, // 可選參數
   //apiBaseUrl = '', // API基礎URL，方便跨域使用
@@ -193,7 +189,7 @@ export default function EmbeddableChatInterface({
   idleVideoSrc = '/videos/idle.mp4',
   onLoad = () => {}, // 加載完成回調
   onError = () => {}, // 錯誤回調
-}) {
+}) => {
   const [assistantId, setAssistantId] = useState([]);
   const [assistantName, setAssistantName] = useState([]);
   const [messages, setMessages] = useState([]);
@@ -228,14 +224,6 @@ export default function EmbeddableChatInterface({
   const videoRef = useRef(null);
   const welcomeMessageShownRef = useRef(false);
 
-  const { activeRules, ensureLoaded } = useSpeechCorrectionRules();
-  const activeRulesRef = useRef(activeRules);
-  activeRulesRef.current = activeRules;
-
-  useEffect(() => {
-    ensureLoaded();
-  }, [ensureLoaded]);
-
   // 語音輸入初始化
   useEffect(() => {
     const SpeechRecognition =
@@ -252,11 +240,12 @@ export default function EmbeddableChatInterface({
 
     recognition.onresult = event => {
       const raw = event.results[0][0].transcript;
-      const transcript = applyRules(raw, activeRulesRef.current);
-      if (transcript !== raw) {
-        console.log('語音辨識專有名詞修正:', { raw, transcript });
-      }
-      console.log('辨識結果:', transcript);
+      const transcript = applyVoiceTranscriptCorrections(raw);
+      console.log('[VoiceInput]', {
+        raw,
+        corrected: transcript,
+        changed: transcript !== raw,
+      });
 
       // 關鍵字偵測：切換影片
       const VIDEO_SWITCH_KEYWORDS = [
@@ -365,7 +354,7 @@ export default function EmbeddableChatInterface({
 
   // 語音播放初始化
   useEffect(() => {
-    function handleVoicesChanged() {
+    const handleVoicesChanged = () => {
       const voices = speechSynthesisRef.current.getVoices();
       // 優先選擇中文語音
       const zhVoice = voices.find(
@@ -377,7 +366,7 @@ export default function EmbeddableChatInterface({
       if (zhVoice) {
         voiceRef.current = zhVoice;
       }
-    }
+    };
 
     speechSynthesisRef.current.addEventListener(
       'voiceschanged',
@@ -475,7 +464,7 @@ export default function EmbeddableChatInterface({
       let done = false;
       let timer = null;
 
-      function finish() {
+      const finish = () => {
         if (done) return;
         done = true;
         if (timer) clearTimeout(timer);
@@ -483,11 +472,9 @@ export default function EmbeddableChatInterface({
         audio.removeEventListener('loadeddata', onReady);
         audio.removeEventListener('error', onReady);
         resolve();
-      }
+      };
 
-      function onReady() {
-        finish();
-      }
+      const onReady = () => finish();
 
       // 已可播時直接返回，避免等待事件
       if (audio.readyState >= 2) {
@@ -722,7 +709,7 @@ export default function EmbeddableChatInterface({
 
   // 透過 F9 快捷鍵啟用語音輸入（僅啟用，不切換關閉）
   useEffect(() => {
-    function handleKeyDown(event) {
+    const handleKeyDown = event => {
       if (event.key !== 'F9') return;
       event.preventDefault();
       setActiveView('chat');
@@ -730,7 +717,7 @@ export default function EmbeddableChatInterface({
       if (!isListening) {
         handleVoiceInput();
       }
-    }
+    };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => {
@@ -761,7 +748,7 @@ export default function EmbeddableChatInterface({
     // 新增一個標誌來防止重複請求
     let isMounted = true;
 
-    async function fetchAssistant() {
+    const fetchAssistant = async () => {
       try {
         console.log('fetch Assistant');
         const requestUrl = buildApiUrl(`/embed/assistant/${assistantUrl}`);
@@ -798,7 +785,7 @@ export default function EmbeddableChatInterface({
         // 使用函數方式調用避免依賴關係
         if (typeof onError === 'function') onError(err);
       }
-    }
+    };
 
     fetchAssistant();
     // 清理函數
@@ -808,7 +795,7 @@ export default function EmbeddableChatInterface({
   }, [assistantUrl]);
 
   // 捲動控制
-  function scrollToBottom() {
+  const scrollToBottom = () => {
     if (messagesContainerRef.current) {
       requestAnimationFrame(() => {
         messagesContainerRef.current.scrollTop =
@@ -830,7 +817,7 @@ export default function EmbeddableChatInterface({
         container.scrollTop = Math.max(maxScroll, minScroll);
       });
     }*/
-  }
+  };
 
   // 訊息更新時捲動
   useEffect(() => {
@@ -891,7 +878,7 @@ export default function EmbeddableChatInterface({
     };
   }, [assistantId, assistant]);
 
-  function getBackgroundContent() {
+  const getBackgroundContent = () => {
     if (assistant?.video_1) {
       return (
         <video
@@ -946,10 +933,10 @@ export default function EmbeddableChatInterface({
         }}
       />
     );
-  }
+  };
 
   // 抽出 sendMessage 邏輯以便語音輸入也能使用
-  function sendMessage(text) {
+  const sendMessage = text => {
     // 使用 socketRef 來檢查連線狀態，避免閉包問題導致讀取到舊的 isConnected 狀態
     const socket = socketRef.current;
     const isSocketConnected = socket && socket.readyState === WebSocket.OPEN;
@@ -971,9 +958,9 @@ export default function EmbeddableChatInterface({
       ...prevMessages,
       { id: Date.now(), text: text, isBot: false },
     ]);
-  }
+  };
 
-  function handleSendMessage() {
+  const handleSendMessage = () => {
     const VIDEO_SWITCH_KEYWORDS = [
       '切換影片',
       '播放影片',
@@ -999,7 +986,7 @@ export default function EmbeddableChatInterface({
     }
     sendMessage(inputMessage);
     setInputMessage('');
-  }
+  };
 
   // 加載中顯示
   if (isLoading) {
@@ -1323,4 +1310,6 @@ export default function EmbeddableChatInterface({
       )}
     </Box>
   );
-}
+};
+
+export default EmbeddableChatInterface;
