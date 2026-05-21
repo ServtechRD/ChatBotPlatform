@@ -22,7 +22,7 @@ def register_user(user_data: UserCreate, db: Session = Depends(get_db)):
     # 檢查使用者是否已存在
     user = db.query(User).filter(User.email == user_data.email).first()
     if user:
-        raise HTTPException(status_code=400, detail="Email is already registered")
+        raise HTTPException(status_code=400, detail="此電子郵件已被註冊")
 
     # 雜湊密碼並儲存使用者
     hashed_password = get_password_hash(user_data.password)
@@ -47,7 +47,7 @@ def login_user(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = D
     if not user or not verify_password(form_data.password, user.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
+            detail="電子郵件或密碼錯誤",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -99,7 +99,7 @@ def refresh_access_token(refresh_token: str, db: Session = Depends(get_db)):
     if user_id is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired refresh token",
+            detail="更新權杖無效或已過期",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -107,12 +107,12 @@ def refresh_access_token(refresh_token: str, db: Session = Depends(get_db)):
     try:
         user_id = int(user_id)
     except (ValueError, TypeError):
-        raise HTTPException(status_code=401, detail="Invalid token format")
+        raise HTTPException(status_code=401, detail="權杖格式無效")
 
     # 驗證使用者是否存在
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="找不到使用者")
 
     # 產生新的 access token
     access_token_expires = timedelta(minutes=30)
@@ -126,10 +126,10 @@ def refresh_access_token(refresh_token: str, db: Session = Depends(get_db)):
 def read_users_me(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     user_id = verify_token(token)
     if user_id is None:
-        raise HTTPException(status_code=401, detail="Invalid token")
+        raise HTTPException(status_code=401, detail="權杖無效")
 
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="找不到使用者")
 
     return user

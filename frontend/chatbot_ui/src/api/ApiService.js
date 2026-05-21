@@ -37,6 +37,11 @@ class ApiService {
       async error => {
         const originalRequest = error.config;
 
+        // 登入／註冊／MFA 的 401 交由各頁面顯示後端錯誤，不做 token 刷新或強制導頁
+        if (this._shouldSkipTokenRefresh(originalRequest)) {
+          return Promise.reject(error);
+        }
+
         // 如果收到 401 錯誤且不是 refresh 請求本身
         if (
           error.response &&
@@ -63,9 +68,11 @@ class ApiService {
           const refreshToken = localStorage.getItem('refreshToken');
 
           if (!refreshToken) {
-            // 沒有 refresh token，清除並跳轉到登入頁
             this.clearAuthData();
-            window.location.href = '/login';
+            const onLoginPage = window.location.pathname.startsWith('/login');
+            if (!onLoginPage) {
+              window.location.href = '/login';
+            }
             return Promise.reject(error);
           }
 
@@ -101,6 +108,19 @@ class ApiService {
         return Promise.reject(error);
       }
     );
+  }
+
+  /** 登入、註冊、MFA 驗證失敗時不觸發自動 refresh／導頁 */
+  _shouldSkipTokenRefresh(config) {
+    const url = config?.url || '';
+    const skipPaths = [
+      '/auth/login',
+      '/auth/register',
+      '/mfa/setup/init',
+      '/mfa/setup/verify',
+      '/mfa/verify',
+    ];
+    return skipPaths.some(path => url.includes(path));
   }
 
   processQueue(error, token = null) {
