@@ -829,42 +829,59 @@ const EmbeddableChatInterface = ({
       welcomeMessageShownRef.current = true;
     }
 
-    // 建立 WebSocket 連線
     const wsUrl = `${WS_BASE_URL}/ws/assistant/${assistantId}/${customerIdRef.current}`;
+    let destroyed = false;
+    let reconnectTimer = null;
 
-    socketRef.current = new WebSocket(wsUrl);
+    const connect = () => {
+      if (destroyed) return;
+      console.log('[WS] 建立連線', wsUrl);
+      const ws = new WebSocket(wsUrl);
+      socketRef.current = ws;
 
-    socketRef.current.onopen = () => {
-      console.log('WebSocket connection established.');
-      setIsConnected(true);
+      ws.onopen = () => {
+        console.log('[WS] 連線成功');
+        setIsConnected(true);
+      };
+
+      ws.onmessage = event => {
+        const message = event.data;
+        console.log('recv ' + message);
+        if (message === '@@@') {
+          console.log('is think');
+          setIsThinking(true);
+          setTimeout(scrollToBottom, 100);
+        } else if (message === '###') {
+          console.log('stop thinking');
+          setIsThinking(false);
+        } else {
+          setMessages(prevMessages => [
+            ...prevMessages,
+            { id: Date.now(), text: message, isBot: true },
+          ]);
+          speakText(message);
+        }
+      };
+
+      ws.onclose = (evt) => {
+        console.log(`[WS] 連線關閉 code=${evt.code}，${destroyed ? '不重連（已卸載）' : '3s 後重連'}`);
+        setIsConnected(false);
+        if (!destroyed) {
+          reconnectTimer = setTimeout(connect, 3000);
+        }
+      };
+
+      ws.onerror = (err) => {
+        console.warn('[WS] 連線錯誤', err);
+      };
     };
 
-    socketRef.current.onmessage = event => {
-      const message = event.data;
-      console.log('recv ' + message);
-      if (message === '@@@') {
-        console.log('is think');
-        setIsThinking(true);
-        setTimeout(scrollToBottom, 100);
-      } else if (message === '###') {
-        console.log('stop thinking');
-        setIsThinking(false);
-      } else {
-        setMessages(prevMessages => [
-          ...prevMessages,
-          { id: Date.now(), text: message, isBot: true },
-        ]);
-        speakText(message);
-      }
-    };
-
-    socketRef.current.onclose = () => {
-      console.log('WebSocket connection closed.');
-      setIsConnected(false);
-    };
+    connect();
 
     // 組件卸載時關閉 WebSocket 並釋放麥克風
     return () => {
+      destroyed = true;
+      clearTimeout(reconnectTimer);
       if (socketRef.current) {
         socketRef.current.close();
       }

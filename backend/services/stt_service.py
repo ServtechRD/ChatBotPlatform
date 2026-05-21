@@ -16,15 +16,17 @@ STT_INITIAL_PROMPT = os.getenv(
 
 
 def _is_prompt_hallucination(text: str, prompt: str) -> bool:
-    """結果字元 85% 以上來自 prompt → 視為幻覺，當作空結果"""
+    """結果長度超過 prompt 一半、且字元 90% 來自 prompt → 視為幻覺"""
     import re
     normalize = lambda s: re.sub(r'[\s,、，。.]+', '', s).lower()
     text_n = normalize(text)
     prompt_n = normalize(prompt)
     if not text_n:
         return False
+    if len(text_n) < len(prompt_n) * 0.5:
+        return False
     overlap = sum(1 for c in text_n if c in prompt_n) / len(text_n)
-    return overlap > 0.85
+    return overlap > 0.90
 
 
 def _get_device_and_compute():
