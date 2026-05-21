@@ -2,10 +2,9 @@ import asyncio
 import json
 import time
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from services.llm_service import process_message_through_llm
-from models.database import get_db
+from models.database import SessionLocal
 from models.models import Conversation, Message, AIAssistant
 from services.assistant_prompt_storage import get_effective_description
 from utils.logger import get_logger
@@ -60,7 +59,6 @@ async def websocket_endpoint(
         websocket: WebSocket,
         assistant_uuid: str,
         customer_id: str,
-        db: Session = Depends(get_db)
 ):
     global setting
 
@@ -68,16 +66,21 @@ async def websocket_endpoint(
         logger.info("Loading config: ./config/setting.json")
         setting = read_json_file("./config/setting.json")
 
-    t_setting_start = time.perf_counter()
-    assistant = db.query(AIAssistant).filter(AIAssistant.assistant_id == assistant_uuid).first()
-    if not assistant:
-        logger.warning("WebSocket rejected: assistant not found, assistant_uuid=%s", assistant_uuid)
-        await websocket.close(code=4404)
-        return
     model = setting.get("model", "")
-    welcome = assistant.message_welcome
-    noidea = assistant.message_noidea
-    lang = assistant.language
+
+    t_setting_start = time.perf_counter()
+    db = SessionLocal()
+    try:
+        assistant = db.query(AIAssistant).filter(AIAssistant.assistant_id == assistant_uuid).first()
+        if not assistant:
+            logger.warning("WebSocket rejected: assistant not found, assistant_uuid=%s", assistant_uuid)
+            await websocket.close(code=4404)
+            return
+        welcome = assistant.message_welcome
+        noidea = assistant.message_noidea
+        lang = assistant.language
+    finally:
+        db.close()
     t_setting_s = time.perf_counter() - t_setting_start
     logger.info(
         "WebSocket session: assistant_uuid=%s customer_id=%s model=%s lang=%s (查詢助理與設定耗時=%.3f s)",
@@ -88,14 +91,19 @@ async def websocket_endpoint(
 
     try:
         t_conv_start = time.perf_counter()
-        conversation = Conversation(assistant_id=assistant_uuid, customer_id=customer_id)
-        db.add(conversation)
-        db.commit()
-        db.refresh(conversation)
+        db = SessionLocal()
+        try:
+            conversation = Conversation(assistant_id=assistant_uuid, customer_id=customer_id)
+            db.add(conversation)
+            db.commit()
+            db.refresh(conversation)
+            conversation_id = conversation.conversation_id
+        finally:
+            db.close()
         t_conv_s = time.perf_counter() - t_conv_start
         logger.info(
             "Conversation created: conversation_id=%s (耗時=%.3f s)",
-            conversation.conversation_id, t_conv_s
+            conversation_id, t_conv_s
         )
 
         while True:
@@ -104,7 +112,7 @@ async def websocket_endpoint(
             t_recv_s = time.perf_counter() - t_recv_start
             logger.info(
                 "[收到對話] assistant_uuid=%s customer_id=%s conversation_id=%s 內容長度=%d (接收耗時=%.3f s)",
-                assistant_uuid, customer_id, conversation.conversation_id, len(data or ""), t_recv_s
+                assistant_uuid, customer_id, conversation_id, len(data or ""), t_recv_s
             )
             logger.debug("[收到對話] 原始內容: %s", (data or "")[:500])
 
@@ -115,24 +123,27 @@ async def websocket_endpoint(
             logger.debug("已發送思考中指標 @@@ (耗時=%.3f s)", t_indicator_s)
 
             t_save_user_start = time.perf_counter()
-            new_message = Message(
-                conversation_id=conversation.conversation_id,
-                sender="客户",
-                content=data
-            )
-            db.add(new_message)
-            db.commit()
+            db = SessionLocal()
+            try:
+                # 每回合使用新 session，避免 WebSocket 長時間閒置導致 MySQL 連線失效
+                assistant = db.query(AIAssistant).filter(AIAssistant.assistant_id == assistant_uuid).first()
+                assistant_description = get_effective_description(assistant)
+                new_message = Message(
+                    conversation_id=conversation_id,
+                    sender="客户",
+                    content=data
+                )
+                db.add(new_message)
+                db.commit()
+            finally:
+                db.close()
             t_save_user_s = time.perf_counter() - t_save_user_start
             logger.info("已寫入用戶訊息至 DB (耗時=%.3f s)", t_save_user_s)
 
             t_llm_start = time.perf_counter()
-            # 每回合重新載入助理，讓後台修改 description 後不必重連 WebSocket
-            db.refresh(assistant)
-            assistant_description = get_effective_description(assistant)
-
             response = await process_message_through_llm(
                 data,
-                assistant.assistant_id,
+                assistant_uuid,
                 customer_id,
                 lang,
                 model,
@@ -148,13 +159,17 @@ async def websocket_endpoint(
             logger.debug("[LLM 回覆預覽] %s", (response or "")[:300])
 
             t_save_assistant_start = time.perf_counter()
-            assistant_reply = Message(
-                conversation_id=conversation.conversation_id,
-                sender="助理",
-                content=response
-            )
-            db.add(assistant_reply)
-            db.commit()
+            db = SessionLocal()
+            try:
+                assistant_reply = Message(
+                    conversation_id=conversation_id,
+                    sender="助理",
+                    content=response
+                )
+                db.add(assistant_reply)
+                db.commit()
+            finally:
+                db.close()
             t_save_assistant_s = time.perf_counter() - t_save_assistant_start
             logger.info("已寫入助理回覆至 DB (耗時=%.3f s)", t_save_assistant_s)
 
@@ -165,7 +180,7 @@ async def websocket_endpoint(
             t_send_s = time.perf_counter() - t_send_start
             logger.info(
                 "[對話回合完成] conversation_id=%s 總耗時=%.3f s (接收=%.3f 存用戶=%.3f LLM=%.3f 存助理=%.3f 回傳=%.3f)",
-                conversation.conversation_id,
+                conversation_id,
                 t_recv_s + t_save_user_s + t_llm_s + t_save_assistant_s + t_send_s,
                 t_recv_s, t_save_user_s, t_llm_s, t_save_assistant_s, t_send_s
             )
