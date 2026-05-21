@@ -11,8 +11,20 @@ _model = None
 STT_MODEL_SIZE = os.getenv("STT_MODEL_SIZE", "medium")
 STT_INITIAL_PROMPT = os.getenv(
     "STT_INITIAL_PROMPT",
-    "科智企業, 中興大學, MusesAI, JarvisAI, AI SOP, 場域, AMR"
+    "科智企業、中興大學、MusesAI、JarvisAI、AI SOP系統、場域管理、AMR"
 )
+
+
+def _is_prompt_hallucination(text: str, prompt: str) -> bool:
+    """結果字元 85% 以上來自 prompt → 視為幻覺，當作空結果"""
+    import re
+    normalize = lambda s: re.sub(r'[\s,、，。.]+', '', s).lower()
+    text_n = normalize(text)
+    prompt_n = normalize(prompt)
+    if not text_n:
+        return False
+    overlap = sum(1 for c in text_n if c in prompt_n) / len(text_n)
+    return overlap > 0.85
 
 
 def _get_device_and_compute():
@@ -62,6 +74,9 @@ def transcribe(audio_bytes: bytes, suffix: str = ".webm", language: str = "zh") 
             "[STT] 辨識完成 elapsed=%.2fs detected_lang=%s prob=%.2f raw=%s",
             elapsed, info.language, info.language_probability, repr(raw[:120])
         )
+        if _is_prompt_hallucination(raw, STT_INITIAL_PROMPT):
+            logger.warning("[STT] 偵測到 prompt 幻覺，回傳空結果 raw=%s", repr(raw[:120]))
+            return ""
         result = to_traditional_tw(raw)
         if result != raw:
             logger.info("[STT] 簡轉繁: %s -> %s", repr(raw[:80]), repr(result[:80]))

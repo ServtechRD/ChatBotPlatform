@@ -242,8 +242,8 @@ export default function ChatInterface({
       analyser.fftSize = 512;
       source.connect(analyser);
       const vadData = new Uint8Array(analyser.fftSize);
-      const SILENCE_THRESHOLD = 8;
-      const SILENCE_MS = 1500;
+      const SILENCE_THRESHOLD = 5;
+      const SILENCE_MS = 2000;
       let silenceStart = null;
       const vadLoop = () => {
         if (!mediaRecorderRef.current || mediaRecorderRef.current.state !== 'recording') {
