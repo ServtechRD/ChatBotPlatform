@@ -12,12 +12,8 @@ load_dotenv()
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "mysql+pymysql://chatbot_user:pass@mariadb:3306/chatbot_db")
 
 
-# 建立引擎（pool_pre_ping / pool_recycle 避免閒置連線被 MySQL 關閉後仍被重用）
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    pool_pre_ping=True,
-    pool_recycle=3600,
-)
+# 建立引擎
+engine = create_engine(SQLALCHEMY_DATABASE_URL)
 
 # 建立 SessionLocal 類別
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

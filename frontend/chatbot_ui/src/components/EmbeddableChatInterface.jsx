@@ -206,10 +206,7 @@ export default function EmbeddableChatInterface({
 
   // 語音辨識狀態
   const [isListening, setIsListening] = useState(false);
-  const [isSttLoading, setIsSttLoading] = useState(false);
-  const mediaRecorderRef = useRef(null);
-  const audioChunksRef = useRef([]);
-  const micStreamRef = useRef(null);
+  const recognitionRef = useRef(null);
   const [activeView, setActiveView] = useState('chat');
   const lastMicActivatedAtRef = useRef(Date.now());
   const isListeningRef = useRef(false);
@@ -643,178 +640,61 @@ export default function EmbeddableChatInterface({
     };
   }, []);
 
-  function postMicState(listening) {
-    if (typeof window !== 'undefined' && window.parent !== window) {
-      try {
-        window.parent.postMessage(
-          { source: 'chatbot-embed', type: 'MIC_STATE', listening },
-          '*'
-        );
-      } catch (e) { /* ignore */ }
-    }
-  }
-
   async function handleVoiceInput() {
-    // 停止錄音 → 送出辨識
+    if (!recognitionRef.current) {
+      alert('此瀏覽器不支援語音辨識功能');
+      return;
+    }
+
     if (isListening) {
-      mediaRecorderRef.current?.stop();
+      recognitionRef.current.stop();
       return;
     }
 
-    if (!navigator.mediaDevices?.getUserMedia) {
-      alert('您的瀏覽器不支援麥克風功能，請使用 Chrome / Edge 並確保 HTTPS。');
-      return;
-    }
-
+    // 在啟動語音識別前，先請求麥克風權限
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      micStreamRef.current = stream;
-      audioChunksRef.current = [];
+      // 允許的主機名稱白名單（開發環境）
+      const allowedHosts = ['localhost', '127.0.0.1'];
+      const isAllowedHost = allowedHosts.includes(window.location.hostname);
 
-      const recorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = recorder;
-
-      // VAD：靜音超過 1.5 秒自動停止，模擬 Web Speech API 的自動結束行為
-      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const source = audioCtx.createMediaStreamSource(stream);
-      const analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 512;
-      source.connect(analyser);
-      const vadData = new Uint8Array(analyser.fftSize);
-      const SILENCE_THRESHOLD = 5;
-      const SILENCE_MS = 2000;
-      let silenceStart = null;
-      const vadLoop = () => {
-        if (!mediaRecorderRef.current || mediaRecorderRef.current.state !== 'recording') {
-          audioCtx.close();
-          return;
-        }
-        analyser.getByteTimeDomainData(vadData);
-        let sum = 0;
-        for (let i = 0; i < vadData.length; i++) {
-          const v = (vadData[i] - 128) / 128;
-          sum += v * v;
-        }
-        const rms = Math.sqrt(sum / vadData.length) * 100;
-        if (rms < SILENCE_THRESHOLD) {
-          if (silenceStart === null) silenceStart = Date.now();
-          else if (Date.now() - silenceStart >= SILENCE_MS) {
-            console.log('[STT] VAD 偵測到靜音，自動停止錄音');
-            mediaRecorderRef.current?.stop();
-            audioCtx.close();
-            return;
-          }
-        } else {
-          silenceStart = null;
-        }
-        requestAnimationFrame(vadLoop);
-      };
-      requestAnimationFrame(vadLoop);
-
-      recorder.ondataavailable = e => {
-        if (e.data.size > 0) audioChunksRef.current.push(e.data);
-      };
-
-      recorder.onstop = async () => {
-        micStreamRef.current?.getTracks().forEach(t => t.stop());
-        micStreamRef.current = null;
-        setIsListening(false);
-        postMicState(false);
-
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        audioChunksRef.current = [];
-        console.log('[STT] 錄音結束，blob size:', blob.size, 'bytes');
-
-        if (blob.size < 1000) {
-          console.warn('[STT] blob 過小，可能未錄到聲音，略過辨識');
-          setIsSttLoading(false);
-          return;
-        }
-
-        setIsSttLoading(true);
-        const t0 = performance.now();
-        try {
-          const formData = new FormData();
-          formData.append('file', blob, 'recording.webm');
-          formData.append('language', 'zh');
-
-          console.log('[STT] 送出辨識請求...');
-          const res = await fetch(buildApiUrl('/api/stt/transcribe'), {
-            method: 'POST',
-            body: formData,
-          });
-          console.log('[STT] HTTP 回應:', res.status, `(${(performance.now() - t0).toFixed(0)}ms)`);
-          if (!res.ok) throw new Error(`STT HTTP ${res.status}`);
-
-          const { text: raw } = await res.json();
-          console.log('[STT] 原始辨識結果:', JSON.stringify(raw));
-          const transcript = applyVoiceTranscriptCorrections(raw);
-          if (transcript !== raw) {
-            console.log('[STT] 專有名詞修正:', { raw, transcript });
-          }
-          if (!transcript?.trim()) {
-            console.warn('[STT] 辨識結果為空，略過送出');
-            return;
-          }
-          console.log('[STT] 最終送出文字:', JSON.stringify(transcript));
-
-          // 關鍵字偵測：切換影片
-          const VIDEO_SWITCH_KEYWORDS = ['切換影片', '播放影片', '看影片', '影片切換'];
-          if (VIDEO_SWITCH_KEYWORDS.some(kw => transcript.includes(kw))) {
-            if (typeof window !== 'undefined' && window.parent !== window) {
-              try {
-                window.parent.postMessage(
-                  { source: 'chatbot-embed', type: 'VIDEO_SWITCH' },
-                  '*'
-                );
-              } catch (e) { /* ignore */ }
-            }
-            return;
-          }
-
-          sendMessage(transcript.trim());
-        } catch (err) {
-          console.error('STT 辨識失敗:', err);
-          alert('語音辨識失敗，請再試一次。');
-        } finally {
-          setIsSttLoading(false);
-        }
-      };
-
-      // USB 斷線保護：track 結束時停止 recorder，等設備重新出現後自動重啟
-      const track = stream.getAudioTracks()[0];
-      if (track) {
-        track.onended = () => {
-          console.warn('麥克風 track 結束（USB 可能斷線），停止錄音。');
-          try { recorder.stop(); } catch (e) { /* ignore */ }
-          // 等待設備重新接上後自動重啟錄音
-          const waitAndRestart = () => {
-            navigator.mediaDevices.enumerateDevices().then(devices => {
-              const hasAudio = devices.some(d => d.kind === 'audioinput');
-              if (hasAudio && !isListeningRef.current) {
-                console.log('麥克風設備已恢復，自動重新啟動錄音。');
-                handleVoiceInput();
-              } else if (!hasAudio) {
-                setTimeout(waitAndRestart, 1000);
-              }
-            });
-          };
-          setTimeout(waitAndRestart, 500);
-        };
+      // 檢查是否為 HTTPS 或在白名單中
+      if (window.location.protocol !== 'https:' && !isAllowedHost) {
+        alert(
+          '語音功能需要在 HTTPS 環境下使用。請使用 HTTPS 或在本地環境（localhost）測試。'
+        );
+        return;
       }
 
-      recorder.start();
-      setIsListening(true);
-      setActiveView('chat');
-      lastMicActivatedAtRef.current = Date.now();
-      postMicState(true);
+      // 檢查瀏覽器是否支援 mediaDevices API
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert(
+          '您的瀏覽器不支援麥克風功能。請使用最新版本的 Chrome、Firefox 或 Edge，並確保使用 HTTPS。'
+        );
+        return;
+      }
+
+      // 請求麥克風權限
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      // 獲得權限後，停止 stream（我們只是用來檢查權限）
+      stream.getTracks().forEach(track => track.stop());
+
+      // 啟動語音識別
+      recognitionRef.current.start();
     } catch (error) {
       console.error('無法取得麥克風權限:', error);
-      const msg =
-        error.name === 'NotAllowedError' ? '麥克風權限被拒絕，請在瀏覽器設定中允許。' :
-        error.name === 'NotFoundError'   ? '找不到麥克風設備，請確認已連接。' :
-                                           '無法使用麥克風。';
-      alert(msg);
+
+      let errorMessage = '無法使用麥克風';
+      if (error.name === 'NotAllowedError') {
+        errorMessage =
+          '麥克風權限被拒絕。請點選網址列旁的鎖頭圖示，允許使用麥克風。';
+      } else if (error.name === 'NotFoundError') {
+        errorMessage = '找不到麥克風設備。請確認麥克風已正確連接。';
+      } else if (error.name === 'NotSupportedError') {
+        errorMessage = '您的瀏覽器不支援麥克風功能，或網站未使用 HTTPS。';
+      }
+
+      alert(errorMessage);
     }
   }
   const handleVoiceInputRef = useRef(handleVoiceInput);
@@ -969,64 +849,45 @@ export default function EmbeddableChatInterface({
       welcomeMessageShownRef.current = true;
     }
 
+    // 建立 WebSocket 連線
     const wsUrl = `${WS_BASE_URL}/ws/assistant/${assistantId}/${customerIdRef.current}`;
-    let destroyed = false;
-    let reconnectTimer = null;
 
-    const connect = () => {
-      if (destroyed) return;
-      console.log('[WS] 建立連線', wsUrl);
-      const ws = new WebSocket(wsUrl);
-      socketRef.current = ws;
+    socketRef.current = new WebSocket(wsUrl);
 
-      ws.onopen = () => {
-        console.log('[WS] 連線成功');
-        setIsConnected(true);
-      };
-
-      ws.onmessage = event => {
-        const message = event.data;
-        console.log('recv ' + message);
-        if (message === '@@@') {
-          console.log('is think');
-          setIsThinking(true);
-          setTimeout(scrollToBottom, 100);
-        } else if (message === '###') {
-          console.log('stop thinking');
-          setIsThinking(false);
-        } else {
-          setMessages(prevMessages => [
-            ...prevMessages,
-            { id: Date.now(), text: message, isBot: true },
-          ]);
-          speakText(message);
-        }
-      };
-
-      ws.onclose = (evt) => {
-        console.log(`[WS] 連線關閉 code=${evt.code}，${destroyed ? '不重連（已卸載）' : '3s 後重連'}`);
-        setIsConnected(false);
-        if (!destroyed) {
-          reconnectTimer = setTimeout(connect, 3000);
-        }
-      };
-
-      ws.onerror = (err) => {
-        console.warn('[WS] 連線錯誤', err);
-      };
+    socketRef.current.onopen = () => {
+      console.log('WebSocket connection established.');
+      setIsConnected(true);
     };
 
-    connect();
+    socketRef.current.onmessage = event => {
+      const message = event.data;
+      console.log('recv ' + message);
+      if (message === '@@@') {
+        console.log('is think');
+        setIsThinking(true);
+        setTimeout(scrollToBottom, 100);
+      } else if (message === '###') {
+        console.log('stop thinking');
+        setIsThinking(false);
+      } else {
+        setMessages(prevMessages => [
+          ...prevMessages,
+          { id: Date.now(), text: message, isBot: true },
+        ]);
+        speakText(message);
+      }
+    };
 
-    // 組件卸載時關閉 WebSocket 並釋放麥克風
+    socketRef.current.onclose = () => {
+      console.log('WebSocket connection closed.');
+      setIsConnected(false);
+    };
+
+    // 組件卸載時關閉WebSocket
     return () => {
-      destroyed = true;
-      clearTimeout(reconnectTimer);
       if (socketRef.current) {
         socketRef.current.close();
       }
-      try { mediaRecorderRef.current?.stop(); } catch (e) { /* ignore */ }
-      micStreamRef.current?.getTracks().forEach(t => t.stop());
     };
   }, [assistantId, assistant]);
 
@@ -1421,7 +1282,6 @@ export default function EmbeddableChatInterface({
                 />
                 <IconButton
                   onClick={handleVoiceInput}
-                  disabled={isSttLoading}
                   sx={{
                     m: 0.5,
                     bgcolor: isListening ? 'error.main' : 'secondary.main',
@@ -1429,15 +1289,9 @@ export default function EmbeddableChatInterface({
                     '&:hover': {
                       bgcolor: isListening ? 'error.dark' : 'secondary.dark',
                     },
-                    '&:disabled': {
-                      bgcolor: 'action.disabledBackground',
-                    },
                   }}
                 >
-                  {isSttLoading
-                    ? <CircularProgress size={20} sx={{ color: 'text.disabled' }} />
-                    : <MicIcon />
-                  }
+                  <MicIcon />
                 </IconButton>
                 <IconButton
                   onClick={handleSendMessage}

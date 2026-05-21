@@ -26,11 +26,11 @@ def mfa_setup_init(temp_token: str = Body(..., embed=True), db: Session = Depend
     """
     user_id = verify_mfa_temp_token(temp_token)
     if not user_id:
-        raise HTTPException(status_code=401, detail="登入階段已過期，請重新登入")
+        raise HTTPException(status_code=401, detail="Invalid session")
     
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="找不到使用者")
+        raise HTTPException(status_code=404, detail="User not found")
 
     # Generate new secret
     secret = generate_totp_secret()
@@ -60,14 +60,14 @@ def mfa_setup_verify(
     """
     user_id = verify_mfa_temp_token(temp_token)
     if not user_id:
-        raise HTTPException(status_code=401, detail="登入階段已過期，請重新登入")
+        raise HTTPException(status_code=401, detail="Invalid session")
 
     if not verify_totp(secret, code):
-        raise HTTPException(status_code=400, detail="驗證碼錯誤")
+        raise HTTPException(status_code=400, detail="Invalid OTP code")
 
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="找不到使用者")
+        raise HTTPException(status_code=404, detail="User not found")
         
     # Validated. Save secret and clean up.
     user.totp_secret = secret
@@ -92,17 +92,17 @@ def mfa_verify(
     """
     user_id = verify_mfa_temp_token(temp_token)
     if not user_id:
-        raise HTTPException(status_code=401, detail="登入階段已過期，請重新登入")
+        raise HTTPException(status_code=401, detail="Invalid session")
 
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="找不到使用者")
+        raise HTTPException(status_code=404, detail="User not found")
     
     if not user.totp_secret:
-         raise HTTPException(status_code=400, detail="尚未設定雙因素驗證")
+         raise HTTPException(status_code=400, detail="MFA not setup for this user")
 
     if not verify_totp(user.totp_secret, code):
-        raise HTTPException(status_code=400, detail="驗證碼錯誤")
+        raise HTTPException(status_code=400, detail="Invalid OTP code")
 
     # Issue real tokens
     access_token_expires = timedelta(minutes=30)
