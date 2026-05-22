@@ -26,19 +26,16 @@ async function list(
   options: SpeechCorrectionRuleListOptions
 ): Promise<SpeechCorrectionRuleGroup[]> {
   const { assistantId, enabledOnly = true } = options;
-  const data = await api.get<SpeechCorrectionRuleGroupApi[]>(PATH, {
+  const data = (await api.get(PATH, {
     params: { assistant_id: assistantId, enabled_only: enabledOnly },
-  });
+  })) as SpeechCorrectionRuleGroupApi[];
   return groupsFromApi(Array.isArray(data) ? data : []);
 }
 
 async function createBatch(
   payload: SpeechCorrectionRuleCreatePayload
 ): Promise<SpeechCorrectionRule[]> {
-  const data = await api.post<SpeechCorrectionRuleApi[]>(
-    PATH,
-    ruleToCreateApi(payload)
-  );
+  const data = (await api.post(PATH, ruleToCreateApi(payload))) as SpeechCorrectionRuleApi[];
   const rows = Array.isArray(data) ? data : [];
   return rows.map(ruleFromApi);
 }
@@ -48,11 +45,11 @@ async function update(
   assistantId: number,
   payload: SpeechCorrectionRuleUpdatePayload
 ): Promise<SpeechCorrectionRule> {
-  const data = await api.put<SpeechCorrectionRuleApi>(
+  const data = (await api.put(
     `${PATH}/${ruleId}`,
     ruleToUpdateApi(payload),
     { params: { assistant_id: assistantId } }
-  );
+  )) as SpeechCorrectionRuleApi;
   return ruleFromApi(data);
 }
 
@@ -67,10 +64,10 @@ async function remove(ruleId: number, assistantId: number): Promise<void> {
 async function saveGroup(
   payload: SpeechCorrectionRuleGroupUpsertPayload
 ): Promise<SpeechCorrectionRuleGroup> {
-  const data = await api.put<SpeechCorrectionRuleGroupApi>(
+  const data = (await api.put(
     `${PATH}/group`,
     groupToUpsertApi(payload)
-  );
+  )) as SpeechCorrectionRuleGroupApi;
   return groupFromApi(data);
 }
 

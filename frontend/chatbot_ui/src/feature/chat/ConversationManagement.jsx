@@ -27,6 +27,7 @@ import { useSpeechCorrectionSelection } from '../../hook/useSpeechCorrectionSele
 import SpeechCorrectionSelectionModal from '../speechCorrection/SpeechCorrectionSelectionModal';
 import SpeechRulesModal from '../speechCorrection/SpeechRulesModal';
 import { getSpeechCorrectionErrorMessage } from '../speechCorrection/speechCorrectionErrors';
+import { useAssistant } from '../../context/AssistantContext.jsx';
 
 function ConversationDialog({ open, conversation, onClose, assistantId }) {
   const { groups, refresh, createBatch, saveGroup } =
@@ -242,7 +243,8 @@ function ConversationDialog({ open, conversation, onClose, assistantId }) {
   );
 }
 
-export default function ConversationManagement({ currentAssistant }) {
+export default function ConversationManagement() {
+  const { currentAgent: currentAssistant } = useAssistant();
   const [conversations, setConversations] = useState([]);
   const [isLoadingConversations, setIsLoadingConversations] = useState(false);
   const [error, setError] = useState(null);

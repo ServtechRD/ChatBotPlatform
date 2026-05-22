@@ -12,13 +12,17 @@ import {
   Box,
   Dialog,
   IconButton,
-  Menu,
   MenuItem as MuiMenuItem,
   Select,
   CircularProgress,
-  Link,
 } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import {
+  NavLink,
+  Outlet,
+  useNavigate,
+  useSearchParams,
+  Link as RouterLink,
+} from 'react-router-dom';
 import {
   Menu as MenuIcon,
   Chat as ChatIcon,
@@ -27,134 +31,78 @@ import {
   Close as CloseIcon,
 } from '@mui/icons-material';
 
-// 導入其他組件
 import ChatInterface from '../feature/chat/ChatInterface';
-import KnowledgeBaseUI from '../feature/knowledge/KnowledgeBaseUI';
-import AIAssistantSettings from '../feature/setting/AIAssistantSettings';
 import AIAssistantManagement from '../feature/setting/AIAssistantManagement';
-import AccountProfile from '../feature/setting/AccountProfile';
-import ConversationManagement from '../feature/chat/ConversationManagement';
-
 import { storage } from '../api/storage.js';
 import useAuth from '../hook/useAuth';
+import { AssistantProvider, useAssistant } from '../context/AssistantContext.jsx';
+import { ROUTES } from '../constants/routes.js';
+import { toWithAssistant } from '../utils/assistantQuery.js';
 
-export default function AppLayout() {
+function SidebarNavItem({ icon, label, to, end }) {
+  const [searchParams] = useSearchParams();
+  const { currentAgent } = useAssistant();
+
+  return (
+    <ListItem
+      button
+      component={NavLink}
+      to={toWithAssistant(to, searchParams, currentAgent?.assistant_id)}
+      end={end}
+    >
+      <ListItemIcon>{icon}</ListItemIcon>
+      <ListItemText primary={label} />
+    </ListItem>
+  );
+}
+
+function AppLayoutShell() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { logout, user, isLoading: authLoading } = useAuth();
+  const {
+    agents,
+    currentAgent,
+    currentAgentIndex,
+    isLoading: assistantsLoading,
+    selectAgentByIndex,
+    refreshAgents,
+  } = useAssistant();
 
   const [isMenuOpen, setIsMenuOpen] = useState(true);
-  const [selectedMenuItem, setSelectedMenuItem] = useState('conversations');
   const [isChatDialogOpen, setIsChatDialogOpen] = useState(false);
   const [isAIManagementDialogOpen, setIsAIManagementDialogOpen] =
     useState(false);
-  const [currentAgent, setCurrentAgent] = useState(null);
-  const [currentAgentIndex, setCurrentAgentIndex] = useState(0);
   const [workspace, setWorkspace] = useState('Kao');
-  const [agents, setAgents] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  function MenuItem({ icon, label, value }) {
-    return (
-      <ListItem
-        button
-        selected={selectedMenuItem === value}
-        onClick={() => setSelectedMenuItem(value)}
-      >
-        <ListItemIcon>{icon}</ListItemIcon>
-        <ListItemText primary={label} />
-      </ListItem>
-    );
-  }
-
-  function renderContent() {
-    switch (selectedMenuItem) {
-      case 'chat':
-        return <ChatInterface />;
-      case 'conversations':
-        return <ConversationManagement currentAssistant={currentAgent} />;
-      case 'templateChat':
-        return <Typography>模板對話內容</Typography>;
-      case 'aiAssistant':
-        return <AIAssistantSettings />;
-      case 'knowledgeBase':
-        return <KnowledgeBaseUI currentAssistant={currentAgent} />;
-      case 'account':
-        return <AccountProfile />;
-      default:
-        return <Typography>請選擇一個選項</Typography>;
-    }
-  }
 
   useEffect(() => {
-    async function initializeData() {
-      try {
-        setWorkspace(storage.getUserEmail() || 'default');
-        const alreadyAgents = storage.getAssistants() || [];
-        setAgents(alreadyAgents);
-        if (alreadyAgents.length > 0) {
-          setCurrentAgent(alreadyAgents[0]);
-        }
-      } catch (error) {
-        console.error('Failed to initialize data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
+    setWorkspace(storage.getUserEmail() || 'default');
 
-    initializeData();
-
-    // 監聽 storage 變化，當 userData 或 assistantsData 更新時重新讀取
     function handleStorageChange(e) {
       if (e.key === 'userData' || e.type === 'userDataUpdated') {
         const newEmail = storage.getUserEmail();
-        if (newEmail) {
-          setWorkspace(newEmail);
-        }
+        if (newEmail) setWorkspace(newEmail);
       }
     }
 
-    function handleAssistantsChange(e) {
-      const assistants = e.detail || storage.getAssistants() || [];
-      setAgents(assistants);
-      if (assistants.length > 0 && !currentAgent) {
-        setCurrentAgent(assistants[0]);
-      }
-    }
-
-    // 監聽 storage 事件（跨 tab 同步）
     window.addEventListener('storage', handleStorageChange);
-
-    // 監聽自定義事件（同一 tab 內的更新）
     window.addEventListener('userDataUpdated', handleStorageChange);
-    window.addEventListener('assistantsDataUpdated', handleAssistantsChange);
-
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('userDataUpdated', handleStorageChange);
-      window.removeEventListener(
-        'assistantsDataUpdated',
-        handleAssistantsChange
-      );
     };
   }, []);
-
-  async function refreshAgents() {
-    const alreadyAgents = storage.getAssistants() || [];
-    setAgents(alreadyAgents);
-  }
 
   function handleLogout() {
     logout();
     navigate('/login');
   }
 
-  function handleSelectAgent(index) {
-    setCurrentAgentIndex(index);
-    const agent = agents[index];
-    setCurrentAgent(agent);
+  function handleRefreshAgents() {
+    refreshAgents();
   }
 
-  if (authLoading || isLoading) {
+  if (authLoading || assistantsLoading) {
     return (
       <Box
         sx={{
@@ -169,6 +117,12 @@ export default function AppLayout() {
     );
   }
 
+  const homeTo = toWithAssistant(
+    ROUTES.home,
+    searchParams,
+    currentAgent?.assistant_id
+  );
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <AppBar position="static">
@@ -181,11 +135,18 @@ export default function AppLayout() {
           >
             <MenuIcon />
           </IconButton>
-          <Link href="/" sx={{ flexGrow: 1 }}>
-            <Typography variant="h6" color="#fff">
+          <RouterLink
+            to={homeTo}
+            style={{
+              flexGrow: 1,
+              textDecoration: 'none',
+              color: 'inherit',
+            }}
+          >
+            <Typography variant="h6" color="inherit">
               {workspace}'s Workspace
             </Typography>
-          </Link>
+          </RouterLink>
           {user?.permission_level >= 3 && (
             <Button
               color="inherit"
@@ -202,11 +163,11 @@ export default function AppLayout() {
           )}
           <Select
             value={currentAgentIndex}
-            onChange={e => handleSelectAgent(e.target.value)}
+            onChange={e => selectAgentByIndex(e.target.value)}
             sx={{ color: 'white', mr: 2 }}
           >
             {agents?.map((agent, index) => (
-              <MuiMenuItem key={agent.name} value={index}>
+              <MuiMenuItem key={agent.assistant_id ?? agent.name} value={index}>
                 {agent.name}
               </MuiMenuItem>
             ))}
@@ -241,18 +202,23 @@ export default function AppLayout() {
           }}
         >
           <List>
-            <MenuItem icon={<ChatIcon />} label="對話" value="conversations" />
+            <SidebarNavItem
+              icon={<ChatIcon />}
+              label="對話"
+              to={ROUTES.home}
+              end
+            />
             {user?.permission_level >= 2 && (
-              <MenuItem
+              <SidebarNavItem
                 icon={<DatasetIcon />}
                 label="知識庫"
-                value="knowledgeBase"
+                to={ROUTES.knowledgeBase}
               />
             )}
           </List>
         </Drawer>
         <Box component="main" sx={{ flexGrow: 1, p: 3, overflow: 'auto' }}>
-          {renderContent()}
+          <Outlet />
         </Box>
       </Box>
       <Dialog
@@ -308,9 +274,17 @@ export default function AppLayout() {
         </AppBar>
         <AIAssistantManagement
           open={isAIManagementDialogOpen}
-          onRefresh={refreshAgents}
+          onRefresh={handleRefreshAgents}
         />
       </Dialog>
-    </Box >
+    </Box>
+  );
+}
+
+export default function AppLayout() {
+  return (
+    <AssistantProvider>
+      <AppLayoutShell />
+    </AssistantProvider>
   );
 }
