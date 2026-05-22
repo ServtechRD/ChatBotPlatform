@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -19,76 +19,233 @@ import {
 } from '@mui/icons-material';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import ApiService from '../../api/ApiService';
+import { conversation } from '../../api/conversation.js';
+import { auth } from '../../api/auth.js';
+import { useSpeechCorrectionRules } from '../../hook/useSpeechCorrectionRules';
+import { useSpeechCorrectionRuleModal } from '../../hook/useSpeechCorrectionRuleModal';
+import { useSpeechCorrectionSelection } from '../../hook/useSpeechCorrectionSelection';
+import SpeechCorrectionSelectionModal from '../speechCorrection/SpeechCorrectionSelectionModal';
+import SpeechRulesModal from '../speechCorrection/SpeechRulesModal';
+import { getSpeechCorrectionErrorMessage } from '../speechCorrection/speechCorrectionErrors';
 
-function ConversationDialog({ open, conversation, onClose }) {
+function ConversationDialog({ open, conversation, onClose, assistantId }) {
+  const { groups, refresh, createBatch, update, remove } =
+    useSpeechCorrectionRules(assistantId);
+  const selection = useSpeechCorrectionSelection();
+  const ruleModal = useSpeechCorrectionRuleModal();
+  const [selectionSubmitting, setSelectionSubmitting] = useState(false);
+  const [selectionError, setSelectionError] = useState(null);
+  const [rulesSubmitting, setRulesSubmitting] = useState(false);
+  const [rulesSubmitError, setRulesSubmitError] = useState(null);
+  const pendingSelectedTextRef = useRef('');
+
+  useEffect(() => {
+    if (open && assistantId) {
+      refresh({ enabledOnly: false });
+    }
+  }, [open, assistantId, refresh]);
+
+  function handleSelectionMouseUp() {
+    const text = window.getSelection()?.toString()?.trim();
+    if (!text) return;
+    pendingSelectedTextRef.current = text;
+    selection.openWithSelection(text, null);
+  }
+
+  function handleOpenCreateFromSelection() {
+    const text =
+      pendingSelectedTextRef.current || selection.selectedText || '';
+    selection.close();
+    ruleModal.openCreate({
+      wrongTexts: text ? [text] : [],
+      correctText: '',
+      enabled: true,
+    });
+  }
+
+  async function handleConfirmExisting(correctText) {
+    const wrongText =
+      pendingSelectedTextRef.current || selection.selectedText || '';
+    if (!wrongText) return;
+    setSelectionSubmitting(true);
+    setSelectionError(null);
+    try {
+      await createBatch({
+        correctText,
+        wrongTexts: [wrongText],
+      });
+      selection.close();
+      pendingSelectedTextRef.current = '';
+    } catch (err) {
+      setSelectionError(getSpeechCorrectionErrorMessage(err));
+    } finally {
+      setSelectionSubmitting(false);
+    }
+  }
+
+  async function handleRulesModalSubmit() {
+    const { correctText, wrongTexts, enabled } = ruleModal.formState;
+    const trimmedCorrect = correctText.trim();
+    const normalizedWrong = wrongTexts.map((w) => w.trim()).filter(Boolean);
+
+    if (!trimmedCorrect || normalizedWrong.length === 0) {
+      setRulesSubmitError('請填寫正確關鍵字與至少一個可能錯誤文字');
+      return;
+    }
+
+    setRulesSubmitting(true);
+    setRulesSubmitError(null);
+
+    try {
+      if (ruleModal.isGroupEdit && ruleModal.editingGroupRules?.length) {
+        const existing = ruleModal.editingGroupRules;
+        const newWrongSet = new Set(normalizedWrong);
+        for (const rule of existing) {
+          await update(rule.id, { correctText: trimmedCorrect, enabled });
+          if (!newWrongSet.has(rule.wrongText)) {
+            await remove(rule.id);
+          }
+        }
+        const existingWrong = new Set(existing.map((r) => r.wrongText));
+        const toAdd = normalizedWrong.filter((w) => !existingWrong.has(w));
+        if (toAdd.length > 0) {
+          await createBatch({
+            correctText: trimmedCorrect,
+            wrongTexts: toAdd,
+          });
+        }
+      } else if (ruleModal.isEditing && ruleModal.editingRule) {
+        await update(ruleModal.editingRule.id, {
+          wrongText: normalizedWrong[0],
+          correctText: trimmedCorrect,
+          enabled,
+        });
+      } else {
+        await createBatch({
+          correctText: trimmedCorrect,
+          wrongTexts: normalizedWrong,
+        });
+      }
+      ruleModal.close();
+      pendingSelectedTextRef.current = '';
+    } catch (err) {
+      setRulesSubmitError(getSpeechCorrectionErrorMessage(err));
+    } finally {
+      setRulesSubmitting(false);
+    }
+  }
+
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>對話紀錄 - 客戶 ID: {conversation?.customer_id}</DialogTitle>
-      <DialogContent>
-        <Box
-          sx={{
-            maxHeight: 400,
-            overflowY: 'auto',
-            bgcolor: '#f5f5f5',
-            p: 2,
-            borderRadius: 1,
-          }}
-        >
-          {conversation?.messages?.map(message => {
-            const isAssistant = message.sender === '助理';
-            return (
-              <Box
-                key={message.message_id}
-                sx={{
-                  display: 'flex',
-                  justifyContent: isAssistant ? 'flex-start' : 'flex-end',
-                  mb: 1.5,
-                }}
-              >
+    <>
+      <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+        <DialogTitle>
+          對話紀錄 - 客戶 ID: {conversation?.customer_id}
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+            可選取訊息文字以建立語音誤字對照
+          </Typography>
+          <Box
+            onMouseUp={handleSelectionMouseUp}
+            sx={{
+              maxHeight: 400,
+              overflowY: 'auto',
+              bgcolor: '#f5f5f5',
+              p: 2,
+              borderRadius: 1,
+              userSelect: 'text',
+            }}
+          >
+            {conversation?.messages?.map(message => {
+              const isAssistant = message.sender === '助理';
+              return (
                 <Box
+                  key={message.message_id}
                   sx={{
-                    maxWidth: '80%',
-                    bgcolor: isAssistant ? 'white' : 'primary.main',
-                    color: isAssistant
-                      ? 'text.primary'
-                      : 'primary.contrastText',
-                    p: 1.5,
-                    borderRadius: 2,
-                    boxShadow: 1,
+                    display: 'flex',
+                    justifyContent: isAssistant ? 'flex-start' : 'flex-end',
+                    mb: 1.5,
                   }}
                 >
-                  <Typography
-                    variant="caption"
-                    color={isAssistant ? 'text.secondary' : 'inherit'}
-                    sx={{ display: 'block', mb: 0.5 }}
+                  <Box
+                    sx={{
+                      maxWidth: '80%',
+                      bgcolor: isAssistant ? 'white' : 'primary.main',
+                      color: isAssistant
+                        ? 'text.primary'
+                        : 'primary.contrastText',
+                      p: 1.5,
+                      borderRadius: 2,
+                      boxShadow: 1,
+                    }}
                   >
-                    {message.sender}
-                  </Typography>
-                  <Box>
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {message.content ?? ''}
-                    </ReactMarkdown>
+                    <Typography
+                      variant="caption"
+                      color={isAssistant ? 'text.secondary' : 'inherit'}
+                      sx={{ display: 'block', mb: 0.5 }}
+                    >
+                      {message.sender}
+                    </Typography>
+                    <Box
+                      sx={{
+                        '& p': { margin: 0 },
+                      }}
+                    >
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {message.content ?? ''}
+                      </ReactMarkdown>
+                    </Box>
+                    <Typography
+                      variant="caption"
+                      color={isAssistant ? 'text.secondary' : 'inherit'}
+                      sx={{ display: 'block', mt: 0.5, textAlign: 'right' }}
+                    >
+                      {new Date(message.timestamp + 'Z').toLocaleString()}
+                    </Typography>
                   </Box>
-                  <Typography
-                    variant="caption"
-                    color={isAssistant ? 'text.secondary' : 'inherit'}
-                    sx={{ display: 'block', mt: 0.5, textAlign: 'right' }}
-                  >
-                    {new Date(message.timestamp + 'Z').toLocaleString()}
-                  </Typography>
                 </Box>
-              </Box>
-            );
-          })}
-          {!conversation?.messages?.length && (
-            <Typography color="text.secondary" align="center">
-              目前沒有對話訊息
-            </Typography>
-          )}
-        </Box>
-      </DialogContent>
-    </Dialog>
+              );
+            })}
+            {!conversation?.messages?.length && (
+              <Typography color="text.secondary" align="center">
+                目前沒有對話訊息
+              </Typography>
+            )}
+          </Box>
+        </DialogContent>
+      </Dialog>
+
+      <SpeechCorrectionSelectionModal
+        open={selection.modalOpen}
+        selectedText={selection.selectedText}
+        onClose={() => {
+          selection.close();
+          setSelectionError(null);
+          pendingSelectedTextRef.current = '';
+        }}
+        groups={groups}
+        onOpenCreateModal={handleOpenCreateFromSelection}
+        onConfirmExisting={handleConfirmExisting}
+        submitting={selectionSubmitting}
+        error={selectionError}
+      />
+
+      <SpeechRulesModal
+        open={ruleModal.modalOpen}
+        onClose={() => {
+          setRulesSubmitError(null);
+          ruleModal.close();
+        }}
+        title={
+          ruleModal.isEditing ? '新增／編輯關鍵字對照' : '新增關鍵字對照'
+        }
+        formState={ruleModal.formState}
+        onPatchForm={ruleModal.patchForm}
+        onSubmit={handleRulesModalSubmit}
+        submitting={rulesSubmitting}
+        submitError={rulesSubmitError}
+      />
+    </>
   );
 }
 
@@ -122,7 +279,7 @@ export default function ConversationManagement({ currentAssistant }) {
       setError(null);
 
       const assistantId = currentAssistant?.assistant_id;
-      const data = await ApiService.fetchUserConversations(assistantId);
+      const data = await conversation.get(assistantId);
       setConversations(data);
     } catch (err) {
       console.error('Error fetching conversations:', err);
@@ -181,7 +338,7 @@ export default function ConversationManagement({ currentAssistant }) {
 
   function handleApiError(error) {
     if (error.response && error.response.status === 401) {
-      ApiService.logout();
+      auth.logout();
       // navigate('/login');
     }
   }
@@ -321,6 +478,7 @@ export default function ConversationManagement({ currentAssistant }) {
         open={isModalOpen}
         conversation={selectedConversation}
         onClose={handleCloseModal}
+        assistantId={currentAssistant?.assistant_id}
       />
     </Box>
   );

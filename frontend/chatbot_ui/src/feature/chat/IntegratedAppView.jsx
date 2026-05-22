@@ -34,15 +34,17 @@ import {
 } from '@mui/icons-material';
 
 // AppLayout Component
-const AppLayout = ({ children }) => {
+function IntegratedAppLayout({ children }) {
   const [isMenuOpen, setIsMenuOpen] = useState(true);
 
-  const MenuItem = ({ icon, label, active }) => (
-    <ListItem button selected={active}>
-      <ListItemIcon>{icon}</ListItemIcon>
-      <ListItemText primary={label} />
-    </ListItem>
-  );
+  function MenuItem({ icon, label, active }) {
+    return (
+      <ListItem button selected={active}>
+        <ListItemIcon>{icon}</ListItemIcon>
+        <ListItemText primary={label} />
+      </ListItem>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', height: '100vh' }}>
@@ -75,10 +77,10 @@ const AppLayout = ({ children }) => {
       </div>
     </div>
   );
-};
+}
 
 // AI Assistant Management Component
-const AIAssistantManagement = () => {
+function IntegratedAIAssistantManagement() {
   const [assistants] = useState([
     {
       id: 1,
@@ -132,28 +134,28 @@ const AIAssistantManagement = () => {
       </TableContainer>
     </div>
   );
-};
+}
 
 // Other components (AccountProfile, ImageUploadComponent, FileUploadDialog, ChatInterface) 
 // can be similarly updated to use MUI components
 
 // Main Integrated App View Component
-const IntegratedAppView = () => {
+export default function IntegratedAppView() {
   const [currentView, setCurrentView] = useState('aiAssistant');
   const [isFileUploadDialogOpen, setIsFileUploadDialogOpen] = useState(false);
 
-  const renderCurrentView = () => {
+  function renderCurrentView() {
     switch(currentView) {
       case 'aiAssistant':
-        return <AIAssistantManagement />;
+        return <IntegratedAIAssistantManagement />;
       // Implement other views
       default:
         return <div>選擇一個檢視</div>;
     }
-  };
+  }
 
   return (
-    <AppLayout>
+    <IntegratedAppLayout>
       <div>
         <Button onClick={() => setCurrentView('aiAssistant')}>AI助理管理</Button>
         <Button onClick={() => setCurrentView('account')}>帳戶資料</Button>
@@ -178,8 +180,6 @@ const IntegratedAppView = () => {
           <Button onClick={() => setIsFileUploadDialogOpen(false)} color="primary">確認</Button>
         </DialogActions>
       </Dialog>
-    </AppLayout>
+    </IntegratedAppLayout>
   );
-};
-
-export default IntegratedAppView;
+}

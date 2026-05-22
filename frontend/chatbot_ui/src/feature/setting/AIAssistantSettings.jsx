@@ -12,18 +12,12 @@ import {
   Box,
 } from '@mui/material';
 
-import ApiService from '../../api/ApiService';
+import { storage } from '../../api/storage.js';
 
-// 取得使用者ID
-const userId = ApiService.getUserId();
-
-// 取得使用者信箱
-const userEmail = ApiService.getUserEmail();
-
-// 取得使用者的assistants
-const userAssistants = ApiService.getUserAssistants();
-
-const AIAssistantSettings = () => {
+export default function AIAssistantSettings() {
+  const userId = storage.getUserId();
+  const userEmail = storage.getUserEmail();
+  const userAssistants = storage.getUserAssistants();
   return (
     <Box sx={{ p: 6, maxWidth: '4xl', mx: 'auto' }}>
       <Typography variant="h4" fontWeight="bold" mb={4}>
@@ -176,6 +170,4 @@ Use casual language and avoid repeating the same sentences."
       </Box>
     </Box>
   );
-};
-
-export default AIAssistantSettings;
+}

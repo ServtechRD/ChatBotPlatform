@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Boolean, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, Text, Boolean, ForeignKey, DateTime, UniqueConstraint
 from sqlalchemy.orm import relationship
 from models.database import Base
 from datetime import datetime
@@ -43,6 +43,9 @@ class AIAssistant(Base):
     conversations = relationship("Conversation", back_populates="assistant")
 
     knowledges = relationship("KnowledgeBase", back_populates="assistant")
+    speech_correction_rules = relationship(
+        "SpeechCorrectionRule", back_populates="assistant"
+    )
 
     # 新增欄位
     image_assistant = Column(String(255), nullable=True)  # 助理圖路徑
@@ -106,3 +109,34 @@ class KnowledgeBase(Base):
 
     # 關聯至助理
     assistant = relationship("AIAssistant", back_populates="knowledges")
+
+
+class SpeechCorrectionRule(Base):
+    __tablename__ = "speech_correction_rules"
+    __table_args__ = (
+        UniqueConstraint(
+            "assistant_id",
+            "wrong_text",
+            name="uq_speech_correction_assistant_wrong",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    assistant_id = Column(
+        Integer, ForeignKey("assistants.assistant_id"), nullable=False, index=True
+    )
+    wrong_text = Column(String(512), nullable=False, index=True)
+    correct_text = Column(String(512), nullable=False)
+    enabled = Column(Boolean, default=True, nullable=False)
+    priority = Column(Integer, default=100, nullable=False)
+    created_by = Column(Integer, ForeignKey("users.user_id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )
+
+    assistant = relationship("AIAssistant", back_populates="speech_correction_rules")
+    creator = relationship("User", foreign_keys=[created_by])
