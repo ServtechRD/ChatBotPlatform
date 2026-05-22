@@ -34,9 +34,7 @@ export default function SpeechRulesModal({
   function addWrongTextTag(value) {
     const trimmed = (value || '').trim();
     if (!trimmed) return;
-    const exists = formState.wrongTexts.some(
-      (w) => w.trim().toLowerCase() === trimmed.toLowerCase()
-    );
+    const exists = formState.wrongTexts.some((w) => w.trim() === trimmed);
     if (exists) return;
     onPatchForm({ wrongTexts: [...formState.wrongTexts, trimmed] });
     setTagInput('');
