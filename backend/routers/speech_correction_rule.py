@@ -8,14 +8,17 @@ from models.database import get_db
 from models.schemas import (
     SpeechCorrectionRuleCreate,
     SpeechCorrectionRuleGroup,
+    SpeechCorrectionRuleGroupUpsert,
     SpeechCorrectionRuleOut,
     SpeechCorrectionRuleUpdate,
 )
 from services.auth_service import verify_token
 from services.speech_correction_service import (
     create_rules_batch,
+    delete_rule,
     list_rules_grouped,
     update_rule,
+    upsert_rules_group,
 )
 
 router = APIRouter()
@@ -54,6 +57,16 @@ def post_speech_correction_rules(
     return create_rules_batch(db, payload, user_id)
 
 
+@router.put("/group", response_model=SpeechCorrectionRuleGroup)
+def put_speech_correction_rule_group(
+    payload: SpeechCorrectionRuleGroupUpsert,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    """一次同步正確關鍵字群組（錯字清單 + 群組 enabled）。"""
+    return upsert_rules_group(db, payload, user_id)
+
+
 @router.put("/{rule_id}", response_model=SpeechCorrectionRuleOut)
 def put_speech_correction_rule(
     rule_id: int,
@@ -62,5 +75,16 @@ def put_speech_correction_rule(
     db: Session = Depends(get_db),
     _user_id: int = Depends(get_current_user_id),
 ):
-    """更新單筆規則；enabled=false 視為軟刪除。"""
+    """更新單筆規則（含群組啟用 enabled）。"""
     return update_rule(db, rule_id, assistant_id, payload)
+
+
+@router.delete("/{rule_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_speech_correction_rule(
+    rule_id: int,
+    assistant_id: int,
+    db: Session = Depends(get_db),
+    _user_id: int = Depends(get_current_user_id),
+):
+    """硬刪單筆錯字；同一正確關鍵字至少須保留一筆錯字。"""
+    delete_rule(db, rule_id, assistant_id)

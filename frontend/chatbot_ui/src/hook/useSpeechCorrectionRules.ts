@@ -7,6 +7,7 @@ import type {
   SpeechCorrectionRule,
   SpeechCorrectionRuleCreatePayload,
   SpeechCorrectionRuleGroup,
+  SpeechCorrectionRuleGroupUpsertPayload,
   SpeechCorrectionRuleUpdatePayload,
 } from '../types/speechCorrectionRule';
 
@@ -27,6 +28,10 @@ export interface UseSpeechCorrectionRulesResult {
     payload: SpeechCorrectionRuleUpdatePayload
   ) => Promise<SpeechCorrectionRule>;
   remove: (ruleId: number) => Promise<void>;
+  saveGroup: (
+    payload: SpeechCorrectionRuleGroupUpsertPayload,
+    replacedRuleIds?: number[]
+  ) => Promise<SpeechCorrectionRuleGroup>;
 }
 
 export function useSpeechCorrectionRules(
@@ -66,7 +71,11 @@ export function useSpeechCorrectionRules(
       if (assistantId == null) {
         return Promise.reject(new Error('assistantId is required'));
       }
-      return speechCorrectionRulesStore.updateRule(assistantId, ruleId, payload);
+      return speechCorrectionRulesStore.updateRule(
+        assistantId,
+        ruleId,
+        payload
+      );
     },
     [assistantId]
   );
@@ -77,6 +86,20 @@ export function useSpeechCorrectionRules(
         return Promise.reject(new Error('assistantId is required'));
       }
       return speechCorrectionRulesStore.removeRule(assistantId, ruleId);
+    },
+    [assistantId]
+  );
+
+  const saveGroup = useCallback(
+    (
+      payload: SpeechCorrectionRuleGroupUpsertPayload,
+      replacedRuleIds: number[] = []
+    ) => {
+      const aid = assistantId ?? payload.assistantId;
+      return speechCorrectionRulesStore.saveRulesGroup(
+        { ...payload, assistantId: aid },
+        replacedRuleIds
+      );
     },
     [assistantId]
   );
@@ -93,6 +116,7 @@ export function useSpeechCorrectionRules(
     createBatch,
     update,
     remove,
+    saveGroup,
   };
 }
 

@@ -115,7 +115,34 @@ class SpeechCorrectionRuleOut(BaseModel):
 
 class SpeechCorrectionRuleGroup(BaseModel):
     correct_text: str
+    enabled: bool
     rules: List[SpeechCorrectionRuleOut]
+
+
+class SpeechCorrectionRuleGroupUpsert(BaseModel):
+    """單一正確關鍵字群組：一次同步錯字清單與群組啟用。"""
+
+    assistant_id: int
+    correct_text: str
+    enabled: bool
+    wrong_texts: List[str] = Field(..., min_length=1)
+    old_correct_text: Optional[str] = None
+
+    @field_validator("correct_text")
+    @classmethod
+    def strip_correct_text(cls, v: str) -> str:
+        s = (v or "").strip()
+        if not s:
+            raise ValueError("correct_text must not be empty")
+        return s
+
+    @field_validator("old_correct_text")
+    @classmethod
+    def strip_old_correct_text(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        s = v.strip()
+        return s or None
 
 
 class SpeechCorrectionRuleCreate(BaseModel):
@@ -123,6 +150,7 @@ class SpeechCorrectionRuleCreate(BaseModel):
     correct_text: str
     wrong_texts: List[str] = Field(..., min_length=1)
     priority: int = 100
+    enabled: bool = True
 
     @field_validator("correct_text")
     @classmethod

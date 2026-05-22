@@ -29,7 +29,7 @@ import SpeechRulesModal from '../speechCorrection/SpeechRulesModal';
 import { getSpeechCorrectionErrorMessage } from '../speechCorrection/speechCorrectionErrors';
 
 function ConversationDialog({ open, conversation, onClose, assistantId }) {
-  const { groups, refresh, createBatch, update, remove } =
+  const { groups, refresh, createBatch, saveGroup } =
     useSpeechCorrectionRules(assistantId);
   const selection = useSpeechCorrectionSelection();
   const ruleModal = useSpeechCorrectionRuleModal();
@@ -84,6 +84,10 @@ function ConversationDialog({ open, conversation, onClose, assistantId }) {
   }
 
   async function handleRulesModalSubmit() {
+    if (!assistantId) {
+      setRulesSubmitError('請先選擇助理');
+      return;
+    }
     const { correctText, wrongTexts, enabled } = ruleModal.formState;
     const trimmedCorrect = correctText.trim();
     const normalizedWrong = wrongTexts.map((w) => w.trim()).filter(Boolean);
@@ -97,35 +101,24 @@ function ConversationDialog({ open, conversation, onClose, assistantId }) {
     setRulesSubmitError(null);
 
     try {
-      if (ruleModal.isGroupEdit && ruleModal.editingGroupRules?.length) {
-        const existing = ruleModal.editingGroupRules;
-        const newWrongSet = new Set(normalizedWrong);
-        for (const rule of existing) {
-          await update(rule.id, { correctText: trimmedCorrect, enabled });
-          if (!newWrongSet.has(rule.wrongText)) {
-            await remove(rule.id);
-          }
-        }
-        const existingWrong = new Set(existing.map((r) => r.wrongText));
-        const toAdd = normalizedWrong.filter((w) => !existingWrong.has(w));
-        if (toAdd.length > 0) {
-          await createBatch({
-            correctText: trimmedCorrect,
-            wrongTexts: toAdd,
-          });
-        }
-      } else if (ruleModal.isEditing && ruleModal.editingRule) {
-        await update(ruleModal.editingRule.id, {
-          wrongText: normalizedWrong[0],
+      const oldCorrectText =
+        ruleModal.editingGroupRules?.[0]?.correctText ??
+        ruleModal.editingRule?.correctText ??
+        trimmedCorrect;
+      const replacedRuleIds =
+        ruleModal.editingGroupRules?.map((r) => r.id) ??
+        (ruleModal.editingRule ? [ruleModal.editingRule.id] : []);
+
+      await saveGroup(
+        {
+          assistantId,
+          oldCorrectText,
           correctText: trimmedCorrect,
           enabled,
-        });
-      } else {
-        await createBatch({
-          correctText: trimmedCorrect,
           wrongTexts: normalizedWrong,
-        });
-      }
+        },
+        replacedRuleIds
+      );
       ruleModal.close();
       pendingSelectedTextRef.current = '';
     } catch (err) {

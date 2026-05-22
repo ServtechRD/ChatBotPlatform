@@ -14,6 +14,7 @@ from models.models import SpeechCorrectionRule
 from models.schemas import (
     SpeechCorrectionRuleCreate,
     SpeechCorrectionRuleGroup,
+    SpeechCorrectionRuleGroupUpsert,
     SpeechCorrectionRuleOut,
     SpeechCorrectionRuleUpdate,
 )
@@ -63,6 +64,16 @@ def rule_to_out(rule: SpeechCorrectionRule) -> SpeechCorrectionRuleOut:
     return SpeechCorrectionRuleOut.model_validate(rule)
 
 
+def _rules_to_group(correct_text: str, rules: List[SpeechCorrectionRule]) -> SpeechCorrectionRuleGroup:
+    sorted_rules = sorted(rules, key=_rule_sort_key)
+    group_enabled = sorted_rules[0].enabled if sorted_rules else True
+    return SpeechCorrectionRuleGroup(
+        correct_text=correct_text,
+        enabled=group_enabled,
+        rules=[rule_to_out(r) for r in sorted_rules],
+    )
+
+
 def list_rules_grouped(
     db: Session,
     assistant_id: int,
@@ -82,13 +93,7 @@ def list_rules_grouped(
         groups[rule.correct_text].append(rule)
 
     group_keys = sorted(groups.keys(), key=lambda ct: min(r.id for r in groups[ct]))
-    return [
-        SpeechCorrectionRuleGroup(
-            correct_text=correct_text,
-            rules=[rule_to_out(r) for r in sorted(groups[correct_text], key=_rule_sort_key)],
-        )
-        for correct_text in group_keys
-    ]
+    return [_rules_to_group(correct_text, groups[correct_text]) for correct_text in group_keys]
 
 
 def _find_duplicate_wrong_texts(
@@ -137,7 +142,7 @@ def create_rules_batch(
                 assistant_id=payload.assistant_id,
                 wrong_text=wrong_text,
                 correct_text=correct_text,
-                enabled=True,
+                enabled=payload.enabled,
                 priority=payload.priority,
                 created_by=user_id,
                 created_at=now,
@@ -240,6 +245,167 @@ def update_rule(
         )
 
     return rule_to_out(rule)
+
+
+def upsert_rules_group(
+    db: Session,
+    payload: SpeechCorrectionRuleGroupUpsert,
+    user_id: int,
+) -> SpeechCorrectionRuleGroup:
+    """單一 transaction 建立或同步群組。"""
+    assistant_id = payload.assistant_id
+    new_ct = payload.correct_text.strip()
+    old_ct = (payload.old_correct_text or new_ct).strip()
+    try:
+        desired_wrongs = normalize_wrong_texts(payload.wrong_texts, new_ct)
+    except SpeechCorrectionValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    existing = (
+        db.query(SpeechCorrectionRule)
+        .filter(
+            SpeechCorrectionRule.assistant_id == assistant_id,
+            SpeechCorrectionRule.correct_text == old_ct,
+        )
+        .all()
+    )
+
+    now = datetime.utcnow()
+
+    if not existing:
+        duplicates = _find_duplicate_wrong_texts(db, assistant_id, desired_wrongs)
+        if duplicates:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "One or more wrong_text values already exist",
+                    "duplicate_wrong_texts": duplicates,
+                },
+            )
+        try:
+            for wrong_text in desired_wrongs:
+                db.add(
+                    SpeechCorrectionRule(
+                        assistant_id=assistant_id,
+                        wrong_text=wrong_text,
+                        correct_text=new_ct,
+                        enabled=payload.enabled,
+                        priority=100,
+                        created_by=user_id,
+                        created_at=now,
+                        updated_at=now,
+                    )
+                )
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "One or more wrong_text values already exist",
+                    "duplicate_wrong_texts": desired_wrongs,
+                },
+            )
+        rows = (
+            db.query(SpeechCorrectionRule)
+            .filter(
+                SpeechCorrectionRule.assistant_id == assistant_id,
+                SpeechCorrectionRule.correct_text == new_ct,
+            )
+            .all()
+        )
+        return _rules_to_group(new_ct, rows)
+
+    by_wrong = {r.wrong_text: r for r in existing}
+    desired_set = set(desired_wrongs)
+    to_add = [w for w in desired_wrongs if w not in by_wrong]
+    if to_add:
+        duplicates = _find_duplicate_wrong_texts(db, assistant_id, to_add)
+        if duplicates:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "One or more wrong_text values already exist",
+                    "duplicate_wrong_texts": duplicates,
+                },
+            )
+
+    try:
+        for wrong, rule in list(by_wrong.items()):
+            if wrong not in desired_set:
+                db.delete(rule)
+
+        for wrong in desired_wrongs:
+            rule = by_wrong.get(wrong)
+            if rule is not None:
+                rule.correct_text = new_ct
+                rule.enabled = payload.enabled
+                rule.updated_at = now
+            else:
+                db.add(
+                    SpeechCorrectionRule(
+                        assistant_id=assistant_id,
+                        wrong_text=wrong,
+                        correct_text=new_ct,
+                        enabled=payload.enabled,
+                        priority=100,
+                        created_by=user_id,
+                        created_at=now,
+                        updated_at=now,
+                    )
+                )
+
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": "One or more wrong_text values already exist",
+                "duplicate_wrong_texts": to_add,
+            },
+        )
+
+    rows = (
+        db.query(SpeechCorrectionRule)
+        .filter(
+            SpeechCorrectionRule.assistant_id == assistant_id,
+            SpeechCorrectionRule.correct_text == new_ct,
+        )
+        .all()
+    )
+    return _rules_to_group(new_ct, rows)
+
+
+def delete_rule(db: Session, rule_id: int, assistant_id: int) -> None:
+    """硬刪單筆錯字規則；同一 correct_text 至少須保留一筆 wrong_text。"""
+    rule = (
+        db.query(SpeechCorrectionRule)
+        .filter(
+            SpeechCorrectionRule.id == rule_id,
+            SpeechCorrectionRule.assistant_id == assistant_id,
+        )
+        .first()
+    )
+    if not rule:
+        raise HTTPException(status_code=404, detail="Rule not found")
+
+    siblings_count = (
+        db.query(SpeechCorrectionRule)
+        .filter(
+            SpeechCorrectionRule.assistant_id == assistant_id,
+            SpeechCorrectionRule.correct_text == rule.correct_text,
+        )
+        .count()
+    )
+    if siblings_count <= 1:
+        raise HTTPException(
+            status_code=400,
+            detail="cannot delete the last wrong_text for this correct_text",
+        )
+
+    db.delete(rule)
+    db.commit()
 
 
 def apply_rules(text: str, rules: Sequence[SpeechCorrectionRule]) -> str:

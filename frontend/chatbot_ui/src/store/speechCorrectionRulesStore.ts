@@ -4,8 +4,10 @@ import {
   type SpeechCorrectionRule,
   type SpeechCorrectionRuleCreatePayload,
   type SpeechCorrectionRuleGroup,
+  type SpeechCorrectionRuleGroupUpsertPayload,
   type SpeechCorrectionRuleUpdatePayload,
 } from '../types/speechCorrectionRule';
+import { ruleSortKey } from '../utils/speechCorrectionEngine';
 
 export interface SpeechCorrectionRulesSnapshot {
   groups: SpeechCorrectionRuleGroup[];
@@ -88,6 +90,49 @@ function setFromGroups(entry: AssistantEntry, nextGroups: SpeechCorrectionRuleGr
   entry.rules = flattenGroups(nextGroups);
   entry.loaded = true;
   entry.error = null;
+}
+
+function sortRulesInGroup(rules: SpeechCorrectionRule[]): SpeechCorrectionRule[] {
+  return [...rules].sort(ruleSortKey);
+}
+
+function buildGroupsFromRules(rules: SpeechCorrectionRule[]): SpeechCorrectionRuleGroup[] {
+  const byCorrect = new Map<string, SpeechCorrectionRule[]>();
+  for (const r of rules) {
+    const list = byCorrect.get(r.correctText) ?? [];
+    list.push(r);
+    byCorrect.set(r.correctText, list);
+  }
+  const groups = Array.from(byCorrect.entries()).map(([correctText, groupRules]) => {
+    const enabled = groupRules[0]?.enabled ?? true;
+    return {
+      correctText,
+      enabled,
+      rules: sortRulesInGroup(
+        groupRules.map((r) => ({ ...r, enabled: r.enabled ?? enabled }))
+      ),
+    };
+  });
+  groups.sort(
+    (a, b) =>
+      Math.min(...a.rules.map((r) => r.id)) - Math.min(...b.rules.map((r) => r.id))
+  );
+  return groups;
+}
+
+function patchEntryRules(entry: AssistantEntry, nextRules: SpeechCorrectionRule[]): void {
+  entry.groups = buildGroupsFromRules(nextRules);
+  entry.rules = nextRules;
+}
+
+function patchLoadedEntry(
+  assistantId: number,
+  mutate: (rules: SpeechCorrectionRule[]) => SpeechCorrectionRule[]
+): void {
+  const entry = getEntry(assistantId);
+  if (!entry.loaded) return;
+  patchEntryRules(entry, mutate(entry.rules));
+  emit();
 }
 
 function subscribe(listener: Listener): () => void {
@@ -174,7 +219,10 @@ export async function createRulesBatch(
   payload: SpeechCorrectionRuleCreatePayload
 ): Promise<SpeechCorrectionRule[]> {
   const created = await speechCorrectionRule.createBatch(payload);
-  await refreshRules(payload.assistantId);
+  const id = normalizeAssistantId(payload.assistantId);
+  if (id != null) {
+    patchLoadedEntry(id, (rules) => [...rules, ...created]);
+  }
   return created;
 }
 
@@ -184,7 +232,9 @@ export async function updateRule(
   payload: SpeechCorrectionRuleUpdatePayload
 ): Promise<SpeechCorrectionRule> {
   const updated = await speechCorrectionRule.update(ruleId, assistantId, payload);
-  await refreshRules(assistantId);
+  patchLoadedEntry(assistantId, (rules) =>
+    rules.map((r) => (r.id === updated.id ? updated : r))
+  );
   return updated;
 }
 
@@ -193,7 +243,33 @@ export async function removeRule(
   ruleId: number
 ): Promise<void> {
   await speechCorrectionRule.remove(ruleId, assistantId);
-  await refreshRules(assistantId);
+  patchLoadedEntry(assistantId, (rules) => rules.filter((r) => r.id !== ruleId));
+}
+
+function replaceGroupInRules(
+  rules: SpeechCorrectionRule[],
+  replacedRuleIds: number[],
+  group: SpeechCorrectionRuleGroup
+): SpeechCorrectionRule[] {
+  const drop = new Set(replacedRuleIds);
+  const synced = group.rules.map((r) => ({
+    ...r,
+    correctText: group.correctText,
+    enabled: group.enabled,
+  }));
+  return [...rules.filter((r) => !drop.has(r.id)), ...synced];
+}
+
+export async function saveRulesGroup(
+  payload: SpeechCorrectionRuleGroupUpsertPayload,
+  replacedRuleIds: number[] = []
+): Promise<SpeechCorrectionRuleGroup> {
+  const group = await speechCorrectionRule.saveGroup(payload);
+  const id = normalizeAssistantId(payload.assistantId);
+  if (id != null) {
+    patchLoadedEntry(id, (rules) => replaceGroupInRules(rules, replacedRuleIds, group));
+  }
+  return group;
 }
 
 export function resetSpeechCorrectionRulesStore(): void {
@@ -210,5 +286,6 @@ export const speechCorrectionRulesStore = {
   createRulesBatch,
   updateRule,
   removeRule,
+  saveRulesGroup,
   resetSpeechCorrectionRulesStore,
 };

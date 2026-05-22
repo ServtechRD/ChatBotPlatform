@@ -1,6 +1,8 @@
 import { api } from './api.js';
 import {
+  groupFromApi,
   groupsFromApi,
+  groupToUpsertApi,
   ruleFromApi,
   ruleToCreateApi,
   ruleToUpdateApi,
@@ -9,6 +11,7 @@ import {
   type SpeechCorrectionRuleCreatePayload,
   type SpeechCorrectionRuleGroup,
   type SpeechCorrectionRuleGroupApi,
+  type SpeechCorrectionRuleGroupUpsertPayload,
   type SpeechCorrectionRuleUpdatePayload,
 } from '../types/speechCorrectionRule';
 
@@ -53,12 +56,22 @@ async function update(
   return ruleFromApi(data);
 }
 
-/** 軟刪除：enabled = false */
-async function remove(
-  ruleId: number,
-  assistantId: number
-): Promise<SpeechCorrectionRule> {
-  return update(ruleId, assistantId, { enabled: false });
+/** 硬刪單筆錯字規則（同一正確關鍵字至少須保留一筆） */
+async function remove(ruleId: number, assistantId: number): Promise<void> {
+  await api.del(`${PATH}/${ruleId}`, {
+    params: { assistant_id: assistantId },
+  });
+}
+
+/** 一次同步正確關鍵字群組（新增 / 編輯 / 啟用 / 增刪錯字） */
+async function saveGroup(
+  payload: SpeechCorrectionRuleGroupUpsertPayload
+): Promise<SpeechCorrectionRuleGroup> {
+  const data = await api.put<SpeechCorrectionRuleGroupApi>(
+    `${PATH}/group`,
+    groupToUpsertApi(payload)
+  );
+  return groupFromApi(data);
 }
 
 export const speechCorrectionRule = {
@@ -66,4 +79,5 @@ export const speechCorrectionRule = {
   createBatch,
   update,
   remove,
+  saveGroup,
 };

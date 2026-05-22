@@ -46,13 +46,17 @@ export function useSpeechCorrectionRuleModal() {
   }, []);
 
   const openEditGroup = useCallback(
-    (correctText: string, groupRules: SpeechCorrectionRule[]) => {
+    (
+      correctText: string,
+      groupRules: SpeechCorrectionRule[],
+      groupEnabled?: boolean
+    ) => {
       setEditingRule(groupRules[0] ?? null);
       setEditingGroupRules(groupRules);
       setFormState({
         correctText,
         wrongTexts: groupRules.map((r) => r.wrongText),
-        enabled: groupRules.every((r) => r.enabled),
+        enabled: groupEnabled ?? groupRules[0]?.enabled ?? true,
       });
       setModalOpen(true);
     },

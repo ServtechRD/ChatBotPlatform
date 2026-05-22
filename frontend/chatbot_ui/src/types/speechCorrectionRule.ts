@@ -13,7 +13,16 @@ export interface SpeechCorrectionRuleApi {
 
 export interface SpeechCorrectionRuleGroupApi {
   correct_text: string;
+  enabled: boolean;
   rules: SpeechCorrectionRuleApi[];
+}
+
+export interface SpeechCorrectionRuleGroupUpsertApi {
+  assistant_id: number;
+  correct_text: string;
+  enabled: boolean;
+  wrong_texts: string[];
+  old_correct_text?: string | null;
 }
 
 export interface SpeechCorrectionRuleCreateApi {
@@ -21,6 +30,7 @@ export interface SpeechCorrectionRuleCreateApi {
   correct_text: string;
   wrong_texts: string[];
   priority?: number;
+  enabled?: boolean;
 }
 
 export interface SpeechCorrectionRuleUpdateApi {
@@ -45,7 +55,16 @@ export interface SpeechCorrectionRule {
 
 export interface SpeechCorrectionRuleGroup {
   correctText: string;
+  enabled: boolean;
   rules: SpeechCorrectionRule[];
+}
+
+export interface SpeechCorrectionRuleGroupUpsertPayload {
+  assistantId: number;
+  correctText: string;
+  enabled: boolean;
+  wrongTexts: string[];
+  oldCorrectText?: string;
 }
 
 export interface SpeechCorrectionRuleCreatePayload {
@@ -53,6 +72,7 @@ export interface SpeechCorrectionRuleCreatePayload {
   correctText: string;
   wrongTexts: string[];
   priority?: number;
+  enabled?: boolean;
 }
 
 export interface SpeechCorrectionRuleUpdatePayload {
@@ -84,6 +104,7 @@ export function ruleToCreateApi(
     correct_text: payload.correctText.trim(),
     wrong_texts: payload.wrongTexts.map((t) => t.trim()).filter(Boolean),
     ...(payload.priority !== undefined ? { priority: payload.priority } : {}),
+    ...(payload.enabled !== undefined ? { enabled: payload.enabled } : {}),
   };
 }
 
@@ -98,13 +119,41 @@ export function ruleToUpdateApi(
   return body;
 }
 
+export function groupFromApi(g: SpeechCorrectionRuleGroupApi): SpeechCorrectionRuleGroup {
+  const enabled = g.enabled ?? g.rules[0]?.enabled ?? true;
+  return {
+    correctText: g.correct_text,
+    enabled,
+    rules: g.rules.map((row) =>
+      ruleFromApi({
+        ...row,
+        enabled: row.enabled ?? enabled,
+        correct_text: row.correct_text ?? g.correct_text,
+      })
+    ),
+  };
+}
+
 export function groupsFromApi(
   groups: SpeechCorrectionRuleGroupApi[]
 ): SpeechCorrectionRuleGroup[] {
-  return groups.map((g) => ({
-    correctText: g.correct_text,
-    rules: g.rules.map(ruleFromApi),
-  }));
+  return groups.map(groupFromApi);
+}
+
+export function groupToUpsertApi(
+  payload: SpeechCorrectionRuleGroupUpsertPayload
+): SpeechCorrectionRuleGroupUpsertApi {
+  const body: SpeechCorrectionRuleGroupUpsertApi = {
+    assistant_id: payload.assistantId,
+    correct_text: payload.correctText.trim(),
+    enabled: payload.enabled,
+    wrong_texts: payload.wrongTexts.map((t) => t.trim()).filter(Boolean),
+  };
+  if (payload.oldCorrectText !== undefined) {
+    const old = payload.oldCorrectText.trim();
+    if (old) body.old_correct_text = old;
+  }
+  return body;
 }
 
 /** 分組列表攤平成規則陣列（replace engine / 全域 state） */

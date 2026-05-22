@@ -30,9 +30,7 @@ export default function SpeechCorrectionRulesPanel({
     loading,
     error,
     refresh,
-    createBatch,
-    update,
-    remove,
+    saveGroup,
   } = useSpeechCorrectionRules(assistantId);
 
   const modal = useSpeechCorrectionRuleModal();
@@ -62,59 +60,29 @@ export default function SpeechCorrectionRulesPanel({
     setSubmitError(null);
 
     try {
-      if (modal.isGroupEdit && modal.editingGroupRules?.length) {
-        const existing = modal.editingGroupRules;
-        const newWrongSet = new Set(normalizedWrong);
+      const oldCorrectText =
+        modal.editingGroupRules?.[0]?.correctText ??
+        modal.editingRule?.correctText ??
+        trimmedCorrect;
+      const replacedRuleIds =
+        modal.editingGroupRules?.map((r) => r.id) ??
+        (modal.editingRule ? [modal.editingRule.id] : []);
 
-        for (const rule of existing) {
-          await update(rule.id, {
-            correctText: trimmedCorrect,
-            enabled,
-          });
-          if (!newWrongSet.has(rule.wrongText)) {
-            await remove(rule.id);
-          }
-        }
-
-        const existingWrong = new Set(existing.map((r) => r.wrongText));
-        const toAdd = normalizedWrong.filter((w) => !existingWrong.has(w));
-        if (toAdd.length > 0) {
-          await createBatch({
-            correctText: trimmedCorrect,
-            wrongTexts: toAdd,
-          });
-        }
-      } else if (modal.isEditing && modal.editingRule) {
-        await update(modal.editingRule.id, {
-          wrongText: normalizedWrong[0],
+      await saveGroup(
+        {
+          assistantId,
+          oldCorrectText,
           correctText: trimmedCorrect,
           enabled,
-        });
-      } else {
-        await createBatch({
-          correctText: trimmedCorrect,
           wrongTexts: normalizedWrong,
-        });
-      }
+        },
+        replacedRuleIds
+      );
       modal.close();
     } catch (err) {
       setSubmitError(getSpeechCorrectionErrorMessage(err));
     } finally {
       setSubmitting(false);
-    }
-  }
-
-  async function handleDeleteGroup(correctText, groupRules) {
-    const ok = window.confirm(
-      `確定要刪除正確關鍵字「${correctText}」及其 ${groupRules.length} 筆錯字對照嗎？`
-    );
-    if (!ok) return;
-    try {
-      for (const rule of groupRules) {
-        await remove(rule.id);
-      }
-    } catch (err) {
-      alert(getSpeechCorrectionErrorMessage(err, '刪除失敗'));
     }
   }
 
@@ -182,19 +150,14 @@ export default function SpeechCorrectionRulesPanel({
                         edge="end"
                         aria-label="編輯"
                         onClick={() =>
-                          modal.openEditGroup(group.correctText, group.rules)
+                          modal.openEditGroup(
+                            group.correctText,
+                            group.rules,
+                            group.enabled
+                          )
                         }
                       >
                         <EditIcon />
-                      </IconButton>
-                      <IconButton
-                        edge="end"
-                        aria-label="刪除"
-                        onClick={() =>
-                          handleDeleteGroup(group.correctText, group.rules)
-                        }
-                      >
-                        <DeleteIcon />
                       </IconButton>
                     </Box>
                   ) : null
@@ -206,8 +169,8 @@ export default function SpeechCorrectionRulesPanel({
                       <Typography variant="subtitle1" fontWeight="bold">
                         {group.correctText}
                       </Typography>
-                      {!group.rules.every((r) => r.enabled) && (
-                        <Chip label="部分停用" size="small" color="warning" />
+                      {!group.enabled && (
+                        <Chip label="已停用" size="small" color="warning" />
                       )}
                     </Box>
                   }
@@ -222,8 +185,7 @@ export default function SpeechCorrectionRulesPanel({
                           label={rule.wrongText}
                           size="small"
                           variant="outlined"
-                          color={rule.enabled ? 'default' : 'default'}
-                          sx={{ opacity: rule.enabled ? 1 : 0.5 }}
+                          sx={{ opacity: group.enabled ? 1 : 0.5 }}
                         />
                       ))}
                     </Box>
