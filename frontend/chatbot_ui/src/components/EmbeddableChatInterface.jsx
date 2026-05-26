@@ -214,13 +214,10 @@ export default function EmbeddableChatInterface({
     typeof window !== 'undefined' && window.parent !== window;
   const rootWidth = isEmbeddedInParent ? '100%' : CHAT_WIDTH;
   const rootHeight = isEmbeddedInParent ? '100%' : CHAT_HEIGHT;
-  const isFullscreen =
-  typeof document !== 'undefined' && document.fullscreenElement !== null;
-  const messageFontSize = isEmbeddedInParent &&  isFullscreen ? '2.2rem' : '1.2rem';
+  // TODO: 中興大學未使用全螢幕，需直接從 url 判斷
+  const isNCHU = window.location.pathname.includes('nchu')
+  const messageFontSize = isEmbeddedInParent &&  isNCHU ? '2.2rem' : '1.2rem';
   
-  console.log('isEmbeddedInParent:', isEmbeddedInParent)
-  console.log('isFullscreen:', isFullscreen)
-
   // 語音播放設定
   const [isSpeaking, setIsSpeaking] = useState(false);
   const speechSynthesisRef = useRef(window.speechSynthesis);
