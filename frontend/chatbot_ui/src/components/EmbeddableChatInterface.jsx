@@ -718,7 +718,7 @@ export default function EmbeddableChatInterface({
       const d = event.data;
       console.log('d:', d)
       if (!d.isFullscreen) {
-        setIsFullscreen(d.data.isFullscreen)
+        setIsFullscreen(d.isFullscreen)
       } 
       if (d?.source !== 'chatbot-parent' || d.type !== 'START_MIC') return;
       setActiveView('chat');
