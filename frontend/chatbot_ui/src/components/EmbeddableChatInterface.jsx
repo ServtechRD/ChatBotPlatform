@@ -216,7 +216,7 @@ export default function EmbeddableChatInterface({
     typeof window !== 'undefined' && window.parent !== window;
   const rootWidth = isEmbeddedInParent ? '100%' : CHAT_WIDTH;
   const rootHeight = isEmbeddedInParent ? '100%' : CHAT_HEIGHT;
- 
+ console.log('isFullscreen:', isFullscreen)
   const messageFontSize = isEmbeddedInParent &&  isFullscreen ? '2.2rem' : '1.2rem';
   
   // 語音播放設定
@@ -716,6 +716,7 @@ export default function EmbeddableChatInterface({
     if (!isEmbeddedInParent) return undefined;
     const onMessage = event => {
       const d = event.data;
+      console.log('d:', d)
       if (!d.isFullscreen) {
         setIsFullscreen(true)
       } 
