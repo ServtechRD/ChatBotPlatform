@@ -215,6 +215,7 @@ export default function EmbeddableChatInterface({
   const rootWidth = isEmbeddedInParent ? '100%' : CHAT_WIDTH;
   const rootHeight = isEmbeddedInParent ? '100%' : CHAT_HEIGHT;
   const messageFontSize = isEmbeddedInParent ? '2.2rem' : '1.2rem';
+  console.log('isEmbeddedInParent:', isEmbeddedInParent)
 
   // 語音播放設定
   const [isSpeaking, setIsSpeaking] = useState(false);
