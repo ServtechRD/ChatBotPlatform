@@ -215,7 +215,7 @@ export default function EmbeddableChatInterface({
   const rootWidth = isEmbeddedInParent ? '100%' : CHAT_WIDTH;
   const rootHeight = isEmbeddedInParent ? '100%' : CHAT_HEIGHT;
   // TODO: 中興大學未使用全螢幕，需直接從 url 判斷
-  const isNCHU = window.location.pathname.includes('nchu')
+  const isNCHU = window.parent.location.pathname.includes('nchu')
   console.log('isNCHU', isNCHU)
   const messageFontSize = isEmbeddedInParent &&  isNCHU ? '2.2rem' : '1.2rem';
   
