@@ -173,7 +173,7 @@ export async function ensureRulesLoaded(
   options: { enabledOnly?: boolean; force?: boolean } = {}
 ): Promise<void> {
   const id = normalizeAssistantId(assistantId);
-  if (id == null || !hasAuthToken()) return;
+  if (id == null) return;
 
   const { enabledOnly = false, force = false } = options;
   const entry = getEntry(id);
@@ -186,10 +186,9 @@ export async function ensureRulesLoaded(
     entry.error = null;
     emit();
     try {
-      const nextGroups = await speechCorrectionRule.list({
-        assistantId: id,
-        enabledOnly,
-      });
+      const nextGroups = hasAuthToken()
+        ? await speechCorrectionRule.list({ assistantId: id, enabledOnly })
+        : await speechCorrectionRule.listPublic(id);
       setFromGroups(entry, nextGroups);
     } catch (e) {
       entry.error =

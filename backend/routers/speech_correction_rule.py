@@ -32,6 +32,15 @@ def get_current_user_id(token: str = Depends(oauth2_scheme)) -> int:
     return int(user_id)
 
 
+@router.get("/public", response_model=List[SpeechCorrectionRuleGroup])
+def get_speech_correction_rules_public(
+    assistant_id: int,
+    db: Session = Depends(get_db),
+):
+    """公開端點：回傳啟用中的規則（供嵌入式 chat 使用，不需登入）。"""
+    return list_rules_grouped(db, assistant_id, enabled_only=True)
+
+
 @router.get("", response_model=List[SpeechCorrectionRuleGroup])
 def get_speech_correction_rules(
     assistant_id: int,

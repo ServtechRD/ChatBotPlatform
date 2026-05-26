@@ -1,4 +1,5 @@
 import { api } from './api.js';
+import { buildApiUrl } from '../utils/urlUtils';
 import {
   groupFromApi,
   groupsFromApi,
@@ -29,6 +30,14 @@ async function list(
   const data = (await api.get(PATH, {
     params: { assistant_id: assistantId, enabled_only: enabledOnly },
   })) as SpeechCorrectionRuleGroupApi[];
+  return groupsFromApi(Array.isArray(data) ? data : []);
+}
+
+async function listPublic(assistantId: number): Promise<SpeechCorrectionRuleGroup[]> {
+  const url = buildApiUrl(`/api${PATH}/public?assistant_id=${assistantId}`);
+  const res = await fetch(url, { method: 'GET' });
+  if (!res.ok) return [];
+  const data = (await res.json()) as SpeechCorrectionRuleGroupApi[];
   return groupsFromApi(Array.isArray(data) ? data : []);
 }
 
@@ -73,6 +82,7 @@ async function saveGroup(
 
 export const speechCorrectionRule = {
   list,
+  listPublic,
   createBatch,
   update,
   remove,
