@@ -558,7 +558,19 @@ export default function EditAIAssistantDialog({
                     <Typography variant="subtitle2" gutterBottom>
                       {section.title}
                     </Typography>
-                    <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
+                    {section.intro ? (
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ mb: 1 }}
+                      >
+                        {section.intro}
+                      </Typography>
+                    ) : null}
+                    <Box
+                      component={section.ordered ? 'ol' : 'ul'}
+                      sx={{ m: 0, pl: 2.5 }}
+                    >
                       {section.items.map((item) => (
                         <Typography
                           component="li"
