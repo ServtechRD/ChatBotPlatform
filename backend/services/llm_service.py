@@ -12,6 +12,11 @@ from utils.logger import get_logger
 from utils.chinese_convert import to_traditional_tw
 from typing import List, Optional, Dict, Any
 
+try:
+    from openai import APIConnectionError as OpenAIAPIConnectionError
+except ImportError:
+    OpenAIAPIConnectionError = ()  # type: ignore[misc, assignment]
+
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
@@ -26,6 +31,20 @@ VLLM_BASE_URL = os.getenv("VLLM_BASE_URL", "http://127.0.0.1:8000/v1")
 VLLM_MODEL = (os.getenv("VLLM_MODEL") or "Qwen/Qwen2.5-7B-Instruct-AWQ").strip()
 
 logger = get_logger(__name__)
+
+
+def _is_llm_connection_error(exc: BaseException) -> bool:
+    """判斷是否為無法連線 vLLM / OpenAI 相容端點（含 DNS 解析失敗）。"""
+    if OpenAIAPIConnectionError and isinstance(exc, OpenAIAPIConnectionError):
+        return True
+    msg = str(exc).lower()
+    if "connection error" in msg or "name resolution" in msg or "connecterror" in msg:
+        return True
+    cause = getattr(exc, "__cause__", None)
+    if cause is not None and cause is not exc:
+        return _is_llm_connection_error(cause)
+    return False
+
 
 STRICT_TRADITIONAL_CHINESE_SYSTEM_PROMPT = (
     "你必須只使用繁體中文（zh-TW）回答。"
@@ -241,7 +260,15 @@ def _invoke_chat_text(
 
     system_msg = SystemMessage(content=STRICT_TRADITIONAL_CHINESE_SYSTEM_PROMPT)
     user_msg = HumanMessage(content=text)
-    result = llm.invoke([system_msg, user_msg])
+    try:
+        result = llm.invoke([system_msg, user_msg])
+    except Exception as e:
+        if _is_llm_connection_error(e):
+            logger.error(
+                "[LLM] 無法連線至推論服務 base_url=%s error=%s",
+                VLLM_BASE_URL, e,
+            )
+        raise
     raw = _extract_llm_text(result)
     converted = to_traditional_tw(raw)
     if converted != raw:
