@@ -55,10 +55,11 @@ def get_stt_model():
     return _model
 
 
-def transcribe(audio_bytes: bytes, suffix: str = ".webm", language: str = "zh") -> str:
+def transcribe(audio_bytes: bytes, suffix: str = ".webm", language: str = "zh", initial_prompt: str = None) -> str:
     import time
     model = get_stt_model()
-    logger.info("[STT] 收到音訊 bytes=%d suffix=%s language=%s", len(audio_bytes), suffix, language)
+    prompt = initial_prompt if initial_prompt is not None else STT_INITIAL_PROMPT
+    logger.info("[STT] 收到音訊 bytes=%d suffix=%s language=%s prompt_len=%d", len(audio_bytes), suffix, language, len(prompt))
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as f:
         f.write(audio_bytes)
         tmp_path = f.name
@@ -67,7 +68,7 @@ def transcribe(audio_bytes: bytes, suffix: str = ".webm", language: str = "zh") 
         segments, info = model.transcribe(
             tmp_path,
             language=language,
-            initial_prompt=STT_INITIAL_PROMPT,
+            initial_prompt=prompt,
             vad_filter=True,
         )
         raw = "".join(seg.text for seg in segments).strip()

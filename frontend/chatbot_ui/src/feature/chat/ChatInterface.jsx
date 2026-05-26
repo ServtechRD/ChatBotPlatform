@@ -305,6 +305,7 @@ export default function ChatInterface({
           const formData = new FormData();
           formData.append('file', blob, 'recording.webm');
           formData.append('language', 'zh');
+          if (assistantid) formData.append('assistant_id', String(assistantid));
 
           console.log('[STT] 送出辨識請求...');
           const res = await fetch(buildApiUrl('/api/stt/transcribe'), {
