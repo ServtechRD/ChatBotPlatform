@@ -204,6 +204,8 @@ export default function EmbeddableChatInterface({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const [isFullscreen, setIsFullscreen] = useState(false)
+ 
   // 語音辨識狀態
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef(null);
@@ -214,9 +216,8 @@ export default function EmbeddableChatInterface({
     typeof window !== 'undefined' && window.parent !== window;
   const rootWidth = isEmbeddedInParent ? '100%' : CHAT_WIDTH;
   const rootHeight = isEmbeddedInParent ? '100%' : CHAT_HEIGHT;
-  // TODO: 中興大學未使用全螢幕，需直接從 url 判斷
  
-  const messageFontSize = isEmbeddedInParent &&  (rootWidth=== '100%' && rootHeight === '100%') ? '2.2rem' : '1.2rem';
+  const messageFontSize = isEmbeddedInParent &&  isFullscreen ? '2.2rem' : '1.2rem';
   
   // 語音播放設定
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -715,6 +716,9 @@ export default function EmbeddableChatInterface({
     if (!isEmbeddedInParent) return undefined;
     const onMessage = event => {
       const d = event.data;
+      if (!d.isFullscreen) {
+        setIsFullscreen(true)
+      } 
       if (d?.source !== 'chatbot-parent' || d.type !== 'START_MIC') return;
       setActiveView('chat');
       lastMicActivatedAtRef.current = Date.now();
