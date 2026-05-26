@@ -204,7 +204,7 @@ export default function EmbeddableChatInterface({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(true)
  
   // 語音辨識狀態
   const [isListening, setIsListening] = useState(false);
@@ -717,7 +717,7 @@ export default function EmbeddableChatInterface({
     const onMessage = event => {
       const d = event.data;
       console.log('d:', d)
-      if (d.isFullscreen === null || d.isFullscreen === undefined) {
+      if (!d.isFullscreen) {
         setIsFullscreen(true)
       } 
       if (d?.source !== 'chatbot-parent' || d.type !== 'START_MIC') return;
