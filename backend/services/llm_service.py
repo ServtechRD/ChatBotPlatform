@@ -191,18 +191,48 @@ def _normalize_lang_label(lang: str) -> str:
     return raw
 
 
+def _is_chinese_assistant_lang(lang: str) -> bool:
+    """助理預設語系是否為繁體中文（用於簡轉繁、強制繁中 system prompt）。"""
+    raw = (lang or "").strip()
+    lower = raw.lower()
+    if lower in {"english", "en", "en-us", "en_us"}:
+        return False
+    if lower in {
+        "traditional chinese",
+        "traditional chinese (taiwan)",
+        "zh-tw",
+        "zh_tw",
+        "zh",
+        "zh-hant",
+    }:
+        return True
+    if raw == "繁體中文":
+        return True
+    # 未識別值維持舊行為（視為中文助理）
+    return True
+
+
+def _lang_reply_instruction(lang: str) -> str:
+    """依助理語系回傳對應語言的「請用此語言回答」指示（與指示本身語言一致）。"""
+    if _is_chinese_assistant_lang(lang):
+        label = _normalize_lang_label(lang) or "繁體中文"
+        return f"請使用{label}回答"
+    return "Please answer in English."
+
+
 def _build_user_prompt(assistant_description: str, lang: str, user_query: str, retrieval_context: Optional[str]) -> str:
     """以 DB 儲存的助理描述為系統指令本體；語系指示後為檢索結果（若有），最後為使用者問題。"""
     blocks: List[str] = []
     desc = (assistant_description or "").strip()
-    lang_label = _normalize_lang_label(lang)
+    use_zh = _is_chinese_assistant_lang(lang)
     if desc:
         blocks.append(desc)
-    if lang_label:
-        blocks.append(f"請使用{lang_label}回答\n")
+    blocks.append(_lang_reply_instruction(lang))
     if retrieval_context:
-        blocks.append(f"### 檢索結果 ###\n{retrieval_context}")
-    blocks.append(f"### 使用者問題 ###\n{user_query}")
+        header = "### 檢索結果 ###" if use_zh else "### Retrieved context ###"
+        blocks.append(f"{header}\n{retrieval_context}")
+    user_header = "### 使用者問題 ###" if use_zh else "### User question ###"
+    blocks.append(f"{user_header}\n{user_query}")
     return "\n\n".join(blocks)
 
 
@@ -230,6 +260,7 @@ def _invoke_chat_text(
     text: str,
     *,
     assistant_uuid,
+    lang: str,
     log_branch: str = "",
 ) -> str:
     """
@@ -258,10 +289,13 @@ def _invoke_chat_text(
         f"\n...(以下省略，共 {total} 字元；可調環境變數 LLM_PROMPT_LOG_MAX_CHARS 提高上限)" if truncated else "",
     )
 
-    system_msg = SystemMessage(content=STRICT_TRADITIONAL_CHINESE_SYSTEM_PROMPT)
-    user_msg = HumanMessage(content=text)
+    use_zh_tw = _is_chinese_assistant_lang(lang)
+    messages: List[Any] = []
+    if use_zh_tw:
+        messages.append(SystemMessage(content=STRICT_TRADITIONAL_CHINESE_SYSTEM_PROMPT))
+    messages.append(HumanMessage(content=text))
     try:
-        result = llm.invoke([system_msg, user_msg])
+        result = llm.invoke(messages)
     except Exception as e:
         if _is_llm_connection_error(e):
             logger.error(
@@ -270,6 +304,8 @@ def _invoke_chat_text(
             )
         raise
     raw = _extract_llm_text(result)
+    if not use_zh_tw:
+        return raw
     converted = to_traditional_tw(raw)
     if converted != raw:
         logger.info(
@@ -344,6 +380,7 @@ def _synch_process_llm(data, assistant_uuid, customer_unique_id, lang, model, as
             llm,
             full_prompt,
             assistant_uuid=assistant_uuid,
+            lang=lang,
             log_branch="無檢索文件",
         )
         t_direct_s = time.perf_counter() - t_direct_start
@@ -365,6 +402,7 @@ def _synch_process_llm(data, assistant_uuid, customer_unique_id, lang, model, as
         llm,
         full_prompt,
         assistant_uuid=assistant_uuid,
+        lang=lang,
         log_branch="含檢索結果",
     )
     t_invoke_s = time.perf_counter() - t_invoke_start
