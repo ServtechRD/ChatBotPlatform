@@ -59,7 +59,8 @@ def transcribe(audio_bytes: bytes, suffix: str = ".webm", language: str = "zh", 
     import time
     model = get_stt_model()
     prompt = initial_prompt if initial_prompt is not None else STT_INITIAL_PROMPT
-    logger.info("[STT] 收到音訊 bytes=%d suffix=%s language=%s prompt_len=%d", len(audio_bytes), suffix, language, len(prompt))
+    logger.info("[STT] 收到音訊 bytes=%d suffix=%s language=%s", len(audio_bytes), suffix, language)
+    logger.info("[STT] initial_prompt (%d chars): %s", len(prompt), prompt)
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as f:
         f.write(audio_bytes)
         tmp_path = f.name

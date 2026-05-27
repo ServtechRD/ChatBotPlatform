@@ -307,6 +307,9 @@ export default function ChatInterface({
           formData.append('language', 'zh');
           if (assistantid) formData.append('assistant_id', String(assistantid));
 
+          const activeRulesNow = activeRulesRef.current;
+          console.log('[STT] initial_prompt 對照規則 (%d 條):', activeRulesNow.length,
+            activeRulesNow.map(r => `${r.wrongText} → ${r.correctText}`));
           console.log('[STT] 送出辨識請求...');
           const res = await fetch(buildApiUrl('/api/stt/transcribe'), {
             method: 'POST',
@@ -317,9 +320,19 @@ export default function ChatInterface({
 
           const { text: raw } = await res.json();
           console.log('[STT] 原始辨識結果:', JSON.stringify(raw));
-          const transcript = applyRules(raw, activeRulesRef.current);
-          if (transcript !== raw) {
-            console.log('[STT] 誤字對照修正:', { raw, transcript });
+          const rules = activeRulesRef.current;
+          let transcript = raw;
+          for (const rule of rules.filter(r => r.enabled)) {
+            const before = transcript;
+            transcript = transcript.split(rule.wrongText).join(rule.correctText ?? '');
+            if (transcript !== before) {
+              console.log(`[STT] 關鍵字修正: "${rule.wrongText}" → "${rule.correctText}" | 結果: ${JSON.stringify(transcript)}`);
+            }
+          }
+          if (transcript === raw) {
+            console.log('[STT] 關鍵字檢查：無需修正');
+          } else {
+            console.log('[STT] 最終修正結果:', JSON.stringify(raw), '→', JSON.stringify(transcript));
           }
           if (!transcript?.trim()) {
             console.warn('[STT] 辨識結果為空，略過送出');
