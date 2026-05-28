@@ -233,8 +233,6 @@ export default function EmbeddableChatInterface({
   const reconnectTimerRef = useRef(null);
   const shouldReconnectRef = useRef(true);
   const reconnectDelayRef = useRef(1000);
-  const shouldAutoRestartMicRef = useRef(false);
-  const isSpeakingRef = useRef(false);
 
   const resolvedAssistantId =
     typeof assistantId === 'number' && assistantId > 0 ? assistantId : null;
@@ -323,14 +321,6 @@ export default function EmbeddableChatInterface({
         } catch (e) {
           /* ignore */
         }
-      }
-      // TTS 未播放時自動重啟辨識；TTS 播完後 speakText 也會重啟，不重複
-      if (shouldAutoRestartMicRef.current && !isSpeakingRef.current) {
-        setTimeout(() => {
-          if (shouldAutoRestartMicRef.current && !isSpeakingRef.current && recognitionRef.current) {
-            try { recognitionRef.current.start(); } catch (e) { /* ignore */ }
-          }
-        }, 300);
       }
     };
     recognition.onerror = err => {
@@ -563,13 +553,7 @@ export default function EmbeddableChatInterface({
     currentSpeechIdRef.current += 1;
     const speechId = currentSpeechIdRef.current;
 
-    isSpeakingRef.current = true;
     setIsSpeaking(true);
-
-    // TTS 開始時停止麥克風，避免收入 TTS 聲音
-    if (isListeningRef.current && recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch (e) { /* ignore */ }
-    }
 
     // 切割句子：以標點符號為界（不含逗號）
     const segments = text
@@ -598,15 +582,6 @@ export default function EmbeddableChatInterface({
 
       if (index >= segments.length) {
         setIsSpeaking(false);
-        isSpeakingRef.current = false;
-        // TTS 播完後自動重啟麥克風
-        if (shouldAutoRestartMicRef.current && recognitionRef.current) {
-          setTimeout(() => {
-            if (shouldAutoRestartMicRef.current && !isSpeakingRef.current) {
-              try { recognitionRef.current.start(); } catch (e) { /* ignore */ }
-            }
-          }, 300);
-        }
         return;
       }
 
@@ -704,7 +679,6 @@ export default function EmbeddableChatInterface({
     }
 
     if (isListening) {
-      shouldAutoRestartMicRef.current = false;
       recognitionRef.current.stop();
       return;
     }
@@ -738,7 +712,6 @@ export default function EmbeddableChatInterface({
       stream.getTracks().forEach(track => track.stop());
 
       // 啟動語音識別
-      shouldAutoRestartMicRef.current = true;
       recognitionRef.current.start();
     } catch (error) {
       console.error('無法取得麥克風權限:', error);
