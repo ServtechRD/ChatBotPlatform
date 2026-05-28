@@ -72,6 +72,10 @@ export default function ChatInterface({
   const messagesContainerRef = useRef(null);
   const videoRef = useRef(null);
   const welcomeMessageShownRef = useRef(false); // 追蹤歡迎訊息是否已顯示
+  const reconnectTimerRef = useRef(null);
+  const shouldReconnectRef = useRef(true);
+  const reconnectDelayRef = useRef(1000);
+  const autoRestartMicRef = useRef(false);
   const pendingSpeakTextRef = useRef('');
   const speakDebounceTimerRef = useRef(null);
 
@@ -114,7 +118,7 @@ export default function ChatInterface({
     };
   }, []);
 
-  // 聊天室 ws 初始化
+  // 聊天室 ws 初始化（含自動重連）
   useEffect(() => {
     console.log('name  = ' + assistantname);
 
@@ -126,48 +130,69 @@ export default function ChatInterface({
       welcomeMessageShownRef.current = true;
     }
 
-    socketRef.current = new WebSocket(
-      `${WS_BASE_URL}/ws/assistant/${assistantid}/${customerIdRef.current}`
-    );
+    shouldReconnectRef.current = true;
+    reconnectDelayRef.current = 1000;
 
-    const socket = socketRef.current; // 暫存引用避免閉包問題
+    const wsUrl = `${WS_BASE_URL}/ws/assistant/${assistantid}/${customerIdRef.current}`;
 
-    socket.addEventListener('open', () => {
-      console.log('✅ WebSocket connected');
-      setIsConnected(true);
-    });
+    function connectWS() {
+      if (!shouldReconnectRef.current) return;
 
-    socket.addEventListener('message', event => {
-      const message = event.data;
-      console.log('recv', message);
-      if (message === '@@@') {
-        setIsThinking(true);
-        setTimeout(scrollToBottom, 100);
-      } else if (message === '###') {
+      const ws = new WebSocket(wsUrl);
+      socketRef.current = ws;
+
+      ws.addEventListener('open', () => {
+        console.log('✅ WebSocket connected');
+        reconnectDelayRef.current = 1000; // 重置 backoff
+        setIsConnected(true);
+      });
+
+      ws.addEventListener('message', event => {
+        const message = event.data;
+        console.log('recv', message);
+        if (message === '@@@') {
+          setIsThinking(true);
+          setTimeout(scrollToBottom, 100);
+        } else if (message === '###') {
+          setIsThinking(false);
+          // 回覆結束時立刻播放已合併的段落，縮短尾端等待。
+          flushQueuedSpeakText();
+        } else {
+          setMessages(prev => [
+            ...prev,
+            { id: Date.now(), text: message, isBot: true },
+          ]);
+          // 串流分段先合併，避免新分段到來時中斷前一段開頭造成漏字。
+          queueSpeakText(message);
+        }
+      });
+
+      ws.addEventListener('error', err => {
+        console.error('❌ WebSocket error:', err);
+      });
+
+      ws.addEventListener('close', () => {
+        console.log('🔌 WebSocket closed');
+        setIsConnected(false);
         setIsThinking(false);
-        // 回覆結束時立刻播放已合併的段落，縮短尾端等待。
-        flushQueuedSpeakText();
-      } else {
-        setMessages(prev => [
-          ...prev,
-          { id: Date.now(), text: message, isBot: true },
-        ]);
-        // 串流分段先合併，避免新分段到來時中斷前一段開頭造成漏字。
-        queueSpeakText(message);
-      }
-    });
+        if (shouldReconnectRef.current) {
+          console.log(`WebSocket 將於 ${reconnectDelayRef.current}ms 後重連...`);
+          reconnectTimerRef.current = setTimeout(() => {
+            reconnectDelayRef.current = Math.min(reconnectDelayRef.current * 2, 30000);
+            connectWS();
+          }, reconnectDelayRef.current);
+        }
+      });
+    }
 
-    socket.addEventListener('error', err => {
-      console.error('❌ WebSocket error:', err);
-    });
-
-    socket.addEventListener('close', () => {
-      console.log('🔌 WebSocket closed');
-      setIsConnected(false);
-      setIsThinking(false);
-    });
+    connectWS();
 
     return () => {
+      shouldReconnectRef.current = false;
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
       if (socketRef.current) {
         socketRef.current.close();
       }
@@ -227,6 +252,7 @@ export default function ChatInterface({
   async function handleVoiceInput() {
     // 停止錄音 → 送出辨識
     if (isListening) {
+      autoRestartMicRef.current = false;
       mediaRecorderRef.current?.stop();
       return;
     }
@@ -350,6 +376,7 @@ export default function ChatInterface({
 
       recorder.start();
       setIsListening(true);
+      autoRestartMicRef.current = true;
     } catch (error) {
       console.error('無法取得麥克風權限:', error);
       const msg =
@@ -728,6 +755,14 @@ export default function ChatInterface({
           `[TTS][frontend] playback_ended total_ms=${(performance.now() - speakStart).toFixed(1)}`
         );
         setIsSpeaking(false);
+        // TTS 播完後自動重啟麥克風
+        if (autoRestartMicRef.current) {
+          setTimeout(() => {
+            if (autoRestartMicRef.current) {
+              handleVoiceInput();
+            }
+          }, 500);
+        }
         return;
       }
 

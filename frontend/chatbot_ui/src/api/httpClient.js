@@ -17,6 +17,19 @@ function processQueue(error, token = null) {
   });
 }
 
+/** 登入、註冊、MFA 驗證失敗時不觸發自動 refresh／導頁 */
+function shouldSkipTokenRefresh(config) {
+  const url = config?.url || '';
+  const skipPaths = [
+    '/auth/login',
+    '/auth/register',
+    '/mfa/setup/init',
+    '/mfa/setup/verify',
+    '/mfa/verify',
+  ];
+  return skipPaths.some(path => url.includes(path));
+}
+
 const httpClient = axios.create({
   baseURL,
   timeout: 10000,
@@ -37,6 +50,11 @@ httpClient.interceptors.response.use(
   response => response,
   async error => {
     const originalRequest = error.config;
+
+    // 登入／MFA 的 401 交由各頁面顯示後端錯誤，不做 token 刷新或強制導頁
+    if (shouldSkipTokenRefresh(originalRequest)) {
+      return Promise.reject(error);
+    }
 
     if (
       error.response &&
@@ -62,7 +80,10 @@ httpClient.interceptors.response.use(
 
       if (!refreshToken) {
         storage.clearAuthData();
-        window.location.href = '/login';
+        const onLoginPage = window.location.pathname.startsWith('/login');
+        if (!onLoginPage) {
+          window.location.href = '/login';
+        }
         return Promise.reject(error);
       }
 

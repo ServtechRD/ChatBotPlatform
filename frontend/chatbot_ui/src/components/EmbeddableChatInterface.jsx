@@ -230,6 +230,11 @@ export default function EmbeddableChatInterface({
   const messagesContainerRef = useRef(null);
   const videoRef = useRef(null);
   const welcomeMessageShownRef = useRef(false);
+  const reconnectTimerRef = useRef(null);
+  const shouldReconnectRef = useRef(true);
+  const reconnectDelayRef = useRef(1000);
+  const shouldAutoRestartMicRef = useRef(false);
+  const isSpeakingRef = useRef(false);
 
   const resolvedAssistantId =
     typeof assistantId === 'number' && assistantId > 0 ? assistantId : null;
@@ -309,7 +314,6 @@ export default function EmbeddableChatInterface({
     };
     recognition.onend = () => {
       setIsListening(false);
-      // 沒偵測到語音時在 onend 後重連（此時辨識已完全結束）
       if (typeof window !== 'undefined' && window.parent !== window) {
         try {
           window.parent.postMessage(
@@ -319,6 +323,14 @@ export default function EmbeddableChatInterface({
         } catch (e) {
           /* ignore */
         }
+      }
+      // TTS 未播放時自動重啟辨識；TTS 播完後 speakText 也會重啟，不重複
+      if (shouldAutoRestartMicRef.current && !isSpeakingRef.current) {
+        setTimeout(() => {
+          if (shouldAutoRestartMicRef.current && !isSpeakingRef.current && recognitionRef.current) {
+            try { recognitionRef.current.start(); } catch (e) { /* ignore */ }
+          }
+        }, 300);
       }
     };
     recognition.onerror = err => {
@@ -352,8 +364,12 @@ export default function EmbeddableChatInterface({
             '麥克風權限被拒絕。請在瀏覽器設定中允許使用麥克風，或確保網站使用 HTTPS。';
           break;
         case 'audio-capture':
-          errorMessage = '找不到麥克風設備，請檢查麥克風是否已連接。';
-          break;
+          // USB 麥克風可能瞬間斷線，自動重啟而非顯示錯誤
+          console.warn('麥克風設備異常，嘗試自動重新啟動...');
+          setTimeout(() => {
+            try { recognitionRef.current?.start(); } catch (e) { /* ignore */ }
+          }, 500);
+          return;
         case 'network':
           errorMessage = '網路錯誤，請檢查網路連線。';
           break;
@@ -368,6 +384,27 @@ export default function EmbeddableChatInterface({
     };
 
     recognitionRef.current = recognition;
+
+    // USB 麥克風斷線保護：監聽設備變化，若正在聆聽則自動重啟
+    const handleDeviceChange = () => {
+      console.log('device changed!');
+      if (isListeningRef.current) {
+        console.log('Mic track ended, restarting recognition...');
+        try { recognitionRef.current?.stop(); } catch (e) { /* ignore */ }
+        setTimeout(() => {
+          if (!isListeningRef.current) {
+            try { recognitionRef.current?.start(); } catch (e) {
+              console.error('重啟語音辨識失敗:', e);
+            }
+          }
+        }, 500);
+      }
+    };
+    navigator.mediaDevices?.addEventListener('devicechange', handleDeviceChange);
+
+    return () => {
+      navigator.mediaDevices?.removeEventListener('devicechange', handleDeviceChange);
+    };
   }, []);
 
   // 語音播放初始化
@@ -526,7 +563,13 @@ export default function EmbeddableChatInterface({
     currentSpeechIdRef.current += 1;
     const speechId = currentSpeechIdRef.current;
 
+    isSpeakingRef.current = true;
     setIsSpeaking(true);
+
+    // TTS 開始時停止麥克風，避免收入 TTS 聲音
+    if (isListeningRef.current && recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch (e) { /* ignore */ }
+    }
 
     // 切割句子：以標點符號為界（不含逗號）
     const segments = text
@@ -555,8 +598,15 @@ export default function EmbeddableChatInterface({
 
       if (index >= segments.length) {
         setIsSpeaking(false);
-        // Modify: Auto-restart microphone after bot finishes speaking
-        console.log('Bot finished speaking, restarting microphone...');
+        isSpeakingRef.current = false;
+        // TTS 播完後自動重啟麥克風
+        if (shouldAutoRestartMicRef.current && recognitionRef.current) {
+          setTimeout(() => {
+            if (shouldAutoRestartMicRef.current && !isSpeakingRef.current) {
+              try { recognitionRef.current.start(); } catch (e) { /* ignore */ }
+            }
+          }, 300);
+        }
         return;
       }
 
@@ -654,6 +704,7 @@ export default function EmbeddableChatInterface({
     }
 
     if (isListening) {
+      shouldAutoRestartMicRef.current = false;
       recognitionRef.current.stop();
       return;
     }
@@ -687,6 +738,7 @@ export default function EmbeddableChatInterface({
       stream.getTracks().forEach(track => track.stop());
 
       // 啟動語音識別
+      shouldAutoRestartMicRef.current = true;
       recognitionRef.current.start();
     } catch (error) {
       console.error('無法取得麥克風權限:', error);
@@ -848,7 +900,7 @@ export default function EmbeddableChatInterface({
     scrollToBottom();
   }, [messages, isThinking]);
 
-  // WebSocket 連線
+  // WebSocket 連線（含自動重連）
   useEffect(() => {
     if (!assistant || !assistantId) return;
 
@@ -860,42 +912,64 @@ export default function EmbeddableChatInterface({
       welcomeMessageShownRef.current = true;
     }
 
-    // 建立 WebSocket 連線
+    shouldReconnectRef.current = true;
+    reconnectDelayRef.current = 1000;
+
     const wsUrl = `${WS_BASE_URL}/ws/assistant/${assistantId}/${customerIdRef.current}`;
 
-    socketRef.current = new WebSocket(wsUrl);
+    function connectWS() {
+      if (!shouldReconnectRef.current) return;
 
-    socketRef.current.onopen = () => {
-      console.log('WebSocket connection established.');
-      setIsConnected(true);
-    };
+      const ws = new WebSocket(wsUrl);
+      socketRef.current = ws;
 
-    socketRef.current.onmessage = event => {
-      const message = event.data;
-      console.log('recv ' + message);
-      if (message === '@@@') {
-        console.log('is think');
-        setIsThinking(true);
-        setTimeout(scrollToBottom, 100);
-      } else if (message === '###') {
-        console.log('stop thinking');
-        setIsThinking(false);
-      } else {
-        setMessages(prevMessages => [
-          ...prevMessages,
-          { id: Date.now(), text: message, isBot: true },
-        ]);
-        speakText(message);
-      }
-    };
+      ws.onopen = () => {
+        console.log('WebSocket connection established.');
+        reconnectDelayRef.current = 1000; // 重置 backoff
+        setIsConnected(true);
+      };
 
-    socketRef.current.onclose = () => {
-      console.log('WebSocket connection closed.');
-      setIsConnected(false);
-    };
+      ws.onmessage = event => {
+        const message = event.data;
+        console.log('recv ' + message);
+        if (message === '@@@') {
+          console.log('is think');
+          setIsThinking(true);
+          setTimeout(scrollToBottom, 100);
+        } else if (message === '###') {
+          console.log('stop thinking');
+          setIsThinking(false);
+        } else {
+          setMessages(prevMessages => [
+            ...prevMessages,
+            { id: Date.now(), text: message, isBot: true },
+          ]);
+          speakText(message);
+        }
+      };
 
-    // 組件卸載時關閉WebSocket
+      ws.onclose = () => {
+        console.log('WebSocket connection closed.');
+        setIsConnected(false);
+        if (shouldReconnectRef.current) {
+          console.log(`WebSocket 將於 ${reconnectDelayRef.current}ms 後重連...`);
+          reconnectTimerRef.current = setTimeout(() => {
+            reconnectDelayRef.current = Math.min(reconnectDelayRef.current * 2, 30000);
+            connectWS();
+          }, reconnectDelayRef.current);
+        }
+      };
+    }
+
+    connectWS();
+
+    // 組件卸載時關閉 WebSocket 並停止重連
     return () => {
+      shouldReconnectRef.current = false;
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
       if (socketRef.current) {
         socketRef.current.close();
       }
