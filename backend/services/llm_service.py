@@ -51,6 +51,14 @@ STRICT_TRADITIONAL_CHINESE_SYSTEM_PROMPT = (
     "不得使用簡體中文，不得混用繁簡字。"
 )
 
+STRICT_ENGLISH_SYSTEM_PROMPT = (
+    "You must respond only in English. "
+    "Regardless of the language the user uses in their question, "
+    "your entire answer must be in English. "
+    "If retrieved context is in another language, summarize or translate it into English. "
+    "Do not use Chinese or any other language in your reply."
+)
+
 
 def _tokenize_for_bm25(text: str) -> List[str]:
     """簡單中文/英文混合 tokenizer，供 BM25 使用。"""
@@ -217,7 +225,10 @@ def _lang_reply_instruction(lang: str) -> str:
     if _is_chinese_assistant_lang(lang):
         label = _normalize_lang_label(lang) or "繁體中文"
         return f"請使用{label}回答"
-    return "Please answer in English."
+    return (
+        "Please answer in English only. "
+        "Even if the user asks in Chinese or another language, respond entirely in English."
+    )
 
 
 def _build_user_prompt(assistant_description: str, lang: str, user_query: str, retrieval_context: Optional[str]) -> str:
@@ -293,6 +304,8 @@ def _invoke_chat_text(
     messages: List[Any] = []
     if use_zh_tw:
         messages.append(SystemMessage(content=STRICT_TRADITIONAL_CHINESE_SYSTEM_PROMPT))
+    else:
+        messages.append(SystemMessage(content=STRICT_ENGLISH_SYSTEM_PROMPT))
     messages.append(HumanMessage(content=text))
     try:
         result = llm.invoke(messages)
