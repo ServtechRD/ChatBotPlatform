@@ -16,9 +16,16 @@ export function AuthProvider({ children }) {
     const token = localStorage.getItem('token');
     if (token) {
       auth.get()
-        .then(userData => {
+        .then(async userData => {
           setIsAuthenticated(true);
           setUser(userData);
+          const userId = storage.getUserId();
+          if (userId != null) {
+            await queryClient.prefetchQuery({
+              queryKey: userKeys.assistants(userId),
+              queryFn: () => userApi.getAssistants(),
+            });
+          }
         })
         .catch(() => {
           storage.clearAuthData();

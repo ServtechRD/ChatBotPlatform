@@ -29,30 +29,10 @@ function getUserAssistants() {
   return null;
 }
 
-function getAssistants() {
-  const assistantsData = localStorage.getItem('assistantsData');
-  if (assistantsData) {
-    return JSON.parse(assistantsData);
-  }
-  return null;
-}
-
-/** @deprecated 拼字相容 */
-function getAssistatns() {
-  return getAssistants();
-}
-
 function setUserData(userData) {
   localStorage.setItem('userData', JSON.stringify(userData));
   window.dispatchEvent(
     new CustomEvent('userDataUpdated', { detail: userData })
-  );
-}
-
-function setAssistantsData(assistants) {
-  localStorage.setItem('assistantsData', JSON.stringify(assistants));
-  window.dispatchEvent(
-    new CustomEvent('assistantsDataUpdated', { detail: assistants })
   );
 }
 
@@ -70,9 +50,6 @@ export const storage = {
   getUserId,
   getUserEmail,
   getUserAssistants,
-  getAssistants,
-  getAssistatns,
   setUserData,
-  setAssistantsData,
   setToken,
 };

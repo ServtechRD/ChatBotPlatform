@@ -25,7 +25,7 @@ import useAuth from '../../hook/useAuth';
 import { useAssistantsQuery } from '../../queries/user';
 import { useToggleAssistantStatusMutation } from '../../queries/assistant';
 
-export default function AIAssistantManagement({ open, onRefresh }) {
+export default function AIAssistantManagement({ open }) {
   const { user } = useAuth();
   const {
     data: assistants = [],
@@ -78,11 +78,7 @@ export default function AIAssistantManagement({ open, onRefresh }) {
       setAssistants([...assistants, { ...updatedAssistant, id: Date.now() }]);
     }
     handleCloseDialog();*/
-    // 重新取得列表數據
     await refetch();
-    if (onRefresh) {
-      onRefresh();
-    }
   }
 
   return (

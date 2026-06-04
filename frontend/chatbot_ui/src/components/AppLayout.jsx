@@ -66,7 +66,6 @@ function AppLayoutShell() {
     currentAgentIndex,
     isLoading: assistantsLoading,
     selectAgentByIndex,
-    refreshAgents,
   } = useAssistant();
 
   const [isMenuOpen, setIsMenuOpen] = useState(true);
@@ -96,10 +95,6 @@ function AppLayoutShell() {
   function handleLogout() {
     logout();
     navigate('/login');
-  }
-
-  function handleRefreshAgents() {
-    refreshAgents();
   }
 
   if (authLoading || assistantsLoading) {
@@ -272,10 +267,7 @@ function AppLayoutShell() {
             </Typography>
           </Toolbar>
         </AppBar>
-        <AIAssistantManagement
-          open={isAIManagementDialogOpen}
-          onRefresh={handleRefreshAgents}
-        />
+        <AIAssistantManagement open={isAIManagementDialogOpen} />
       </Dialog>
     </Box>
   );
