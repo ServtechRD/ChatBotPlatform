@@ -13,8 +13,8 @@ import {
   IconButton,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import { knowledge } from '../../api/knowledge.js';
-import { assistant } from '../../api/assistant.js';
+import { useSubmitKnowledgeTextMutation } from '../../queries/assistant';
+import { useUpdateKnowledgeMutation } from '../../queries/knowledge';
 
 export default function TextInputDialog({
   isOpen,
@@ -43,8 +43,12 @@ export default function TextInputDialog({
     }
   }, [isOpen, initialContent, isEditMode, initialFileName]);
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const updateKnowledgeMutation = useUpdateKnowledgeMutation();
+  const submitTextMutation = useSubmitKnowledgeTextMutation();
   const [submitStatus, setSubmitStatus] = useState(null); // 'success' | 'error' | null
+
+  const isSubmitting =
+    updateKnowledgeMutation.isPending || submitTextMutation.isPending;
 
   function handleTextChange(event) {
     setTextContent(event.target.value);
@@ -58,7 +62,6 @@ export default function TextInputDialog({
     setTextContent('');
     setFileName('');
     setSubmitStatus(null);
-    setIsSubmitting(false);
   }
 
   function handleClose() {
@@ -78,25 +81,22 @@ export default function TextInputDialog({
       return;
     }
 
-    setIsSubmitting(true);
     setSubmitStatus(null);
 
     try {
       let response;
       if (isEditMode && knowledgeId) {
-        // Edit Mode: Overwrite existsing
-        response = await knowledge.update(
+        response = await updateKnowledgeMutation.mutateAsync({
           assistantId,
           knowledgeId,
-          textContent
-        );
+          text: textContent,
+        });
       } else {
-        // Create Mode
-        response = await assistant.submitText(
+        response = await submitTextMutation.mutateAsync({
           assistantId,
-          textContent,
-          fileName
-        );
+          text: textContent,
+          fileName,
+        });
       }
 
       setSubmitStatus('success');
@@ -112,7 +112,6 @@ export default function TextInputDialog({
       // 錯誤訊息會顯示 3 秒後自動消失
       setTimeout(() => {
         setSubmitStatus(null);
-        setIsSubmitting(false);
       }, 3000);
     }
   }

@@ -2,7 +2,6 @@ import { createContext, useState, useEffect } from 'react';
 import { auth } from '../api/auth.js';
 import { user as userApi } from '../api/user.js';
 import { storage } from '../api/storage.js';
-import { speechCorrectionRulesStore } from '../store/speechCorrectionRulesStore';
 import { queryClient } from '../queries/queryClient';
 import { userKeys } from '../queries/user';
 
@@ -46,7 +45,7 @@ export function AuthProvider({ children }) {
 
   function logout() {
     storage.clearAuthData();
-    speechCorrectionRulesStore.resetSpeechCorrectionRulesStore();
+    queryClient.clear();
     setIsAuthenticated(false);
     setUser(null);
   }

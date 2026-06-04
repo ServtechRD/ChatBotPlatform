@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { knowledge as knowledgeApi } from '../api/knowledge.js';
 
 export const knowledgeKeys = {
@@ -46,5 +46,46 @@ export function useKnowledgeContentQuery(
       !Number.isNaN(aId) &&
       kId != null &&
       !Number.isNaN(kId),
+  });
+}
+
+export function useUpdateKnowledgeMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      assistantId,
+      knowledgeId,
+      text,
+    }: {
+      assistantId: number;
+      knowledgeId: number;
+      text: string;
+    }) => knowledgeApi.update(assistantId, knowledgeId, text),
+    onSuccess: (_data, { assistantId, knowledgeId }) => {
+      queryClient.invalidateQueries({
+        queryKey: knowledgeKeys.list(assistantId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: knowledgeKeys.content(assistantId, knowledgeId),
+      });
+    },
+  });
+}
+
+export function useDeleteKnowledgeMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      assistantId,
+      knowledgeId,
+    }: {
+      assistantId: number;
+      knowledgeId: number;
+    }) => knowledgeApi.del(assistantId, knowledgeId),
+    onSuccess: (_data, { assistantId }) => {
+      queryClient.invalidateQueries({
+        queryKey: knowledgeKeys.list(assistantId),
+      });
+    },
   });
 }

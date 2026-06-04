@@ -1,15 +1,32 @@
-import { useCallback, useSyncExternalStore } from 'react';
+import { useCallback, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
-  speechCorrectionRulesStore,
-  type SpeechCorrectionRulesSnapshot,
-} from '../store/speechCorrectionRulesStore';
-import type {
-  SpeechCorrectionRule,
-  SpeechCorrectionRuleCreatePayload,
-  SpeechCorrectionRuleGroup,
-  SpeechCorrectionRuleGroupUpsertPayload,
-  SpeechCorrectionRuleUpdatePayload,
+  speechCorrectionRuleKeys,
+  useCreateSpeechCorrectionRulesBatchMutation,
+  useRemoveSpeechCorrectionRuleMutation,
+  useSaveSpeechCorrectionRulesGroupMutation,
+  useSpeechCorrectionRulesQuery,
+  useUpdateSpeechCorrectionRuleMutation,
+  type SpeechCorrectionRulesQueryData,
+} from '../queries/speechCorrectionRule';
+import { speechCorrectionRule as speechCorrectionRuleApi } from '../api/speechCorrectionRule';
+import {
+  flattenGroups,
+  type SpeechCorrectionRule,
+  type SpeechCorrectionRuleCreatePayload,
+  type SpeechCorrectionRuleGroup,
+  type SpeechCorrectionRuleGroupUpsertPayload,
+  type SpeechCorrectionRuleUpdatePayload,
 } from '../types/speechCorrectionRule';
+
+export interface SpeechCorrectionRulesSnapshot {
+  groups: SpeechCorrectionRuleGroup[];
+  rules: SpeechCorrectionRule[];
+  activeRules: SpeechCorrectionRule[];
+  loading: boolean;
+  error: string | null;
+  loaded: boolean;
+}
 
 export interface UseSpeechCorrectionRulesResult {
   groups: SpeechCorrectionRuleGroup[];
@@ -34,83 +51,157 @@ export interface UseSpeechCorrectionRulesResult {
   ) => Promise<SpeechCorrectionRuleGroup>;
 }
 
+function hasAuthToken(): boolean {
+  return typeof localStorage !== 'undefined' && !!localStorage.getItem('token');
+}
+
+function normalizeAssistantId(assistantId?: number | null): number | null {
+  if (assistantId == null) return null;
+  const id = Number(assistantId);
+  return Number.isFinite(id) && id > 0 ? id : null;
+}
+
+async function fetchRulesData(
+  assistantId: number,
+  enabledOnly: boolean
+): Promise<SpeechCorrectionRulesQueryData> {
+  const groups = hasAuthToken()
+    ? await speechCorrectionRuleApi.list({ assistantId, enabledOnly })
+    : await speechCorrectionRuleApi.listPublic(assistantId);
+  const rules = flattenGroups(groups);
+  return {
+    groups,
+    rules,
+    activeRules: rules.filter((r) => r.enabled),
+  };
+}
+
 export function useSpeechCorrectionRules(
   assistantId?: number | null
 ): UseSpeechCorrectionRulesResult {
-  const snapshot = useSyncExternalStore(
-    speechCorrectionRulesStore.subscribe,
-    () => speechCorrectionRulesStore.getSnapshot(assistantId),
-    () => speechCorrectionRulesStore.getSnapshot(assistantId)
+  const queryClient = useQueryClient();
+  const id = normalizeAssistantId(assistantId);
+  const [fetchConfig, setFetchConfig] = useState<{
+    enabledOnly: boolean;
+  } | null>(null);
+
+  const enabledOnly = fetchConfig?.enabledOnly ?? false;
+  const query = useSpeechCorrectionRulesQuery(id, {
+    enabledOnly,
+    enabled: fetchConfig != null && id != null,
+  });
+
+  const createBatchMutation = useCreateSpeechCorrectionRulesBatchMutation();
+  const updateMutation = useUpdateSpeechCorrectionRuleMutation();
+  const removeMutation = useRemoveSpeechCorrectionRuleMutation();
+  const saveGroupMutation = useSaveSpeechCorrectionRulesGroupMutation();
+
+  const loadRules = useCallback(
+    async (options?: { enabledOnly?: boolean; force?: boolean }) => {
+      if (id == null) return;
+      const nextEnabledOnly = options?.enabledOnly ?? false;
+      setFetchConfig({ enabledOnly: nextEnabledOnly });
+      const isPublic = !hasAuthToken();
+      await queryClient.fetchQuery({
+        queryKey: speechCorrectionRuleKeys.list(id, {
+          enabledOnly: nextEnabledOnly,
+          public: isPublic,
+        }),
+        queryFn: () => fetchRulesData(id, nextEnabledOnly),
+      });
+    },
+    [id, queryClient]
   );
 
   const ensureLoaded = useCallback(
-    (options?: { enabledOnly?: boolean }) =>
-      speechCorrectionRulesStore.ensureRulesLoaded(assistantId, options),
-    [assistantId]
+    async (options?: { enabledOnly?: boolean }) => {
+      const nextEnabledOnly = options?.enabledOnly ?? false;
+      if (
+        fetchConfig?.enabledOnly === nextEnabledOnly &&
+        query.isFetched &&
+        !query.isFetching
+      ) {
+        return;
+      }
+      await loadRules({ enabledOnly: nextEnabledOnly });
+    },
+    [fetchConfig?.enabledOnly, loadRules, query.isFetched, query.isFetching]
   );
 
   const refresh = useCallback(
-    (options?: { enabledOnly?: boolean }) =>
-      speechCorrectionRulesStore.refreshRules(assistantId, options),
-    [assistantId]
+    async (options?: { enabledOnly?: boolean }) => {
+      await loadRules({
+        enabledOnly: options?.enabledOnly ?? fetchConfig?.enabledOnly ?? false,
+        force: true,
+      });
+    },
+    [loadRules, fetchConfig?.enabledOnly]
   );
 
   const createBatch = useCallback(
     (payload: SpeechCorrectionRuleCreatePayload) => {
-      const aid = assistantId ?? payload.assistantId;
-      return speechCorrectionRulesStore.createRulesBatch({
+      const aid = id ?? payload.assistantId;
+      return createBatchMutation.mutateAsync({
         ...payload,
         assistantId: aid,
       });
     },
-    [assistantId]
+    [id, createBatchMutation]
   );
 
   const update = useCallback(
     (ruleId: number, payload: SpeechCorrectionRuleUpdatePayload) => {
-      if (assistantId == null) {
+      if (id == null) {
         return Promise.reject(new Error('assistantId is required'));
       }
-      return speechCorrectionRulesStore.updateRule(
-        assistantId,
+      return updateMutation.mutateAsync({
         ruleId,
-        payload
-      );
+        assistantId: id,
+        payload,
+      });
     },
-    [assistantId]
+    [id, updateMutation]
   );
 
   const remove = useCallback(
     (ruleId: number) => {
-      if (assistantId == null) {
+      if (id == null) {
         return Promise.reject(new Error('assistantId is required'));
       }
-      return speechCorrectionRulesStore.removeRule(assistantId, ruleId);
+      return removeMutation.mutateAsync({ ruleId, assistantId: id });
     },
-    [assistantId]
+    [id, removeMutation]
   );
 
   const saveGroup = useCallback(
     (
       payload: SpeechCorrectionRuleGroupUpsertPayload,
-      replacedRuleIds: number[] = []
+      _replacedRuleIds: number[] = []
     ) => {
-      const aid = assistantId ?? payload.assistantId;
-      return speechCorrectionRulesStore.saveRulesGroup(
-        { ...payload, assistantId: aid },
-        replacedRuleIds
-      );
+      const aid = id ?? payload.assistantId;
+      return saveGroupMutation.mutateAsync({
+        ...payload,
+        assistantId: aid,
+      });
     },
-    [assistantId]
+    [id, saveGroupMutation]
   );
 
+  const data = query.data;
+  const errorMessage =
+    query.error instanceof Error
+      ? query.error.message
+      : query.error
+        ? 'Failed to load speech correction rules'
+        : null;
+
   return {
-    groups: snapshot.groups,
-    rules: snapshot.rules,
-    activeRules: snapshot.activeRules,
-    loading: snapshot.loading,
-    error: snapshot.error,
-    loaded: snapshot.loaded,
+    groups: data?.groups ?? [],
+    rules: data?.rules ?? [],
+    activeRules: data?.activeRules ?? [],
+    loading: query.isLoading || query.isFetching,
+    error: errorMessage,
+    loaded: query.isFetched,
     ensureLoaded,
     refresh,
     createBatch,
@@ -119,5 +210,3 @@ export function useSpeechCorrectionRules(
     saveGroup,
   };
 }
-
-export type { SpeechCorrectionRulesSnapshot };

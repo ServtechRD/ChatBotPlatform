@@ -30,10 +30,11 @@ import 'react-image-crop/dist/ReactCrop.css';
 
 import { formatImageUrl } from '../../utils/urlUtils';
 
-import { assistant } from '../../api/assistant.js';
 import {
   useAssistantDetailQuery,
+  useCreateAssistantMutation,
   useDescriptionTemplateQuery,
+  useUpdateAssistantMutation,
 } from '../../queries/assistant';
 import { DEFAULT_ASSISTANT_DESCRIPTION_TEMPLATE } from './defaultAssistantDescriptionTemplate';
 import { ASSISTANT_DESCRIPTION_WRITING_GUIDE } from './assistantDescriptionWritingGuide';
@@ -169,6 +170,8 @@ export default function EditAIAssistantDialog({
   });
   const detailLoading =
     isEditMode ? assistantDetailQuery.isLoading : descriptionTemplateQuery.isLoading;
+  const createAssistantMutation = useCreateAssistantMutation();
+  const updateAssistantMutation = useUpdateAssistantMutation();
 
   useEffect(() => {
     if (!open || !isEditMode || !assistantDetailQuery.data) return;
@@ -445,10 +448,13 @@ export default function EditAIAssistantDialog({
         formData.append('video_2', video2);
       }
       if (aiAssistant?.assistant_id) {
-        await assistant.update(aiAssistant.assistant_id, formData);
+        await updateAssistantMutation.mutateAsync({
+          assistantId: aiAssistant.assistant_id,
+          formData,
+        });
         alert('更新成功！');
       } else {
-        await assistant.create(formData);
+        await createAssistantMutation.mutateAsync(formData);
         alert('建立成功！');
       }
 

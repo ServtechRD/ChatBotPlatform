@@ -30,7 +30,10 @@ import TextInputDialog from './TextInputDialog';
 import { knowledge } from '../../api/knowledge.js';
 import useAuth from '../../hook/useAuth';
 import { useAssistant } from '../../context/AssistantContext.jsx';
-import { useKnowledgeListQuery } from '../../queries/knowledge';
+import {
+  useDeleteKnowledgeMutation,
+  useKnowledgeListQuery,
+} from '../../queries/knowledge';
 
 export default function KnowledgeExistingPage() {
   const { user } = useAuth();
@@ -41,6 +44,7 @@ export default function KnowledgeExistingPage() {
     isLoading,
     refetch: refetchKnowledgeList,
   } = useKnowledgeListQuery(assistantId, { enabled: !!assistantId });
+  const deleteKnowledgeMutation = useDeleteKnowledgeMutation();
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedItem, setExpandedItem] = useState(null);
   const [editingContent, setEditingContent] = useState('');
@@ -95,9 +99,11 @@ export default function KnowledgeExistingPage() {
     );
     if (!ok) return;
     try {
-      await knowledge.del(assistantId, item.id);
+      await deleteKnowledgeMutation.mutateAsync({
+        assistantId,
+        knowledgeId: item.id,
+      });
       setKnowledgeItemsLocal(null);
-      await refetchKnowledgeList();
     } catch (err) {
       console.error('刪除知識失敗:', err);
       alert('刪除失敗，請稍後再試');

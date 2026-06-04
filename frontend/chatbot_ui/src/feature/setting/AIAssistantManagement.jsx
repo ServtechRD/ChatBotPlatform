@@ -21,9 +21,9 @@ import {
   ViewList as ListViewIcon,
 } from '@mui/icons-material';
 import EditAIAssistantDialog from './EditAIAssistantDialog';
-import { assistant } from '../../api/assistant.js';
 import useAuth from '../../hook/useAuth';
 import { useAssistantsQuery } from '../../queries/user';
+import { useToggleAssistantStatusMutation } from '../../queries/assistant';
 
 export default function AIAssistantManagement({ open, onRefresh }) {
   const { user } = useAuth();
@@ -33,6 +33,7 @@ export default function AIAssistantManagement({ open, onRefresh }) {
     isError,
     refetch,
   } = useAssistantsQuery({ enabled: open });
+  const toggleStatusMutation = useToggleAssistantStatusMutation();
   const [viewMode, setViewMode] = useState('list');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingAssistant, setEditingAssistant] = useState(null);
@@ -41,9 +42,9 @@ export default function AIAssistantManagement({ open, onRefresh }) {
     console.error('Failed to fetch assistants data');
   }
 
-  async function handleStatusChange(id, nextChecked) {
+  async function handleStatusChange(id) {
     try {
-      await assistant.toggleStatus(id);
+      await toggleStatusMutation.mutateAsync(id);
       await refetch();
     } catch (e) {
       const msg =
@@ -146,10 +147,7 @@ export default function AIAssistantManagement({ open, onRefresh }) {
                     <Switch
                       checked={assistant.status}
                       onChange={e =>
-                        handleStatusChange(
-                          assistant.assistant_id,
-                          e.target.checked
-                        )
+                        handleStatusChange(assistant.assistant_id)
                       }
                       color="primary"
                     />
