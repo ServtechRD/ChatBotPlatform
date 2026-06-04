@@ -21,6 +21,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { buildApiUrl, formatImageUrl, getWsBaseUrl } from '../utils/urlUtils';
 import { applyRules } from '../utils/speechCorrectionEngine';
 import { useSpeechCorrectionRules } from '../hook/useSpeechCorrectionRules';
+import { useEmbedAssistantQuery } from '../queries/embed';
 
 const CHAT_WIDTH = 398;
 const CHAT_HEIGHT = 598;
@@ -201,8 +202,15 @@ export default function EmbeddableChatInterface({
   const [isConnected, setIsConnected] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const [assistant, setAssistant] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const {
+    data: embedAssistant,
+    isLoading,
+    error: embedError,
+    isError: isEmbedError,
+  } = useEmbedAssistantQuery(assistantUrl);
+  const error = isEmbedError
+    ? embedError?.message ?? 'Failed to load assistant'
+    : null;
 
   const [isFullscreen, setIsFullscreen] = useState(true)
  
@@ -792,56 +800,19 @@ export default function EmbeddableChatInterface({
     return () => clearInterval(timer);
   }, [idleVideoIframeUrl, isListening, isEmbeddedInParent]);
 
-  // 取得助手訊息
   useEffect(() => {
-    // 新增一個標誌來防止重複請求
-    let isMounted = true;
+    if (!embedAssistant) return;
+    setAssistantId(embedAssistant.id);
+    setAssistantName(embedAssistant.name);
+    setAssistant(embedAssistant);
+    if (typeof onLoad === 'function') onLoad(embedAssistant);
+  }, [embedAssistant, onLoad]);
 
-    async function fetchAssistant() {
-      try {
-        console.log('fetch Assistant');
-        const requestUrl = buildApiUrl(`/embed/assistant/${assistantUrl}`);
-        // 從API取得助手訊息
-        console.log(`fetch api ${requestUrl}`);
-        const response = await fetch(requestUrl);
-
-        // 檢查組件是否仍然掛載
-        if (!isMounted) return;
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch assistant: ${response.status}`);
-        }
-
-        const data = await response.json();
-        console.log(data);
-        setAssistantId(data.id);
-        setAssistantName(data.name);
-        setAssistant(data);
-        setIsLoading(false);
-
-        //onLoad(data);
-
-        // 使用函數方式調用避免依賴關係
-        if (typeof onLoad === 'function') onLoad(data);
-      } catch (err) {
-        // 檢查組件是否仍然掛載
-        if (!isMounted) return;
-
-        console.error('Error fetching assistant:', err);
-        setError(err.message);
-        setIsLoading(false);
-        //onError(err);
-        // 使用函數方式調用避免依賴關係
-        if (typeof onError === 'function') onError(err);
-      }
-    }
-
-    fetchAssistant();
-    // 清理函數
-    return () => {
-      isMounted = false;
-    };
-  }, [assistantUrl]);
+  useEffect(() => {
+    if (!isEmbedError || !embedError) return;
+    console.error('Error fetching assistant:', embedError);
+    if (typeof onError === 'function') onError(embedError);
+  }, [isEmbedError, embedError, onError]);
 
   // 捲動控制
   function scrollToBottom() {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Typography,
   TextField,
@@ -30,12 +30,17 @@ import TextInputDialog from './TextInputDialog';
 import { knowledge } from '../../api/knowledge.js';
 import useAuth from '../../hook/useAuth';
 import { useAssistant } from '../../context/AssistantContext.jsx';
+import { useKnowledgeListQuery } from '../../queries/knowledge';
 
 export default function KnowledgeExistingPage() {
   const { user } = useAuth();
   const { currentAgent } = useAssistant();
-  const [knowledgeItems, setKnowledgeItems] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const assistantId = currentAgent?.assistant_id;
+  const {
+    data: knowledgeItems = [],
+    isLoading,
+    refetch: refetchKnowledgeList,
+  } = useKnowledgeListQuery(assistantId, { enabled: !!assistantId });
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedItem, setExpandedItem] = useState(null);
   const [editingContent, setEditingContent] = useState('');
@@ -48,40 +53,27 @@ export default function KnowledgeExistingPage() {
   const [knowledgeMenuItem, setKnowledgeMenuItem] = useState(null);
   const knowledgeMenuOpen = Boolean(knowledgeMenuAnchor);
 
-  const assistantId = currentAgent?.assistant_id;
+  const [knowledgeItemsLocal, setKnowledgeItemsLocal] = useState(null);
+  const displayItems = knowledgeItemsLocal ?? knowledgeItems;
 
   function closeKnowledgeMenu() {
     setKnowledgeMenuAnchor(null);
     setKnowledgeMenuItem(null);
   }
 
-  useEffect(() => {
-    if (!assistantId) return;
-    fetchKnowledgeItems();
-  }, [assistantId]);
-
-  async function fetchKnowledgeItems() {
-    try {
-      setIsLoading(true);
-      const response = await knowledge.get(assistantId);
-      setKnowledgeItems(response.data);
-    } catch (error) {
-      console.error('Error fetch knowledge items:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
   async function handleTextSubmitComplete(data) {
     try {
       if (uploadType === 'edit_text' && data?.id) {
-        setKnowledgeItems(prev =>
-          prev.map(item => (item.id === data.id ? { ...item, ...data } : item))
+        setKnowledgeItemsLocal(prev =>
+          (prev ?? knowledgeItems).map(item =>
+            item.id === data.id ? { ...item, ...data } : item
+          )
         );
       } else if (data?.id) {
-        setKnowledgeItems(prev => [data, ...prev]);
+        setKnowledgeItemsLocal(prev => [data, ...(prev ?? knowledgeItems)]);
       } else {
-        await fetchKnowledgeItems();
+        setKnowledgeItemsLocal(null);
+        await refetchKnowledgeList();
       }
     } catch (err) {
       console.error('更新知識清單失敗:', err);
@@ -104,7 +96,8 @@ export default function KnowledgeExistingPage() {
     if (!ok) return;
     try {
       await knowledge.del(assistantId, item.id);
-      await fetchKnowledgeItems();
+      setKnowledgeItemsLocal(null);
+      await refetchKnowledgeList();
     } catch (err) {
       console.error('刪除知識失敗:', err);
       alert('刪除失敗，請稍後再試');
@@ -133,7 +126,7 @@ export default function KnowledgeExistingPage() {
     }
   }
 
-  const filteredItems = knowledgeItems.filter(
+  const filteredItems = displayItems.filter(
     item =>
       (item.file_name || '')
         .toLowerCase()

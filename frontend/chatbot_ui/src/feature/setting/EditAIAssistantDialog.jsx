@@ -31,6 +31,10 @@ import 'react-image-crop/dist/ReactCrop.css';
 import { formatImageUrl } from '../../utils/urlUtils';
 
 import { assistant } from '../../api/assistant.js';
+import {
+  useAssistantDetailQuery,
+  useDescriptionTemplateQuery,
+} from '../../queries/assistant';
 import { DEFAULT_ASSISTANT_DESCRIPTION_TEMPLATE } from './defaultAssistantDescriptionTemplate';
 import { ASSISTANT_DESCRIPTION_WRITING_GUIDE } from './assistantDescriptionWritingGuide';
 
@@ -57,7 +61,6 @@ export default function EditAIAssistantDialog({
   const [allowLiveChat, setAllowLiveChat] = useState(false);
   const [aiAssistantUrl, setAiAssistantUrl] = useState('');
   const [name, setName] = useState('');
-  const [detailLoading, setDetailLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
 
   const [welcomeText, setWelcomeText] = useState('');
@@ -157,70 +160,52 @@ export default function EditAIAssistantDialog({
     }
   }, []);
 
+  const isEditMode = !!aiAssistant?.assistant_id;
+  const assistantDetailQuery = useAssistantDetailQuery(aiAssistant?.assistant_id, {
+    enabled: open && isEditMode,
+  });
+  const descriptionTemplateQuery = useDescriptionTemplateQuery({
+    enabled: open && !isEditMode,
+  });
+  const detailLoading =
+    isEditMode ? assistantDetailQuery.isLoading : descriptionTemplateQuery.isLoading;
+
   useEffect(() => {
-    if (!open) return undefined;
-    let cancelled = false;
+    if (!open || !isEditMode || !assistantDetailQuery.data) return;
+    applyAssistantDetail(assistantDetailQuery.data);
+  }, [open, isEditMode, assistantDetailQuery.data, applyAssistantDetail]);
 
-    async function run() {
-      if (aiAssistant?.assistant_id) {
-        setDetailLoading(true);
-        try {
-          const d = await assistant.get(aiAssistant.assistant_id);
-          if (!cancelled) {
-            applyAssistantDetail(d);
-          }
-        } catch (e) {
-          if (!cancelled) {
-            const msg =
-              e?.response?.data?.detail ||
-              e?.message ||
-              '無法載入助理資料';
-            alert(`載入助理失敗: ${msg}`);
-            onClose();
-          }
-        } finally {
-          if (!cancelled) {
-            setDetailLoading(false);
-          }
-        }
-      } else {
-        setDetailLoading(true);
-        resetFormForCreate();
-        try {
-          const tmpl = await assistant.getDescriptionTemplate();
-          if (!cancelled) {
-            setDescription(
-              (tmpl && String(tmpl).trim()) ||
-                DEFAULT_ASSISTANT_DESCRIPTION_TEMPLATE
-            );
-          }
-        } catch {
-          if (!cancelled) {
-            setDescription(DEFAULT_ASSISTANT_DESCRIPTION_TEMPLATE);
-          }
-        } finally {
-          if (!cancelled) {
-            setDetailLoading(false);
-          }
-        }
-      }
-    }
+  useEffect(() => {
+    if (!open || isEditMode) return;
+    resetFormForCreate();
+  }, [open, isEditMode, resetFormForCreate]);
 
-    run();
-    return () => {
-      cancelled = true;
-    };
+  useEffect(() => {
+    if (!open || isEditMode) return;
+    if (descriptionTemplateQuery.isLoading) return;
+    const tmpl = descriptionTemplateQuery.data;
+    setDescription(
+      (tmpl && String(tmpl).trim()) || DEFAULT_ASSISTANT_DESCRIPTION_TEMPLATE
+    );
   }, [
     open,
-    aiAssistant?.assistant_id,
-    applyAssistantDetail,
-    resetFormForCreate,
-    // onClose 不列入：避免父層重繪時重複載入
+    isEditMode,
+    descriptionTemplateQuery.data,
+    descriptionTemplateQuery.isLoading,
   ]);
+
+  useEffect(() => {
+    if (!open || !isEditMode || !assistantDetailQuery.isError) return;
+    const e = assistantDetailQuery.error;
+    const msg =
+      e?.response?.data?.detail || e?.message || '無法載入助理資料';
+    alert(`載入助理失敗: ${msg}`);
+    onClose();
+  }, [open, isEditMode, assistantDetailQuery.isError, assistantDetailQuery.error, onClose]);
 
   async function handleReloadTemplate() {
     try {
-      const tmpl = await assistant.getDescriptionTemplate();
+      const { data: tmpl } = await descriptionTemplateQuery.refetch();
       setDescription(
         (tmpl && String(tmpl).trim()) ||
           DEFAULT_ASSISTANT_DESCRIPTION_TEMPLATE
