@@ -13,6 +13,7 @@ import KnowledgeNewPage from './feature/knowledge/KnowledgeNewPage';
 import KnowledgeExistingPage from './feature/knowledge/KnowledgeExistingPage';
 import KnowledgeSpeechCorrectionPage from './feature/knowledge/KnowledgeSpeechCorrectionPage';
 import { QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { AuthProvider } from './context/AuthContext';
 import useAuth from './hook/useAuth';
 import { queryClient } from './queries/queryClient';
@@ -61,6 +62,7 @@ export default function App() {
           <AppRoutes />
         </Router>
       </AuthProvider>
+      {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
     </QueryClientProvider>
   );
 }
