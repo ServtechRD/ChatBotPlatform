@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { user as userApi } from '../api/user.js';
-import { storage } from '../api/storage.js';
+import { user as userApi } from '../services/api/user.js';
+import { storage } from '../services/api/storage.js';
 
 export const userKeys = {
   all: ['user'] as const,

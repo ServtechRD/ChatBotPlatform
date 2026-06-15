@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { knowledge as knowledgeApi } from '../api/knowledge.js';
+import { knowledge as knowledgeApi } from '../services/api/knowledge.js';
 
 export const knowledgeKeys = {
   all: ['knowledge'] as const,
@@ -8,8 +8,7 @@ export const knowledgeKeys = {
   content: (
     assistantId: number | string | null | undefined,
     knowledgeId: number | string | null | undefined
-  ) =>
-    [...knowledgeKeys.list(assistantId), 'content', knowledgeId] as const,
+  ) => [...knowledgeKeys.list(assistantId), 'content', knowledgeId] as const,
 };
 
 export function useKnowledgeListQuery(

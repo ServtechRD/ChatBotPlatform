@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { assistant as assistantApi } from '../api/assistant.js';
+import { assistant as assistantApi } from '../services/api/assistant.js';
 import { userKeys } from './user';
 import { knowledgeKeys } from './knowledge';
-import { storage } from '../api/storage.js';
+import { storage } from '../services/api/storage.js';
 
 export const assistantKeys = {
   all: ['assistant'] as const,
@@ -96,13 +96,8 @@ export function useUploadKnowledgeFileMutation() {
 export function useUploadKnowledgeUrlMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({
-      assistantId,
-      url,
-    }: {
-      assistantId: number;
-      url: string;
-    }) => assistantApi.uploadUrl(assistantId, url),
+    mutationFn: ({ assistantId, url }: { assistantId: number; url: string }) =>
+      assistantApi.uploadUrl(assistantId, url),
     onSuccess: (_data, { assistantId }) => {
       queryClient.invalidateQueries({
         queryKey: knowledgeKeys.list(assistantId),

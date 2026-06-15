@@ -33,7 +33,7 @@ import {
 
 import ChatInterface from '../feature/chat/ChatInterface';
 import AIAssistantManagement from '../feature/setting/AIAssistantManagement';
-import { storage } from '../api/storage.js';
+import { storage } from '../services/api/storage.js';
 import useAuth from '../hook/useAuth';
 import { AssistantProvider, useAssistant } from '../context/AssistantContext.jsx';
 import { ROUTES } from '../constants/routes.js';

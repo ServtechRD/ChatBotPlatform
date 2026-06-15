@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { conversation as conversationApi } from '../api/conversation.js';
+import { conversation as conversationApi } from '../services/api/conversation.js';
 
 export const conversationKeys = {
   all: ['conversation'] as const,

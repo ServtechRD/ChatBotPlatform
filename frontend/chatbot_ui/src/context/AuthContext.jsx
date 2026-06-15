@@ -1,7 +1,7 @@
 import { createContext, useState, useEffect } from 'react';
-import { auth } from '../api/auth.js';
-import { user as userApi } from '../api/user.js';
-import { storage } from '../api/storage.js';
+import { auth } from '../services/api/auth.js';
+import { user as userApi } from '../services/api/user.js';
+import { storage } from '../services/api/storage.js';
 import { queryClient } from '../queries/queryClient';
 import { userKeys } from '../queries/user';
 

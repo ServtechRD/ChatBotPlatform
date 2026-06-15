@@ -1,5 +1,5 @@
 import { api } from './api.js';
-import { buildApiUrl } from '../utils/urlUtils';
+import { buildApiUrl } from '../../utils/urlUtils.js';
 import {
   groupFromApi,
   groupsFromApi,
@@ -14,7 +14,7 @@ import {
   type SpeechCorrectionRuleGroupApi,
   type SpeechCorrectionRuleGroupUpsertPayload,
   type SpeechCorrectionRuleUpdatePayload,
-} from '../types/speechCorrectionRule';
+} from '../../types/speechCorrectionRule.js';
 
 const PATH = '/speech_correction_rule';
 
@@ -33,7 +33,9 @@ async function list(
   return groupsFromApi(Array.isArray(data) ? data : []);
 }
 
-async function listPublic(assistantId: number): Promise<SpeechCorrectionRuleGroup[]> {
+async function listPublic(
+  assistantId: number
+): Promise<SpeechCorrectionRuleGroup[]> {
   const url = buildApiUrl(`/api${PATH}/public?assistant_id=${assistantId}`);
   const res = await fetch(url, { method: 'GET' });
   if (!res.ok) return [];
@@ -44,7 +46,10 @@ async function listPublic(assistantId: number): Promise<SpeechCorrectionRuleGrou
 async function createBatch(
   payload: SpeechCorrectionRuleCreatePayload
 ): Promise<SpeechCorrectionRule[]> {
-  const data = (await api.post(PATH, ruleToCreateApi(payload))) as SpeechCorrectionRuleApi[];
+  const data = (await api.post(
+    PATH,
+    ruleToCreateApi(payload)
+  )) as SpeechCorrectionRuleApi[];
   const rows = Array.isArray(data) ? data : [];
   return rows.map(ruleFromApi);
 }
@@ -54,11 +59,9 @@ async function update(
   assistantId: number,
   payload: SpeechCorrectionRuleUpdatePayload
 ): Promise<SpeechCorrectionRule> {
-  const data = (await api.put(
-    `${PATH}/${ruleId}`,
-    ruleToUpdateApi(payload),
-    { params: { assistant_id: assistantId } }
-  )) as SpeechCorrectionRuleApi;
+  const data = (await api.put(`${PATH}/${ruleId}`, ruleToUpdateApi(payload), {
+    params: { assistant_id: assistantId },
+  })) as SpeechCorrectionRuleApi;
   return ruleFromApi(data);
 }
 

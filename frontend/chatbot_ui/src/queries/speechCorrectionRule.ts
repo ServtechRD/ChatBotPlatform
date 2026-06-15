@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryClient } from './queryClient';
-import { speechCorrectionRule as speechCorrectionRuleApi } from '../api/speechCorrectionRule';
+import { speechCorrectionRule as speechCorrectionRuleApi } from '../services/api/speechCorrectionRule';
 import {
   flattenGroups,
   type SpeechCorrectionRule,
@@ -41,12 +41,14 @@ function normalizeAssistantId(assistantId?: number | null): number | null {
   return Number.isFinite(id) && id > 0 ? id : null;
 }
 
-function toQueryData(groups: SpeechCorrectionRuleGroup[]): SpeechCorrectionRulesQueryData {
+function toQueryData(
+  groups: SpeechCorrectionRuleGroup[]
+): SpeechCorrectionRulesQueryData {
   const rules = flattenGroups(groups);
   return {
     groups,
     rules,
-    activeRules: rules.filter((r) => r.enabled),
+    activeRules: rules.filter(r => r.enabled),
   };
 }
 

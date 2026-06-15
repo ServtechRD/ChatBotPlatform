@@ -9,7 +9,7 @@ import {
   useUpdateSpeechCorrectionRuleMutation,
   type SpeechCorrectionRulesQueryData,
 } from '../queries/speechCorrectionRule';
-import { speechCorrectionRule as speechCorrectionRuleApi } from '../api/speechCorrectionRule';
+import { speechCorrectionRule as speechCorrectionRuleApi } from '../services/api/speechCorrectionRule';
 import {
   flattenGroups,
   type SpeechCorrectionRule,
@@ -72,7 +72,7 @@ async function fetchRulesData(
   return {
     groups,
     rules,
-    activeRules: rules.filter((r) => r.enabled),
+    activeRules: rules.filter(r => r.enabled),
   };
 }
 

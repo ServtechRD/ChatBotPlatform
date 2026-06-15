@@ -19,7 +19,7 @@ import {
 } from '@mui/icons-material';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { auth } from '../../api/auth.js';
+import { auth } from '../../services/api/auth.js';
 import { useConversationsQuery } from '../../queries/conversation';
 import { useSpeechCorrectionRules } from '../../hook/useSpeechCorrectionRules';
 import { useSpeechCorrectionRuleModal } from '../../hook/useSpeechCorrectionRuleModal';

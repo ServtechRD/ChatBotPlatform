@@ -27,7 +27,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import FileUploadDialog from './FileUploadDialog';
 import TextInputDialog from './TextInputDialog';
-import { knowledge } from '../../api/knowledge.js';
+import { knowledge } from '../../services/api/knowledge.js';
 import useAuth from '../../hook/useAuth';
 import { useAssistant } from '../../context/AssistantContext.jsx';
 import {
