@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { getApiBaseUrl } from '../utils/urlUtils';
+import { getApiBaseUrl } from '../../utils/urlUtils';
 import { storage } from './storage.js';
 
 const baseURL = getApiBaseUrl();

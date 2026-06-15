@@ -7,7 +7,7 @@ import React, {
   useState,
 } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { storage } from '../api/storage.js';
+import { useAssistantsQuery } from '../queries/user';
 import {
   buildSearchWithAssistant,
   findAgentByAssistantId,
@@ -21,9 +21,16 @@ export function AssistantProvider({ children }) {
   const location = useLocation();
   const [searchParams] = useSearchParams();
 
-  const [agents, setAgents] = useState([]);
+  const {
+    data: agents = [],
+    isLoading: assistantsQueryLoading,
+    isFetching,
+  } = useAssistantsQuery();
+
   const [currentAgent, setCurrentAgent] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+
+  const isLoading =
+    assistantsQueryLoading || (isFetching && agents.length === 0);
 
   const syncUrlToAgent = useCallback(
     (agent, { replace = true } = {}) => {
@@ -31,10 +38,7 @@ export function AssistantProvider({ children }) {
         searchParams,
         agent?.assistant_id
       );
-      navigate(
-        { pathname: location.pathname, search },
-        { replace }
-      );
+      navigate({ pathname: location.pathname, search }, { replace });
     },
     [navigate, location.pathname, searchParams]
   );
@@ -55,35 +59,6 @@ export function AssistantProvider({ children }) {
     },
     [agents, selectAgent]
   );
-
-  const refreshAgents = useCallback(() => {
-    const list = storage.getAssistants() || [];
-    setAgents(list);
-    return list;
-  }, []);
-
-  useEffect(() => {
-    try {
-      refreshAgents();
-    } catch (error) {
-      console.error('Failed to initialize assistants:', error);
-    } finally {
-      setIsLoading(false);
-    }
-
-    function handleAssistantsChange(e) {
-      const list = e.detail || storage.getAssistants() || [];
-      setAgents(list);
-    }
-
-    window.addEventListener('assistantsDataUpdated', handleAssistantsChange);
-    return () => {
-      window.removeEventListener(
-        'assistantsDataUpdated',
-        handleAssistantsChange
-      );
-    };
-  }, [refreshAgents]);
 
   useEffect(() => {
     if (isLoading || agents.length === 0) return;
@@ -108,7 +83,13 @@ export function AssistantProvider({ children }) {
         syncUrlToAgent(fallback, { replace: true });
       }
     }
-  }, [agents, isLoading, searchParams, currentAgent?.assistant_id, syncUrlToAgent]);
+  }, [
+    agents,
+    isLoading,
+    searchParams,
+    currentAgent?.assistant_id,
+    syncUrlToAgent,
+  ]);
 
   const currentAgentIndex = useMemo(() => {
     if (!currentAgent) return 0;
@@ -126,7 +107,6 @@ export function AssistantProvider({ children }) {
       isLoading,
       selectAgent,
       selectAgentByIndex,
-      refreshAgents,
     }),
     [
       agents,
@@ -135,7 +115,6 @@ export function AssistantProvider({ children }) {
       isLoading,
       selectAgent,
       selectAgentByIndex,
-      refreshAgents,
     ]
   );
 

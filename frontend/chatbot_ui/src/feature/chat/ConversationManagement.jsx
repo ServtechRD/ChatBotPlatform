@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -19,8 +19,8 @@ import {
 } from '@mui/icons-material';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { conversation } from '../../api/conversation.js';
-import { auth } from '../../api/auth.js';
+import { auth } from '../../services/api/auth.js';
+import { useConversationsQuery } from '../../queries/conversation';
 import { useSpeechCorrectionRules } from '../../hook/useSpeechCorrectionRules';
 import { useSpeechCorrectionRuleModal } from '../../hook/useSpeechCorrectionRuleModal';
 import { useSpeechCorrectionSelection } from '../../hook/useSpeechCorrectionSelection';
@@ -245,9 +245,18 @@ function ConversationDialog({ open, conversation, onClose, assistantId }) {
 
 export default function ConversationManagement() {
   const { currentAgent: currentAssistant } = useAssistant();
-  const [conversations, setConversations] = useState([]);
-  const [isLoadingConversations, setIsLoadingConversations] = useState(false);
-  const [error, setError] = useState(null);
+  const assistantId = currentAssistant?.assistant_id;
+  const {
+    data: conversations = [],
+    isLoading: isLoadingConversations,
+    error: queryError,
+    refetch: fetchConversations,
+    isFetching,
+  } = useConversationsQuery(assistantId, { enabled: !!assistantId });
+  const error = useMemo(() => {
+    if (!queryError) return null;
+    return '無法讀取對話列表，請稍後再試';
+  }, [queryError]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -263,28 +272,11 @@ export default function ConversationManagement() {
   }
 
   useEffect(() => {
-    if (currentAssistant?.assistant_id) {
-      fetchConversations();
+    if (queryError) {
+      console.error('Error fetching conversations:', queryError);
+      handleApiError(queryError);
     }
-  }, [currentAssistant?.assistant_id]);
-
-  async function fetchConversations() {
-    try {
-      setIsLoadingConversations(true);
-      setError(null);
-
-      const assistantId = currentAssistant?.assistant_id;
-      const data = await conversation.get(assistantId);
-      setConversations(data);
-    } catch (err) {
-      console.error('Error fetching conversations:', err);
-      setError('無法讀取對話列表，請稍後再試');
-      setConversations([]);
-      handleApiError(err);
-    } finally {
-      setIsLoadingConversations(false);
-    }
-  }
+  }, [queryError]);
 
   function handleDownloadCSV() {
     const csvData = [];
@@ -383,7 +375,7 @@ export default function ConversationManagement() {
           </Button>
           <IconButton
             onClick={fetchConversations}
-            disabled={isLoadingConversations}
+            disabled={isLoadingConversations || isFetching}
           >
             <RefreshIcon />
           </IconButton>

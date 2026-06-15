@@ -21,6 +21,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { buildApiUrl, formatImageUrl, getWsBaseUrl } from '../utils/urlUtils';
 import { applyRules } from '../utils/speechCorrectionEngine';
 import { useSpeechCorrectionRules } from '../hook/useSpeechCorrectionRules';
+import { useEmbedAssistantQuery } from '../queries/embed';
+import { useWSClient } from '../services/ws/createWsClient';
 
 const CHAT_WIDTH = 398;
 const CHAT_HEIGHT = 598;
@@ -198,11 +200,19 @@ export default function EmbeddableChatInterface({
   const [assistantName, setAssistantName] = useState([]);
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
-  const [isConnected, setIsConnected] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
+  const ws = useWSClient();
+  const isConnected = ws.status === 'connected';
   const [assistant, setAssistant] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const {
+    data: embedAssistant,
+    isLoading,
+    error: embedError,
+    isError: isEmbedError,
+  } = useEmbedAssistantQuery(assistantUrl);
+  const error = isEmbedError
+    ? embedError?.message ?? 'Failed to load assistant'
+    : null;
 
   const [isFullscreen, setIsFullscreen] = useState(true)
  
@@ -224,15 +234,11 @@ export default function EmbeddableChatInterface({
   const speechSynthesisRef = useRef(window.speechSynthesis);
   const voiceRef = useRef(null);
 
-  const socketRef = useRef(null);
   const customerIdRef = useRef(uuidv4());
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const videoRef = useRef(null);
   const welcomeMessageShownRef = useRef(false);
-  const reconnectTimerRef = useRef(null);
-  const shouldReconnectRef = useRef(true);
-  const reconnectDelayRef = useRef(1000);
 
   const resolvedAssistantId =
     typeof assistantId === 'number' && assistantId > 0 ? assistantId : null;
@@ -792,56 +798,19 @@ export default function EmbeddableChatInterface({
     return () => clearInterval(timer);
   }, [idleVideoIframeUrl, isListening, isEmbeddedInParent]);
 
-  // 取得助手訊息
   useEffect(() => {
-    // 新增一個標誌來防止重複請求
-    let isMounted = true;
+    if (!embedAssistant) return;
+    setAssistantId(embedAssistant.id);
+    setAssistantName(embedAssistant.name);
+    setAssistant(embedAssistant);
+    if (typeof onLoad === 'function') onLoad(embedAssistant);
+  }, [embedAssistant, onLoad]);
 
-    async function fetchAssistant() {
-      try {
-        console.log('fetch Assistant');
-        const requestUrl = buildApiUrl(`/embed/assistant/${assistantUrl}`);
-        // 從API取得助手訊息
-        console.log(`fetch api ${requestUrl}`);
-        const response = await fetch(requestUrl);
-
-        // 檢查組件是否仍然掛載
-        if (!isMounted) return;
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch assistant: ${response.status}`);
-        }
-
-        const data = await response.json();
-        console.log(data);
-        setAssistantId(data.id);
-        setAssistantName(data.name);
-        setAssistant(data);
-        setIsLoading(false);
-
-        //onLoad(data);
-
-        // 使用函數方式調用避免依賴關係
-        if (typeof onLoad === 'function') onLoad(data);
-      } catch (err) {
-        // 檢查組件是否仍然掛載
-        if (!isMounted) return;
-
-        console.error('Error fetching assistant:', err);
-        setError(err.message);
-        setIsLoading(false);
-        //onError(err);
-        // 使用函數方式調用避免依賴關係
-        if (typeof onError === 'function') onError(err);
-      }
-    }
-
-    fetchAssistant();
-    // 清理函數
-    return () => {
-      isMounted = false;
-    };
-  }, [assistantUrl]);
+  useEffect(() => {
+    if (!isEmbedError || !embedError) return;
+    console.error('Error fetching assistant:', embedError);
+    if (typeof onError === 'function') onError(embedError);
+  }, [isEmbedError, embedError, onError]);
 
   // 捲動控制
   function scrollToBottom() {
@@ -873,11 +842,10 @@ export default function EmbeddableChatInterface({
     scrollToBottom();
   }, [messages, isThinking]);
 
-  // WebSocket 連線（含自動重連）
+  // WebSocket 連線
   useEffect(() => {
     if (!assistant || !assistantId) return;
 
-    // 只在首次加載時顯示歡迎訊息
     if (!welcomeMessageShownRef.current && assistant?.message_welcome) {
       setMessages([
         { id: Date.now(), text: assistant.message_welcome, isBot: true },
@@ -885,67 +853,32 @@ export default function EmbeddableChatInterface({
       welcomeMessageShownRef.current = true;
     }
 
-    shouldReconnectRef.current = true;
-    reconnectDelayRef.current = 1000;
-
     const wsUrl = `${WS_BASE_URL}/ws/assistant/${assistantId}/${customerIdRef.current}`;
+    ws.connect(wsUrl);
 
-    function connectWS() {
-      if (!shouldReconnectRef.current) return;
+    const unsub = ws.subscribe('chat', data => {
+      const message =
+        typeof data.message === 'string' ? data.message : String(data.message ?? '');
+      console.log('recv ' + message);
+      if (message === '@@@') {
+        console.log('is think');
+        setIsThinking(true);
+        setTimeout(scrollToBottom, 100);
+      } else if (message === '###') {
+        console.log('stop thinking');
+        setIsThinking(false);
+      } else {
+        setMessages(prevMessages => [
+          ...prevMessages,
+          { id: Date.now(), text: message, isBot: true },
+        ]);
+        speakText(message);
+      }
+    });
 
-      const ws = new WebSocket(wsUrl);
-      socketRef.current = ws;
-
-      ws.onopen = () => {
-        console.log('WebSocket connection established.');
-        reconnectDelayRef.current = 1000; // 重置 backoff
-        setIsConnected(true);
-      };
-
-      ws.onmessage = event => {
-        const message = event.data;
-        console.log('recv ' + message);
-        if (message === '@@@') {
-          console.log('is think');
-          setIsThinking(true);
-          setTimeout(scrollToBottom, 100);
-        } else if (message === '###') {
-          console.log('stop thinking');
-          setIsThinking(false);
-        } else {
-          setMessages(prevMessages => [
-            ...prevMessages,
-            { id: Date.now(), text: message, isBot: true },
-          ]);
-          speakText(message);
-        }
-      };
-
-      ws.onclose = () => {
-        console.log('WebSocket connection closed.');
-        setIsConnected(false);
-        if (shouldReconnectRef.current) {
-          console.log(`WebSocket 將於 ${reconnectDelayRef.current}ms 後重連...`);
-          reconnectTimerRef.current = setTimeout(() => {
-            reconnectDelayRef.current = Math.min(reconnectDelayRef.current * 2, 30000);
-            connectWS();
-          }, reconnectDelayRef.current);
-        }
-      };
-    }
-
-    connectWS();
-
-    // 組件卸載時關閉 WebSocket 並停止重連
     return () => {
-      shouldReconnectRef.current = false;
-      if (reconnectTimerRef.current) {
-        clearTimeout(reconnectTimerRef.current);
-        reconnectTimerRef.current = null;
-      }
-      if (socketRef.current) {
-        socketRef.current.close();
-      }
+      unsub();
+      ws.disconnect();
     };
   }, [assistantId, assistant]);
 
@@ -1007,24 +940,21 @@ export default function EmbeddableChatInterface({
   }
 
   // 抽出 sendMessage 邏輯以便語音輸入也能使用
-  function sendMessage(text) {
-    // 使用 socketRef 來檢查連線狀態，避免閉包問題導致讀取到舊的 isConnected 狀態
-    const socket = socketRef.current;
-    const isSocketConnected = socket && socket.readyState === WebSocket.OPEN;
+  async function sendMessage(text) {
+    if (!text || !text.trim()) return;
 
-    if (!text || !text.trim() || !isSocketConnected) {
-      console.warn('無法發送訊息: 文字為空或 WebSocket 未連線', {
+    try {
+      await ws.waitUntilConntected();
+    } catch (error) {
+      console.warn('無法發送訊息: WebSocket 未連線', {
         text,
-        isSocketConnected,
-        readyState: socket?.readyState,
+        error,
       });
       return;
     }
 
-    // 傳送訊息到 WebSocket
-    socket.send(text);
+    ws.sendRaw(text);
 
-    // 新增使用者訊息到聊天介面
     setMessages(prevMessages => [
       ...prevMessages,
       { id: Date.now(), text: text, isBot: false },

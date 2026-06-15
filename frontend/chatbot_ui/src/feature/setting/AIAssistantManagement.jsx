@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
   Table,
   TableBody,
@@ -21,57 +21,32 @@ import {
   ViewList as ListViewIcon,
 } from '@mui/icons-material';
 import EditAIAssistantDialog from './EditAIAssistantDialog';
-import { user as userApi } from '../../api/user.js';
-import { assistant } from '../../api/assistant.js';
 import useAuth from '../../hook/useAuth';
+import { useAssistantsQuery } from '../../queries/user';
+import { useToggleAssistantStatusMutation } from '../../queries/assistant';
 
-export default function AIAssistantManagement({ open, onRefresh }) {
+export default function AIAssistantManagement({ open }) {
   const { user } = useAuth();
-  const [assistants, setAssistants] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const {
+    data: assistants = [],
+    isLoading,
+    isError,
+    refetch,
+  } = useAssistantsQuery({ enabled: open });
+  const toggleStatusMutation = useToggleAssistantStatusMutation();
   const [viewMode, setViewMode] = useState('list');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingAssistant, setEditingAssistant] = useState(null);
 
-  const fetchAssistants = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const data = await userApi.getAssistants();
-      console.log('fetchAssistants data:', data);
-      setAssistants(data);
-    } catch (error) {
-      console.error('Failed to fetch assistants data:', error);
-      alert('取得助理列表失敗');
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  if (isError && open) {
+    console.error('Failed to fetch assistants data');
+  }
 
-  useEffect(() => {
-    if (!open) return;
-    fetchAssistants();
-  }, [open, fetchAssistants]);
-
-  async function handleStatusChange(id, nextChecked) {
-    const prev = assistants.find(a => a.assistant_id === id);
-    const prevStatus = prev?.status;
-    setAssistants(
-      assistants.map(assistant =>
-        assistant.assistant_id === id
-          ? { ...assistant, status: nextChecked }
-          : assistant
-      )
-    );
+  async function handleStatusChange(id) {
     try {
-      await assistant.toggleStatus(id);
+      await toggleStatusMutation.mutateAsync(id);
+      await refetch();
     } catch (e) {
-      setAssistants(
-        assistants.map(assistant =>
-          assistant.assistant_id === id
-            ? { ...assistant, status: prevStatus }
-            : assistant
-        )
-      );
       const msg =
         e?.response?.data?.detail || e?.message || String(e);
       alert(`更新助理狀態失敗: ${msg}`);
@@ -103,11 +78,7 @@ export default function AIAssistantManagement({ open, onRefresh }) {
       setAssistants([...assistants, { ...updatedAssistant, id: Date.now() }]);
     }
     handleCloseDialog();*/
-    // 重新取得列表數據
-    await fetchAssistants();
-    if (onRefresh) {
-      onRefresh();
-    }
+    await refetch();
   }
 
   return (
@@ -172,10 +143,7 @@ export default function AIAssistantManagement({ open, onRefresh }) {
                     <Switch
                       checked={assistant.status}
                       onChange={e =>
-                        handleStatusChange(
-                          assistant.assistant_id,
-                          e.target.checked
-                        )
+                        handleStatusChange(assistant.assistant_id)
                       }
                       color="primary"
                     />

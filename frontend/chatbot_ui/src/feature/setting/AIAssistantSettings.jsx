@@ -12,7 +12,7 @@ import {
   Box,
 } from '@mui/material';
 
-import { storage } from '../../api/storage.js';
+import { storage } from '../../services/api/storage.js';
 
 export default function AIAssistantSettings() {
   const userId = storage.getUserId();

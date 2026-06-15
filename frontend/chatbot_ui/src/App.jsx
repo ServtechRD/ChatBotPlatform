@@ -12,8 +12,11 @@ import KnowledgeBaseLayout from './feature/knowledge/KnowledgeBaseLayout';
 import KnowledgeNewPage from './feature/knowledge/KnowledgeNewPage';
 import KnowledgeExistingPage from './feature/knowledge/KnowledgeExistingPage';
 import KnowledgeSpeechCorrectionPage from './feature/knowledge/KnowledgeSpeechCorrectionPage';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { AuthProvider } from './context/AuthContext';
 import useAuth from './hook/useAuth';
+import { queryClient } from './queries/queryClient';
 
 function AppRoutes() {
   const { isAuthenticated, loading } = useAuth();
@@ -53,10 +56,13 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <AppRoutes />
-      </Router>
-    </AuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <Router>
+          <AppRoutes />
+        </Router>
+      </AuthProvider>
+      {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
+    </QueryClientProvider>
   );
 }

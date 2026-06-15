@@ -1,8 +1,9 @@
 import { createContext, useState, useEffect } from 'react';
-import { auth } from '../api/auth.js';
-import { user as userApi } from '../api/user.js';
-import { storage } from '../api/storage.js';
-import { speechCorrectionRulesStore } from '../store/speechCorrectionRulesStore';
+import { auth } from '../services/api/auth.js';
+import { user as userApi } from '../services/api/user.js';
+import { storage } from '../services/api/storage.js';
+import { queryClient } from '../queries/queryClient';
+import { userKeys } from '../queries/user';
 
 export const AuthContext = createContext(null);
 
@@ -15,9 +16,16 @@ export function AuthProvider({ children }) {
     const token = localStorage.getItem('token');
     if (token) {
       auth.get()
-        .then(userData => {
+        .then(async userData => {
           setIsAuthenticated(true);
           setUser(userData);
+          const userId = storage.getUserId();
+          if (userId != null) {
+            await queryClient.prefetchQuery({
+              queryKey: userKeys.assistants(userId),
+              queryFn: () => userApi.getAssistants(),
+            });
+          }
         })
         .catch(() => {
           storage.clearAuthData();
@@ -35,12 +43,16 @@ export function AuthProvider({ children }) {
     setIsAuthenticated(true);
     const userData = await auth.get();
     setUser(userData);
-    await userApi.getAssistants();
+    const userId = storage.getUserId();
+    await queryClient.fetchQuery({
+      queryKey: userKeys.assistants(userId),
+      queryFn: () => userApi.getAssistants(),
+    });
   }
 
   function logout() {
     storage.clearAuthData();
-    speechCorrectionRulesStore.resetSpeechCorrectionRulesStore();
+    queryClient.clear();
     setIsAuthenticated(false);
     setUser(null);
   }

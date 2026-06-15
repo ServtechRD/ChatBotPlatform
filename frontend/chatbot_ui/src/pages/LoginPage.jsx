@@ -22,8 +22,8 @@ import {
 } from '@mui/icons-material';
 
 import useAuth from '../hook/useAuth';
-import { auth } from '../api/auth.js';
-import { mfa } from '../api/mfa.js';
+import { auth } from '../services/api/auth.js';
+import { mfa } from '../services/api/mfa.js';
 
 const Logo = styled('img')({
   width: 150,

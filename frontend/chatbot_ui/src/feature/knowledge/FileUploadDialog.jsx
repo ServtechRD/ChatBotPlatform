@@ -15,7 +15,10 @@ import {
   Alert,
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-import { assistant } from '../../api/assistant.js';
+import {
+  useUploadKnowledgeFileMutation,
+  useUploadKnowledgeUrlMutation,
+} from '../../queries/assistant';
 
 export default function FileUploadDialog({
   isOpen,
@@ -30,8 +33,12 @@ export default function FileUploadDialog({
   const [hideWebpage, setHideWebpage] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
 
-  const [isUploading, setIsUploading] = useState(false);
+  const uploadFileMutation = useUploadKnowledgeFileMutation();
+  const uploadUrlMutation = useUploadKnowledgeUrlMutation();
   const [uploadStatus, setUploadStatus] = useState(null); // 'success' | 'error' | null
+
+  const isUploading =
+    uploadFileMutation.isPending || uploadUrlMutation.isPending;
 
   function handleDragEnter(e) {
     e.preventDefault();
@@ -71,7 +78,6 @@ export default function FileUploadDialog({
     setImportText(true);
     setHideWebpage(false);
     setUploadStatus(null);
-    setIsUploading(false);
   }
 
   function handleClose() {
@@ -85,7 +91,6 @@ export default function FileUploadDialog({
       return;
     }
 
-    setIsUploading(true);
     setUploadStatus(null);
 
     try {
@@ -93,9 +98,15 @@ export default function FileUploadDialog({
       if (selectedFile) {
         const formData = new FormData();
         formData.append('file', selectedFile);
-        response = await assistant.uploadFile(assistantId, formData);
+        response = await uploadFileMutation.mutateAsync({
+          assistantId,
+          formData,
+        });
       } else if (url) {
-        response = await assistant.uploadUrl(assistantId, url);
+        response = await uploadUrlMutation.mutateAsync({
+          assistantId,
+          url,
+        });
       }
 
       setUploadStatus('success');
@@ -112,7 +123,6 @@ export default function FileUploadDialog({
       // 錯誤訊息會顯示 3 秒後自動消失
       setTimeout(() => {
         setUploadStatus(null);
-        setIsUploading(false);
       }, 3000);
     }
   }
