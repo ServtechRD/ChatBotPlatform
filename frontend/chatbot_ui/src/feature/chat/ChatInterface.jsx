@@ -23,6 +23,7 @@ import remarkGfm from 'remark-gfm';
 import { buildApiUrl, formatImageUrl, getWsBaseUrl } from '../../utils/urlUtils';
 import { applyRules } from '../../utils/speechCorrectionEngine';
 import { useSpeechCorrectionRules } from '../../hook/useSpeechCorrectionRules';
+import { useWSClient } from '../../services/ws/createWsClient';
 
 const CHAT_WIDTH = 398;
 const CHAT_HEIGHT = 598;
@@ -51,8 +52,9 @@ export default function ChatInterface({
 }) {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
-  const [isConnected, setIsConnected] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
+  const ws = useWSClient();
+  const isConnected = ws.status === 'connected';
 
   // 語音辨識狀態
   const [isListening, setIsListening] = useState(false);
@@ -66,15 +68,11 @@ export default function ChatInterface({
   const speechSynthesisRef = useRef(window.speechSynthesis);
   const voiceRef = useRef(null);
 
-  const socketRef = useRef(null);
   const customerIdRef = useRef(uuidv4()); // 產生隨機的 customer_id
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const videoRef = useRef(null);
   const welcomeMessageShownRef = useRef(false); // 追蹤歡迎訊息是否已顯示
-  const reconnectTimerRef = useRef(null);
-  const shouldReconnectRef = useRef(true);
-  const reconnectDelayRef = useRef(1000);
   const autoRestartMicRef = useRef(false);
   const pendingSpeakTextRef = useRef('');
   const speakDebounceTimerRef = useRef(null);
@@ -118,9 +116,11 @@ export default function ChatInterface({
     };
   }, []);
 
-  // 聊天室 ws 初始化（含自動重連）
+  // 聊天室 ws 初始化
   useEffect(() => {
     console.log('name  = ' + assistantname);
+
+    if (!assistantid) return;
 
     if (!welcomeMessageShownRef.current && assistant?.message_welcome) {
       setMessages([
@@ -130,74 +130,34 @@ export default function ChatInterface({
       welcomeMessageShownRef.current = true;
     }
 
-    shouldReconnectRef.current = true;
-    reconnectDelayRef.current = 1000;
-
     const wsUrl = `${WS_BASE_URL}/ws/assistant/${assistantid}/${customerIdRef.current}`;
+    ws.connect(wsUrl);
 
-    function connectWS() {
-      if (!shouldReconnectRef.current) return;
-
-      const ws = new WebSocket(wsUrl);
-      socketRef.current = ws;
-
-      ws.addEventListener('open', () => {
-        console.log('✅ WebSocket connected');
-        reconnectDelayRef.current = 1000; // 重置 backoff
-        setIsConnected(true);
-      });
-
-      ws.addEventListener('message', event => {
-        const message = event.data;
-        console.log('recv', message);
-        if (message === '@@@') {
-          setIsThinking(true);
-          setTimeout(scrollToBottom, 100);
-        } else if (message === '###') {
-          setIsThinking(false);
-          // 回覆結束時立刻播放已合併的段落，縮短尾端等待。
-          flushQueuedSpeakText();
-        } else {
-          setMessages(prev => [
-            ...prev,
-            { id: Date.now(), text: message, isBot: true },
-          ]);
-          // 串流分段先合併，避免新分段到來時中斷前一段開頭造成漏字。
-          queueSpeakText(message);
-        }
-      });
-
-      ws.addEventListener('error', err => {
-        console.error('❌ WebSocket error:', err);
-      });
-
-      ws.addEventListener('close', () => {
-        console.log('🔌 WebSocket closed');
-        setIsConnected(false);
+    const unsub = ws.subscribe('chat', data => {
+      const message =
+        typeof data.message === 'string' ? data.message : String(data.message ?? '');
+      console.log('recv', message);
+      if (message === '@@@') {
+        setIsThinking(true);
+        setTimeout(scrollToBottom, 100);
+      } else if (message === '###') {
         setIsThinking(false);
-        if (shouldReconnectRef.current) {
-          console.log(`WebSocket 將於 ${reconnectDelayRef.current}ms 後重連...`);
-          reconnectTimerRef.current = setTimeout(() => {
-            reconnectDelayRef.current = Math.min(reconnectDelayRef.current * 2, 30000);
-            connectWS();
-          }, reconnectDelayRef.current);
-        }
-      });
-    }
-
-    connectWS();
+        flushQueuedSpeakText();
+      } else {
+        setMessages(prev => [
+          ...prev,
+          { id: Date.now(), text: message, isBot: true },
+        ]);
+        queueSpeakText(message);
+      }
+    });
 
     return () => {
-      shouldReconnectRef.current = false;
-      if (reconnectTimerRef.current) {
-        clearTimeout(reconnectTimerRef.current);
-        reconnectTimerRef.current = null;
-      }
-      if (socketRef.current) {
-        socketRef.current.close();
-      }
+      unsub();
+      ws.disconnect();
+      setIsThinking(false);
     };
-  }, [assistantid, assistantname]);
+  }, [assistantid, assistantname, assistant?.message_welcome]);
 
   // 當消息更新時滾動
   useEffect(() => {
@@ -865,17 +825,12 @@ export default function ChatInterface({
     };
   }, []);
 
-  function safeSend(msg) {
-    const socket = socketRef.current;
-    if (!socket) return console.warn('WebSocket 尚未初始化');
-
-    if (socket.readyState === WebSocket.OPEN) {
-      socket.send(msg);
-    } else if (socket.readyState === WebSocket.CONNECTING) {
-      console.log('等待 WebSocket 連線...');
-      socket.addEventListener('open', () => socket.send(msg), { once: true });
-    } else {
-      console.warn('WebSocket 已關閉，無法送出');
+  async function safeSend(msg) {
+    try {
+      await ws.waitUntilConntected();
+      ws.sendRaw(msg);
+    } catch (error) {
+      console.warn('WebSocket 無法送出', error);
     }
   }
 

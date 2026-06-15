@@ -54,6 +54,8 @@ export function useWSClient(): WSClient {
       reconnectAttempsRef.current = 0;
       setStatus('connected');
       console.log('[WS] 連線成功');
+      openResolverRef.current?.();
+      openResolverRef.current = null;
     };
 
     ws.onmessage = (e: MessageEvent<string>) => {
@@ -66,8 +68,10 @@ export function useWSClient(): WSClient {
         } else {
           console.warn('[WS] 未知 channel 或沒有訂閱', data);
         }
-      } catch (error) {
-        console.error('[WS] 解析錯誤', e.data, error);
+      } catch {
+        const rawText = typeof e.data === 'string' ? e.data : String(e.data);
+        const payload = { channel: 'chat', message: rawText };
+        listenersRef.current.chat?.forEach(fn => fn(payload));
       }
     };
 
@@ -107,6 +111,14 @@ export function useWSClient(): WSClient {
       return;
     }
     wsRef.current.send(JSON.stringify(data));
+  }
+
+  function sendRaw(text: string): void {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      console.warn('[WS] 尚未連線或已斷線');
+      return;
+    }
+    wsRef.current.send(text);
   }
 
   function disconnect(): void {
@@ -152,9 +164,11 @@ export function useWSClient(): WSClient {
   }
 
   return {
+    status,
     subscribe,
     connect,
     send,
+    sendRaw,
     disconnect,
     getStatus,
     getCurrentUrl,
