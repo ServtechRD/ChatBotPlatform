@@ -22,7 +22,12 @@ import { buildApiUrl, formatImageUrl, getWsBaseUrl } from '../utils/urlUtils';
 import { applyRules } from '../utils/speechCorrectionEngine';
 import { useSpeechCorrectionRules } from '../hook/useSpeechCorrectionRules';
 import { useEmbedAssistantQuery } from '../queries/embed';
+import { WsConnectionBar } from './chat/WsConnectionBar';
 import { useWSClient } from '../services/ws/createWsClient';
+import {
+  canSubmitChatMessage,
+  SEND_FAILED_MESSAGE,
+} from '../utils/wsChatUi';
 
 const CHAT_WIDTH = 398;
 const CHAT_HEIGHT = 598;
@@ -202,7 +207,9 @@ export default function EmbeddableChatInterface({
   const [inputMessage, setInputMessage] = useState('');
   const [isThinking, setIsThinking] = useState(false);
   const ws = useWSClient();
-  const isConnected = ws.status === 'connected';
+  const [isSending, setIsSending] = useState(false);
+  const [connectionNotice, setConnectionNotice] = useState('');
+  const wsUrlRef = useRef(null);
   const [assistant, setAssistant] = useState(null);
   const {
     data: embedAssistant,
@@ -299,7 +306,7 @@ export default function EmbeddableChatInterface({
       }
 
       // 自動送出
-      sendMessage(transcript);
+      void sendMessage(transcript);
     };
     recognition.onstart = () => {
       setIsListening(true);
@@ -854,6 +861,8 @@ export default function EmbeddableChatInterface({
     }
 
     const wsUrl = `${WS_BASE_URL}/ws/assistant/${assistantId}/${customerIdRef.current}`;
+    wsUrlRef.current = wsUrl;
+    setConnectionNotice('');
     ws.connect(wsUrl);
 
     const unsub = ws.subscribe('chat', data => {
@@ -879,8 +888,15 @@ export default function EmbeddableChatInterface({
     return () => {
       unsub();
       ws.disconnect();
+      setIsThinking(false);
     };
   }, [assistantId, assistant]);
+
+  useEffect(() => {
+    if (ws.status === 'disconnected') {
+      setIsThinking(false);
+    }
+  }, [ws.status]);
 
   function getBackgroundContent() {
     if (assistant?.video_1) {
@@ -941,27 +957,38 @@ export default function EmbeddableChatInterface({
 
   // 抽出 sendMessage 邏輯以便語音輸入也能使用
   async function sendMessage(text) {
-    if (!text || !text.trim()) return;
-
-    try {
-      await ws.waitUntilConntected();
-    } catch (error) {
-      console.warn('無法發送訊息: WebSocket 未連線', {
-        text,
-        error,
-      });
-      return;
+    const trimmed = text?.trim();
+    if (
+      !canSubmitChatMessage({
+        status: ws.status,
+        isThinking,
+        text: trimmed,
+        isSending,
+      })
+    ) {
+      return false;
     }
 
-    ws.sendRaw(text);
-
-    setMessages(prevMessages => [
-      ...prevMessages,
-      { id: Date.now(), text: text, isBot: false },
-    ]);
+    setIsSending(true);
+    setConnectionNotice('');
+    try {
+      await ws.waitUntilConntected();
+      ws.sendRaw(trimmed);
+      setMessages(prevMessages => [
+        ...prevMessages,
+        { id: Date.now(), text: trimmed, isBot: false },
+      ]);
+      return true;
+    } catch (error) {
+      console.warn('無法發送訊息: WebSocket 未連線', { text: trimmed, error });
+      setConnectionNotice(SEND_FAILED_MESSAGE);
+      return false;
+    } finally {
+      setIsSending(false);
+    }
   }
 
-  function handleSendMessage() {
+  async function handleSendMessage() {
     const VIDEO_SWITCH_KEYWORDS = [
       '切換影片',
       '播放影片',
@@ -985,9 +1012,24 @@ export default function EmbeddableChatInterface({
       setInputMessage('');
       return;
     }
-    sendMessage(inputMessage);
-    setInputMessage('');
+    const sent = await sendMessage(inputMessage);
+    if (sent) {
+      setInputMessage('');
+    }
   }
+
+  function handleReconnect() {
+    if (!wsUrlRef.current) return;
+    setConnectionNotice('');
+    ws.connect(wsUrlRef.current);
+  }
+
+  const canSend = canSubmitChatMessage({
+    status: ws.status,
+    isThinking,
+    text: inputMessage,
+    isSending,
+  });
 
   // 加載中顯示
   if (isLoading) {
@@ -1241,6 +1283,11 @@ export default function EmbeddableChatInterface({
             </Box>
             {/* 輸入區域 */}
             <Box sx={{ p: 2 }}>
+              <WsConnectionBar
+                status={ws.status}
+                notice={connectionNotice}
+                onReconnect={handleReconnect}
+              />
               <Paper
                 sx={{
                   display: 'flex',
@@ -1257,7 +1304,11 @@ export default function EmbeddableChatInterface({
                   placeholder="Type here..."
                   value={inputMessage}
                   onChange={e => setInputMessage(e.target.value)}
-                  onKeyPress={e => e.key === 'Enter' && handleSendMessage()}
+                  onKeyPress={e => {
+                    if (e.key === 'Enter' && canSend) {
+                      handleSendMessage();
+                    }
+                  }}
                   InputProps={{
                     disableUnderline: true,
                     sx: {
@@ -1295,7 +1346,7 @@ export default function EmbeddableChatInterface({
                       bgcolor: 'action.disabledBackground',
                     },
                   }}
-                  disabled={!isConnected || !inputMessage.trim()}
+                  disabled={!canSend}
                 >
                   <SendIcon
                     fontSize="small"

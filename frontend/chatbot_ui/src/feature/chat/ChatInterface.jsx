@@ -23,7 +23,12 @@ import remarkGfm from 'remark-gfm';
 import { buildApiUrl, formatImageUrl, getWsBaseUrl } from '../../utils/urlUtils';
 import { applyRules } from '../../utils/speechCorrectionEngine';
 import { useSpeechCorrectionRules } from '../../hook/useSpeechCorrectionRules';
+import { WsConnectionBar } from '../../components/chat/WsConnectionBar';
 import { useWSClient } from '../../services/ws/createWsClient';
+import {
+  canSubmitChatMessage,
+  SEND_FAILED_MESSAGE,
+} from '../../utils/wsChatUi';
 
 const CHAT_WIDTH = 398;
 const CHAT_HEIGHT = 598;
@@ -55,6 +60,9 @@ export default function ChatInterface({
   const [isThinking, setIsThinking] = useState(false);
   const ws = useWSClient();
   const isConnected = ws.status === 'connected';
+  const [isSending, setIsSending] = useState(false);
+  const [connectionNotice, setConnectionNotice] = useState('');
+  const wsUrlRef = useRef(null);
 
   // 語音辨識狀態
   const [isListening, setIsListening] = useState(false);
@@ -131,6 +139,8 @@ export default function ChatInterface({
     }
 
     const wsUrl = `${WS_BASE_URL}/ws/assistant/${assistantid}/${customerIdRef.current}`;
+    wsUrlRef.current = wsUrl;
+    setConnectionNotice('');
     ws.connect(wsUrl);
 
     const unsub = ws.subscribe('chat', data => {
@@ -158,6 +168,12 @@ export default function ChatInterface({
       setIsThinking(false);
     };
   }, [assistantid, assistantname, assistant?.message_welcome]);
+
+  useEffect(() => {
+    if (ws.status === 'disconnected') {
+      setIsThinking(false);
+    }
+  }, [ws.status]);
 
   // 當消息更新時滾動
   useEffect(() => {
@@ -325,7 +341,7 @@ export default function ChatInterface({
             return;
           }
           console.log('[STT] 最終送出文字:', JSON.stringify(transcript));
-          sendMessage(transcript.trim());
+          await sendMessage(transcript.trim());
         } catch (err) {
           console.error('STT 辨識失敗:', err);
           alert('語音辨識失敗，請再試一次。');
@@ -404,18 +420,49 @@ export default function ChatInterface({
     );
   }
 
-  function sendMessage(text) {
-    if (!text || !text.trim()) return;
-    safeSend(text);
-    setMessages(prev => [
-      ...prev,
-      { id: Date.now(), text: text, isBot: false },
-    ]);
-    setInputMessage('');
+  async function sendMessage(text) {
+    const trimmed = text?.trim();
+    if (
+      !canSubmitChatMessage({
+        status: ws.status,
+        isThinking,
+        text: trimmed,
+        isSending,
+      })
+    ) {
+      return false;
+    }
+
+    setIsSending(true);
+    setConnectionNotice('');
+    try {
+      await ws.waitUntilConntected();
+      ws.sendRaw(trimmed);
+      setMessages(prev => [
+        ...prev,
+        { id: Date.now(), text: trimmed, isBot: false },
+      ]);
+      return true;
+    } catch (error) {
+      console.warn('WebSocket 無法送出', error);
+      setConnectionNotice(SEND_FAILED_MESSAGE);
+      return false;
+    } finally {
+      setIsSending(false);
+    }
   }
 
-  function handleSendMessage() {
-    sendMessage(inputMessage);
+  async function handleSendMessage() {
+    const sent = await sendMessage(inputMessage);
+    if (sent) {
+      setInputMessage('');
+    }
+  }
+
+  function handleReconnect() {
+    if (!wsUrlRef.current) return;
+    setConnectionNotice('');
+    ws.connect(wsUrlRef.current);
   }
 
   // 追蹤語音播放序列，用於取消舊的播放
@@ -825,14 +872,12 @@ export default function ChatInterface({
     };
   }, []);
 
-  async function safeSend(msg) {
-    try {
-      await ws.waitUntilConntected();
-      ws.sendRaw(msg);
-    } catch (error) {
-      console.warn('WebSocket 無法送出', error);
-    }
-  }
+  const canSend = canSubmitChatMessage({
+    status: ws.status,
+    isThinking,
+    text: inputMessage,
+    isSending,
+  });
 
   return (
     <Box
@@ -1004,6 +1049,11 @@ export default function ChatInterface({
 
         {/* 輸入區域 */}
         <Box sx={{ p: 2 }}>
+          <WsConnectionBar
+            status={ws.status}
+            notice={connectionNotice}
+            onReconnect={handleReconnect}
+          />
           <Paper
             sx={{
               display: 'flex',
@@ -1020,7 +1070,11 @@ export default function ChatInterface({
               placeholder="請輸入文字或點選語音輸入..."
               value={inputMessage}
               onChange={e => setInputMessage(e.target.value)}
-              onKeyPress={e => e.key === 'Enter' && handleSendMessage()}
+              onKeyPress={e => {
+                if (e.key === 'Enter' && canSend) {
+                  handleSendMessage();
+                }
+              }}
               InputProps={{
                 disableUnderline: true,
                 sx: {
@@ -1063,7 +1117,7 @@ export default function ChatInterface({
                   bgcolor: 'action.disabledBackground',
                 },
               }}
-              disabled={!isConnected || !inputMessage.trim()}
+              disabled={!canSend}
             >
               <SendIcon
                 fontSize="small"
