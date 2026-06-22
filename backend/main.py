@@ -56,6 +56,26 @@ def startup_event():
     except Exception as e:
         logger.warning("Prewarm STT model failed (continuing): %s", e)
 
+
+@app.on_event("startup")
+async def startup_stt_queue_event():
+    try:
+        from services.stt_queue import start_stt_queue
+
+        await start_stt_queue()
+    except Exception as e:
+        logger.warning("Start STT queue failed (continuing): %s", e)
+
+
+@app.on_event("shutdown")
+async def shutdown_stt_queue_event():
+    try:
+        from services.stt_queue import stop_stt_queue
+
+        await stop_stt_queue()
+    except Exception as e:
+        logger.warning("Stop STT queue failed (continuing): %s", e)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

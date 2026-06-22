@@ -39,6 +39,6 @@ fi
 # ==========================================
 
 echo "Starting CHATBOT Platform server..."
-python3 -m uvicorn main:app --host 0.0.0.0 --port 3100 &
+python3 -m uvicorn main:app --host 0.0.0.0 --port 3100 --workers "${UVICORN_WORKERS:-1}" &
 echo $! > fastapi_app.pid
 echo "CHATBOT Platform server started with PID $(cat fastapi_app.pid)"

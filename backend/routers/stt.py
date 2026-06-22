@@ -2,7 +2,8 @@ import os
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
-from services.stt_service import transcribe, STT_INITIAL_PROMPT
+from services.stt_queue import enqueue_stt
+from services.stt_service import STT_INITIAL_PROMPT
 from models.database import SessionLocal
 from models.models import SpeechCorrectionRule
 from utils.logger import get_logger
@@ -58,9 +59,11 @@ async def stt_transcribe(
 
     try:
         audio_bytes = await file.read()
-        text = transcribe(audio_bytes, suffix=ext, language=language, initial_prompt=initial_prompt)
+        text = await enqueue_stt(audio_bytes, suffix=ext, language=language, initial_prompt=initial_prompt)
         logger.info("STT result (len=%d): %s", len(text), text[:120])
         return {"text": text}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("STT transcribe failed: %s", e)
         raise HTTPException(status_code=500, detail=f"STT failed: {e}")
