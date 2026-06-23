@@ -233,3 +233,27 @@ def test_vector_stores_not_served_as_static(client, app_dirs, owner_context):
     (store_dir / "index.faiss").write_bytes(b"faiss-data")
 
     assert client.get(f"/vector_stores/assistant_{assistant_id}/index.faiss").status_code == 404
+
+
+def test_owner_can_list_own_assistants(client, owner_context):
+    headers = auth_header(owner_context["owner_token"])
+    owner_id = owner_context["owner_user_id"]
+
+    response = client.get(f"/user/{owner_id}/assistants", headers=headers)
+
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert response.json()[0]["assistant_id"] == owner_context["assistant_id"]
+
+
+def test_user_assistants_rejects_non_owner(client, owner_context):
+    headers = auth_header(owner_context["other_token"])
+    owner_id = owner_context["owner_user_id"]
+
+    response = client.get(f"/user/{owner_id}/assistants", headers=headers)
+
+    assert response.status_code == 403
+
+
+def test_user_assistants_requires_auth(client):
+    assert client.get("/user/1/assistants").status_code == 401

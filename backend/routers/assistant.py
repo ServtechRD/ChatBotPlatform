@@ -395,7 +395,7 @@ def get_user_assistants(
     current_user_id = verify_token(token)
     if current_user_id is None:
         raise HTTPException(status_code=401, detail="無效的登入憑證")
-    if current_user_id != user_id:
+    if int(current_user_id) != user_id:
         raise HTTPException(status_code=403, detail="無權限存取此使用者的助理列表")
 
     # 查詢使用者是否存在

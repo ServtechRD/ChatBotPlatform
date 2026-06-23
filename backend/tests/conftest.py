@@ -177,6 +177,8 @@ def owner_context(db_session):
     return {
         "owner_token": owner_token,
         "other_token": other_token,
+        "owner_user_id": owner.user_id,
+        "other_user_id": other.user_id,
         "assistant_id": assistant.assistant_id,
         "knowledge_id": kb.id,
     }
