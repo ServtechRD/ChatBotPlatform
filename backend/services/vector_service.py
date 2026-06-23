@@ -1,4 +1,6 @@
-from datetime import datetime
+﻿from datetime import datetime
+from contextlib import contextmanager
+import threading
 
 # from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_community.embeddings import HuggingFaceEmbeddings # pyright: ignore[reportMissingImports]
@@ -40,6 +42,8 @@ VLLM_SUMMARY_MODEL = os.getenv("VLLM_SUMMARY_MODEL", "").strip()
 
 # 用於取得向量儲存（key 一律為 int 型別的 assistant_id）
 vector_store = {}
+_assistant_vector_write_locks = {}
+_assistant_vector_write_locks_guard = threading.Lock()
 
 
 def normalize_assistant_id(assistant_id) -> int:
@@ -53,6 +57,29 @@ def normalize_assistant_id(assistant_id) -> int:
         if s.isdigit():
             return int(s)
     raise TypeError(f"Invalid assistant_id: {assistant_id!r}")
+
+
+def _get_assistant_vector_write_lock(assistant_id: int) -> threading.RLock:
+    aid = normalize_assistant_id(assistant_id)
+    with _assistant_vector_write_locks_guard:
+        lock = _assistant_vector_write_locks.get(aid)
+        if lock is None:
+            lock = threading.RLock()
+            _assistant_vector_write_locks[aid] = lock
+        return lock
+
+
+@contextmanager
+def assistant_vector_write_lock(assistant_id: int):
+    aid = normalize_assistant_id(assistant_id)
+    lock = _get_assistant_vector_write_lock(aid)
+    logger.info("[向量庫寫入鎖] 等待鎖 assistant_id=%s", aid)
+    with lock:
+        logger.info("[向量庫寫入鎖] 取得鎖 assistant_id=%s", aid)
+        try:
+            yield
+        finally:
+            logger.info("[向量庫寫入鎖] 釋放鎖 assistant_id=%s", aid)
 
 
 def _vector_store_paths(assistant_id: int) -> tuple[str, str]:
@@ -100,8 +127,8 @@ _bge_embeddings = None
 
 def prewarm_bge_embeddings():
     """
-    在 server 啟動後（或背景執行）載入 bge-base-zh-v1.5 embeddings，
-    使第一次用到時不會再被 SentenceTransformer 下載/初始化卡住。
+    ??server ??敺????臬銵?頛 bge-base-zh-v1.5 embeddings嚗?
+    雿輻洵銝甈∠?唳?銝??◤ SentenceTransformer 銝?/???雿?
     """
     global _bge_embeddings
     if _bge_embeddings is not None:
@@ -123,14 +150,14 @@ summarizer = pipeline(
 
 def generate_doc_id():
     """
-    產生唯一的文件 ID
+    ?Ｙ??臭???隞?ID
     """
     return str(uuid.uuid4())
 
 
 def process_documents_with_id(documents):
     """
-    為每份文件產生唯一的 doc_id
+    ?箸?隞賣?隞嗥?銝??doc_id
     """
     for doc in documents:
         doc.metadata["doc_id"] = generate_doc_id()  # 將 doc_id 寫入 metadata
@@ -323,8 +350,8 @@ def _process_and_store_file_heavy_sync(
     vs,  # FAISS vector store or None
 ):
     """
-    在執行緒池中執行的同步重邏輯：載入檔案、分塊、嵌入、寫入向量庫與磁碟、產生摘要。
-    DB 寫入由呼叫方在主執行緒執行。
+    ?典銵?瘙葉?瑁???甇仿??摩嚗??交?獢?憛??乓神?亙??澈??蝣??閬?
+    DB 撖怠?勗?急?其蜓?瑁?蝺銵?
     """
     t_start = time.perf_counter()
     try:
@@ -371,7 +398,7 @@ def _process_and_store_file_heavy_sync(
 
         t_total_s = time.perf_counter() - t_start
         logger.info(
-            "[上傳檔案 重邏輯完成] assistant_id=%s filename=%s chunks=%d token_count=%d 耗時=%.3f s",
+            "[銝瑼? ??頛臬?? assistant_id=%s filename=%s chunks=%d token_count=%d ??=%.3f s",
             assistant_id, filename, len(documents), token_count, t_total_s
         )
         return {
@@ -392,12 +419,16 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
     t_start = time.perf_counter()
     filename = file.filename or "(unnamed)"
     logger.info(
-        "[上傳檔案 開始] assistant_id=%s filename=%s content_type=%s",
+        "[銝瑼? ??] assistant_id=%s filename=%s content_type=%s",
         assistant_id, filename, getattr(file, "content_type", None)
     )
 
     try:
         aid = normalize_assistant_id(assistant_id)
+        write_lock = _get_assistant_vector_write_lock(aid)
+        logger.info("[向量庫寫入鎖] 等待鎖 assistant_id=%s", aid)
+        write_lock.acquire()
+        logger.info("[向量庫寫入鎖] 取得鎖 assistant_id=%s", aid)
         # 輕量步驟留在主執行緒：查詢 DB 與向量庫
         t_q = time.perf_counter()
         existing_entry = db.query(KnowledgeBase).filter(
@@ -409,7 +440,7 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
         ).count()
         if kb_count == 0 and disk_vector_store_exists(aid):
             logger.warning(
-                "[上傳檔案] 磁碟有殘留向量庫但 DB 無知識庫紀錄（可能為刪除後 ID 重用），將清除 assistant_id=%s",
+                "[銝瑼?] 蝤??????澈雿?DB ?∠霅澈蝝???航?箏?文? ID ?嚗?撠???assistant_id=%s",
                 aid,
             )
             clear_vector_store_files(aid)
@@ -418,7 +449,7 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
             vs = get_vector_store(aid)
         t_q_s = time.perf_counter() - t_q
         logger.info(
-            "[上傳檔案] 查詢既有知識庫與向量庫 完成 existing=%s vs_exists=%s (耗時=%.3f s)",
+            "[銝瑼?] ?亥岷?Ｘ??亥?摨怨???摨?摰? existing=%s vs_exists=%s (??=%.3f s)",
             existing_entry is not None, vs is not None, t_q_s
         )
 
@@ -527,9 +558,11 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
         vs = vector_store.get(aid)
         t_total_s = time.perf_counter() - t_start
         logger.info(
-            "[上傳檔案 完成] assistant_id=%s filename=%s token_count=%d 總耗時=%.3f s",
+            "[銝瑼? 摰?] assistant_id=%s filename=%s token_count=%d 蝮質?=%.3f s",
             aid, filename, token_count, t_total_s
         )
+        write_lock.release()
+        logger.info("[向量庫寫入鎖] 釋放鎖 assistant_id=%s", aid)
         return {
             "vector_store": vs,
             "km": {
@@ -545,9 +578,15 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
         }
 
     except Exception as e:
+        if 'write_lock' in locals():
+            try:
+                write_lock.release()
+                logger.info("[向量庫寫入鎖] 釋放鎖 assistant_id=%s", aid)
+            except RuntimeError:
+                pass
         t_total_s = time.perf_counter() - t_start
         logger.exception(
-            "[上傳檔案 失敗] assistant_id=%s filename=%s 總耗時=%.3f s error=%s",
+            "[銝瑼? 憭望?] assistant_id=%s filename=%s 蝮質?=%.3f s error=%s",
             assistant_id, filename, t_total_s, e
         )
         raise
@@ -555,7 +594,7 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
 
 def get_vector_store_status(assistant_id: int):
     """
-    取得向量儲存的狀態與統計資訊
+    ?????脣?????蝯梯?鞈?
     """
     vs = get_vector_store(assistant_id)
     if not vs:
@@ -652,154 +691,146 @@ def get_knowledge_content(assistant_id: int, knowledge_id: int, db: Session):
 
 def delete_knowledge_base_item(assistant_id: int, knowledge_id: int, db: Session):
     """
-    依 knowledge_base.id 刪除一筆知識：自 FAISS 移除對應 doc_ids、刪除上傳檔案、刪除 DB 列。
+    靘?knowledge_base.id ?芷銝蝑霅???FAISS 蝘駁撠? doc_ids??支??單?獢??DB ??
     """
-    record = db.query(KnowledgeBase).filter(
-        KnowledgeBase.id == knowledge_id,
-        KnowledgeBase.assistant_id == assistant_id,
-    ).first()
-    if not record:
-        raise ValueError("Knowledge base item not found")
-
-    file_name = record.file_name
-    vs = get_vector_store(assistant_id)
-    old_doc_ids = [did.strip() for did in record.doc_ids.split(",") if did.strip()]
-    if vs and old_doc_ids:
-        try:
-            logger.info(
-                "Deleting vectors for knowledge_id=%s doc_count=%d",
-                knowledge_id,
-                len(old_doc_ids),
-            )
-            vs.delete(old_doc_ids)
-            save_vector_store(assistant_id, vs)
-            set_vector_store_cache(assistant_id, vs)
-        except Exception as e:
-            logger.warning("Could not delete vectors (continuing DB/file delete): %s", e)
-    elif vs and not old_doc_ids:
-        logger.info("No doc_ids on record knowledge_id=%s, skipping vector delete", knowledge_id)
-
     aid = normalize_assistant_id(assistant_id)
-    save_directory = f"./uploaded_files/assistant_{aid}"
-    file_path = os.path.join(save_directory, file_name)
-    if os.path.isfile(file_path):
-        try:
-            os.remove(file_path)
-        except OSError as e:
-            logger.warning("Could not remove file %s: %s", file_path, e)
+    with assistant_vector_write_lock(aid):
+        record = db.query(KnowledgeBase).filter(
+            KnowledgeBase.id == knowledge_id,
+            KnowledgeBase.assistant_id == assistant_id,
+        ).first()
+        if not record:
+            raise ValueError("Knowledge base item not found")
 
-    db.delete(record)
-    db.commit()
+        file_name = record.file_name
+        vs = get_vector_store(assistant_id)
+        old_doc_ids = [did.strip() for did in record.doc_ids.split(",") if did.strip()]
+        if vs and old_doc_ids:
+            try:
+                logger.info(
+                    "Deleting vectors for knowledge_id=%s doc_count=%d",
+                    knowledge_id,
+                    len(old_doc_ids),
+                )
+                vs.delete(old_doc_ids)
+                save_vector_store(assistant_id, vs)
+                set_vector_store_cache(assistant_id, vs)
+            except Exception as e:
+                logger.warning("Could not delete vectors (continuing DB/file delete): %s", e)
+        elif vs and not old_doc_ids:
+            logger.info("No doc_ids on record knowledge_id=%s, skipping vector delete", knowledge_id)
 
-    return {
-        "id": knowledge_id,
-        "assistant_id": assistant_id,
-        "file_name": file_name,
-    }
+        save_directory = f"./uploaded_files/assistant_{aid}"
+        file_path = os.path.join(save_directory, file_name)
+        if os.path.isfile(file_path):
+            try:
+                os.remove(file_path)
+            except OSError as e:
+                logger.warning("Could not remove file %s: %s", file_path, e)
+
+        db.delete(record)
+        db.commit()
+
+        return {
+            "id": knowledge_id,
+            "assistant_id": assistant_id,
+            "file_name": file_name,
+        }
 
 
 async def update_knowledge_base_item(assistant_id: int, knowledge_id: int, new_content: str, db: Session):
-    # 1. Find record
-    record = db.query(KnowledgeBase).filter(KnowledgeBase.id == knowledge_id,
-                                            KnowledgeBase.assistant_id == assistant_id).first()
-    if not record:
-        raise ValueError("Knowledge base item not found")
+    aid = normalize_assistant_id(assistant_id)
+    with assistant_vector_write_lock(aid):
+        # 1. Find record
+        record = db.query(KnowledgeBase).filter(KnowledgeBase.id == knowledge_id,
+                                                KnowledgeBase.assistant_id == assistant_id).first()
+        if not record:
+            raise ValueError("Knowledge base item not found")
 
-    # 2. Get Vector Store
-    vs = get_vector_store(assistant_id)
-    
-    # 3. Delete old vectors (best effort - may not exist if store was rebuilt)
-    old_doc_ids = [did.strip() for did in record.doc_ids.split(",") if did.strip()]
-    if vs and old_doc_ids:
-        try:
-            logger.info(f"Attempting to delete old vectors: {old_doc_ids}")
-            vs.delete(old_doc_ids)
-            logger.info(f"Successfully deleted old vectors")
-        except Exception as e:
-            # Log but continue - old vectors might not exist if store was rebuilt
-            logger.warning(f"Warning: Could not delete old vectors (continuing anyway): {e}")
-    else:
-        logger.info(f"No vector store or no old doc_ids to delete")
+        # 2. Get Vector Store
+        vs = get_vector_store(assistant_id)
+        
+        # 3. Delete old vectors (best effort - may not exist if store was rebuilt)
+        old_doc_ids = [did.strip() for did in record.doc_ids.split(",") if did.strip()]
+        if vs and old_doc_ids:
+            try:
+                logger.info(f"Attempting to delete old vectors: {old_doc_ids}")
+                vs.delete(old_doc_ids)
+                logger.info(f"Successfully deleted old vectors")
+            except Exception as e:
+                logger.warning(f"Warning: Could not delete old vectors (continuing anyway): {e}")
+        else:
+            logger.info(f"No vector store or no old doc_ids to delete")
 
-    # 4. Overwrite existing file
-    save_directory = f"./uploaded_files/assistant_{assistant_id}"
-    if not os.path.exists(save_directory):
-        os.makedirs(save_directory)
-    
-    # Use existing filename to overwrite
-    new_filename = record.file_name
-    new_file_path = os.path.join(save_directory, new_filename)
+        # 4. Overwrite existing file
+        save_directory = f"./uploaded_files/assistant_{assistant_id}"
+        if not os.path.exists(save_directory):
+            os.makedirs(save_directory)
+        
+        new_filename = record.file_name
+        new_file_path = os.path.join(save_directory, new_filename)
 
-    logger.info(f"Overwriting file: {new_file_path}")
-    with open(new_file_path, "w", encoding="utf-8") as f:
-        f.write(new_content)
+        logger.info(f"Overwriting file: {new_file_path}")
+        with open(new_file_path, "w", encoding="utf-8") as f:
+            f.write(new_content)
 
-    # 5. Process updated file
-    loader = TextLoader(new_file_path, encoding="utf-8")
-    documents = loader.load()
-    
-    # 使用 RecursiveCharacterTextSplitter 進行分塊
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=500,
-        chunk_overlap=50,
-        separators=["\n\n", "\n", "。", "！", "？", ".", "!", "?", " ", ""]
-    )
-    documents = text_splitter.split_documents(documents)
+        # 5. Process updated file
+        loader = TextLoader(new_file_path, encoding="utf-8")
+        documents = loader.load()
+        
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=500,
+            chunk_overlap=50,
+            separators=["\n\n", "\n", "。", "！", "？", ".", "!", "?", " ", ""]
+        )
+        documents = text_splitter.split_documents(documents)
 
-    documents = process_documents_with_id(documents)
-    
-    embeddings = _bge_embeddings or HuggingFaceEmbeddings(
-        model_name=BGE_EMBEDDINGS_MODEL_NAME
-    )
-    
-    # Add new documents to vector store
-    if vs:
-        # Check for dimension mismatch
-        test_emb = embeddings.embed_query("test")
-        if len(test_emb) != vs.index.d:
-            error_msg = f"Vector store dimension mismatch (Index: {vs.index.d}, Model: {len(test_emb)}). Please reset knowledge base for this assistant."
-            logger.error(f"CRITICAL ERROR: {error_msg}")
-            raise ValueError(error_msg)
+        documents = process_documents_with_id(documents)
+        
+        embeddings = _bge_embeddings or HuggingFaceEmbeddings(
+            model_name=BGE_EMBEDDINGS_MODEL_NAME
+        )
+        
+        if vs:
+            test_emb = embeddings.embed_query("test")
+            if len(test_emb) != vs.index.d:
+                error_msg = f"Vector store dimension mismatch (Index: {vs.index.d}, Model: {len(test_emb)}). Please reset knowledge base for this assistant."
+                logger.error(f"CRITICAL ERROR: {error_msg}")
+                raise ValueError(error_msg)
 
-        logger.info(f"Adding new vectors for {new_filename}")
-        doc_ids = [doc.metadata["doc_id"] for doc in documents]
-        vs.add_documents(documents, ids=doc_ids)
-    else:
-        # Create new if didn't exist
-        aid = normalize_assistant_id(assistant_id)
-        logger.info(f"Creating new vector store for assistant {aid}")
-        doc_ids = [doc.metadata["doc_id"] for doc in documents]
-        vector_store[aid] = FAISS.from_documents(documents, embeddings, ids=doc_ids)
-        vs = vector_store[aid]
-    
-    save_vector_store(assistant_id, vs)
-    set_vector_store_cache(assistant_id, vs)
+            logger.info(f"Adding new vectors for {new_filename}")
+            doc_ids = [doc.metadata["doc_id"] for doc in documents]
+            vs.add_documents(documents, ids=doc_ids)
+        else:
+            logger.info(f"Creating new vector store for assistant {aid}")
+            doc_ids = [doc.metadata["doc_id"] for doc in documents]
+            vector_store[aid] = FAISS.from_documents(documents, embeddings, ids=doc_ids)
+            vs = vector_store[aid]
+        
+        save_vector_store(assistant_id, vs)
+        set_vector_store_cache(assistant_id, vs)
 
-    # 6. Update DB Record
-    # Calculate new token count
-    token_count = calculate_token_count(documents)
-    
-    # Generate new summary/keywords
-    summary, keyword_lines = generate_summary_and_keywords(new_content)
-    
-    # Get new doc_ids
-    new_doc_ids = [doc.metadata["doc_id"] for doc in documents]
-    
-    record.summary = summary
-    record.keywords = keyword_lines
-    record.doc_ids = ", ".join(new_doc_ids)
-    record.token_count = token_count
-    record.upload_date = datetime.utcnow() # Update modified time
-    
-    db.commit()
-    db.refresh(record)
+        token_count = calculate_token_count(documents)
+        summary, keyword_lines = generate_summary_and_keywords(new_content)
+        new_doc_ids = [doc.metadata["doc_id"] for doc in documents]
+        
+        record.summary = summary
+        record.keywords = keyword_lines
+        record.doc_ids = ", ".join(new_doc_ids)
+        record.token_count = token_count
+        record.upload_date = datetime.utcnow()
+        
+        db.commit()
+        db.refresh(record)
 
-    return {
-        "id": record.id,
-        "file_name": record.file_name,
-        "summary": record.summary,
-        "keywords": record.keywords,
-        "doc_ids": record.doc_ids,
-        "token_count": record.token_count,
-        "upload_date": record.upload_date
-    }
+        return {
+            "id": record.id,
+            "file_name": record.file_name,
+            "summary": record.summary,
+            "keywords": record.keywords,
+            "doc_ids": record.doc_ids,
+            "token_count": record.token_count,
+            "upload_date": record.upload_date
+        }
+
+

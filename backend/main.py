@@ -86,7 +86,9 @@ app.add_middleware(
 )
 app.add_middleware(RequestAuditMiddleware)
 
-# 配置靜態檔案：/public 與 /images（相容舊連結 /images/xxx.jpg）
+# 靜態檔案僅掛載公開展示資源（嵌入網站用圖片／影片）。
+# 知識庫原始檔（uploaded_files/）與向量庫（vector_stores/）不得掛載為靜態路徑；
+# 詳見 docs/knowledge-base-storage-policy.md。
 _backend_root = Path(__file__).resolve().parent
 _public_dir = _backend_root / "public"
 _images_dir = _public_dir / "images"

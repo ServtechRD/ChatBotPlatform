@@ -1,4 +1,4 @@
-from typing import List, Optional
+﻿from typing import List, Optional
 
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
@@ -49,6 +49,26 @@ def _read_default_description_template() -> str:
 
 
 # 必須註冊在 /assistant/{assistant_id} 之前，避免 path 被當成 id
+def get_owned_assistant(
+    assistant_id: int,
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
+) -> AIAssistant:
+    """共用的 assistant 擁有者驗證，供受保護 API 重用。"""
+    user_id = verify_token(token)
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="無效的登入憑證")
+
+    assistant = db.query(AIAssistant).filter(AIAssistant.assistant_id == assistant_id).first()
+    if not assistant:
+        raise HTTPException(status_code=404, detail="找不到助理")
+
+    if assistant.owner_id != int(user_id):
+        raise HTTPException(status_code=403, detail="無權限存取此助理")
+
+    return assistant
+
+
 @router.get("/assistant/meta/description-template")
 def get_description_template(token: str = Depends(oauth2_scheme)):
     """供前端「新增助理」預填與「重新載入範本」使用。"""
@@ -159,34 +179,38 @@ def create_assistant(  # assistant_data: AssistantCreate,
 
 
 @router.post("/assistant/{assistant_id}/upload")
-async def upload_file(assistant_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
-    # 驗證助理是否存在
-    assistant = db.query(AIAssistant).filter(AIAssistant.assistant_id == assistant_id).first()
-    if not assistant:
-        raise HTTPException(status_code=404, detail="Assistant not found")
+async def upload_file(
+    assistant_id: int,
+    file: UploadFile = File(...),
+    assistant: AIAssistant = Depends(get_owned_assistant),
+    db: Session = Depends(get_db),
+):
 
     # 處理上傳的檔案，產生嵌入並儲存至向量資料庫
     result = await process_and_store_file(assistant_id, file, db)
     print(type(result), result)
 
-    return {"message": "File uploaded and embeddings stored in vector database.", "data": result["km"]}
+    return {"message": "檔案上傳完成，並已儲存至向量資料庫。", "data": result["km"]}
 
 
 @router.get("/assistant/{assistant_id}/knowledge")
-async def get_knowlege(assistant_id: int, db: Session = Depends(get_db)):
-    # 驗證助理是否存在
-    assistant = db.query(AIAssistant).filter(AIAssistant.assistant_id == assistant_id).first()
-    if not assistant:
-        raise HTTPException(status_code=404, detail="Assistant not found")
-
-    # 處理上傳的檔案，產生嵌入並儲存至向量資料庫
+async def get_knowlege(
+    assistant_id: int,
+    assistant: AIAssistant = Depends(get_owned_assistant),
+    db: Session = Depends(get_db),
+):
+    # 取得知識庫檔案清單
     knowledge = list_knowledge(assistant_id, db)
 
     return {"status": "success", "message": "", "data": knowledge}
 
 
 @router.get("/assistant/{assistant_id}/knowledge/stats")
-def get_knowledge_stats(assistant_id: int, db: Session = Depends(get_db)):
+def get_knowledge_stats(
+    assistant_id: int,
+    assistant: AIAssistant = Depends(get_owned_assistant),
+    db: Session = Depends(get_db),
+):
     from services.vector_service import get_vector_store_status
     try:
         stats = get_vector_store_status(assistant_id)
@@ -196,7 +220,12 @@ def get_knowledge_stats(assistant_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/assistant/{assistant_id}/knowledge/{knowledge_id}/content")
-def get_knowledge_item_content(assistant_id: int, knowledge_id: int, db: Session = Depends(get_db)):
+def get_knowledge_item_content(
+    assistant_id: int,
+    knowledge_id: int,
+    assistant: AIAssistant = Depends(get_owned_assistant),
+    db: Session = Depends(get_db),
+):
     from services.vector_service import get_knowledge_content
     try:
         content = get_knowledge_content(assistant_id, knowledge_id, db)
@@ -211,17 +240,18 @@ def get_knowledge_item_content(assistant_id: int, knowledge_id: int, db: Session
 async def update_knowledge_item(
         assistant_id: int, 
         knowledge_id: int, 
-        content: str = Form(...), # Expecting plain text content in body or form
+        content: str = Form(...), # 以表單送純文字內容
+        assistant: AIAssistant = Depends(get_owned_assistant),
         db: Session = Depends(get_db)
 ):
     from services.vector_service import update_knowledge_base_item
     try:
         updated_record = await update_knowledge_base_item(assistant_id, knowledge_id, content, db)
-        return {"status": "success", "message": "Knowledge updated", "data": updated_record}
+        return {"status": "success", "message": "知識庫已更新", "data": updated_record}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        print(f"Update error: {e}")
+        print(f"更新知識庫失敗: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -229,14 +259,12 @@ async def update_knowledge_item(
 def delete_knowledge_item(
     assistant_id: int,
     knowledge_id: int,
+    assistant: AIAssistant = Depends(get_owned_assistant),
     db: Session = Depends(get_db),
 ):
-    assistant = db.query(AIAssistant).filter(AIAssistant.assistant_id == assistant_id).first()
-    if not assistant:
-        raise HTTPException(status_code=404, detail="Assistant not found")
     try:
         result = delete_knowledge_base_item(assistant_id, knowledge_id, db)
-        return {"status": "success", "message": "Knowledge deleted", "data": result}
+        return {"status": "success", "message": "知識庫已刪除", "data": result}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -246,12 +274,10 @@ def delete_knowledge_item(
 
 # 取得助理資訊
 @router.get("/assistant/{assistant_id}")
-def get_assistant(assistant_id: int, db: Session = Depends(get_db)):
-    # 查詢助理訊息
-    assistant = db.query(AIAssistant).filter(AIAssistant.assistant_id == assistant_id).first()
-    if not assistant:
-        raise HTTPException(status_code=404, detail="Assistant not found")
-
+def get_assistant(
+    assistant_id: int,
+    assistant: AIAssistant = Depends(get_owned_assistant),
+):
     return {
         "assistant_id": assistant.assistant_id,
         "name": assistant.name,
@@ -273,11 +299,11 @@ def get_assistant(assistant_id: int, db: Session = Depends(get_db)):
 
 # 切換助理狀態（啟用／停用）
 @router.put("/assistant/{assistant_id}/toggle_status")
-def toggle_assistant_status(assistant_id: int, db: Session = Depends(get_db)):
-    assistant = db.query(AIAssistant).filter(AIAssistant.assistant_id == assistant_id).first()
-    if not assistant:
-        raise HTTPException(status_code=404, detail="Assistant not found")
-
+def toggle_assistant_status(
+    assistant_id: int,
+    assistant: AIAssistant = Depends(get_owned_assistant),
+    db: Session = Depends(get_db),
+):
     # 切換助理的啟用狀態
     assistant.status = not assistant.status
     db.commit()
@@ -286,7 +312,7 @@ def toggle_assistant_status(assistant_id: int, db: Session = Depends(get_db)):
         "status": "success",
         "assistant_id": assistant.assistant_id,
         "new_status": assistant.status,
-        "message": "Assistant status updated."
+        "message": "助理狀態已更新。"
     }
 
 
@@ -304,26 +330,9 @@ async def update_assistant(
         crop_image: Optional[UploadFile] = File(None),
         video_1: Optional[UploadFile] = File(None),
         video_2: Optional[UploadFile] = File(None),
-        token: str = Depends(oauth2_scheme),
+        assistant: AIAssistant = Depends(get_owned_assistant),
         db: Session = Depends(get_db),
 ):
-    # 驗證使用者
-    user_id = verify_token(token)
-    print(f"DEBUG: update_assistant called. user_id={user_id}, assistant_id={assistant_id}")
-
-    assistant = db.query(AIAssistant).filter(AIAssistant.assistant_id == assistant_id).first()
-    
-    if not assistant:
-        # print(f"DEBUG: Assistant {assistant_id} not found in DB.")
-        raise HTTPException(status_code=404, detail="Assistant not found")
-        
-    # print(f"DEBUG: Assistant found. Owner: {assistant.owner_id}")
-    
-    # 暫時移除權限檢查
-    # if assistant.owner_id != user_id:
-    #     print(f"DEBUG: Permission denied. user={user_id} != owner={assistant.owner_id}")
-    #     raise HTTPException(status_code=404, detail="Access denied")
-
     # 更新基礎欄位
     if name is not None:
         assistant.name = name
@@ -378,7 +387,17 @@ async def update_assistant(
 
 # 取得使用者的所有助理
 @router.get("/user/{user_id}/assistants", response_model=List[Assistant])
-def get_user_assistants(user_id: int, db: Session = Depends(get_db)):
+def get_user_assistants(
+    user_id: int,
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
+):
+    current_user_id = verify_token(token)
+    if current_user_id is None:
+        raise HTTPException(status_code=401, detail="無效的登入憑證")
+    if current_user_id != user_id:
+        raise HTTPException(status_code=403, detail="無權限存取此使用者的助理列表")
+
     # 查詢使用者是否存在
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
@@ -388,3 +407,5 @@ def get_user_assistants(user_id: int, db: Session = Depends(get_db)):
     assistants = db.query(AIAssistant).filter(AIAssistant.owner_id == user_id).all()
 
     return assistants
+
+
