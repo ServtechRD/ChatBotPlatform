@@ -495,8 +495,9 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
         if not file_extension:
             raise ValueError("File must have an extension")
 
-        # 重邏輯丟到線程池，避免阻塞其他 API
-        heavy_result = await run_in_threadpool(
+        # 重邏輯透過 RAG Queue 限流，防止 GPU OOM
+        from services.rag_queue import enqueue_rag
+        heavy_result = await enqueue_rag(
             _process_and_store_file_heavy_sync,
             aid,
             file_location,

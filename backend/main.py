@@ -76,6 +76,26 @@ async def shutdown_stt_queue_event():
     except Exception as e:
         logger.warning("Stop STT queue failed (continuing): %s", e)
 
+
+@app.on_event("startup")
+async def startup_rag_queue_event():
+    try:
+        from services.rag_queue import start_rag_queue
+
+        await start_rag_queue()
+    except Exception as e:
+        logger.warning("Start RAG queue failed (continuing): %s", e)
+
+
+@app.on_event("shutdown")
+async def shutdown_rag_queue_event():
+    try:
+        from services.rag_queue import stop_rag_queue
+
+        await stop_rag_queue()
+    except Exception as e:
+        logger.warning("Stop RAG queue failed (continuing): %s", e)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
