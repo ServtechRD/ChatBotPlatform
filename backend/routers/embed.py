@@ -73,7 +73,8 @@ async def get_embed_assistant_info(assistant_link: str, db: Session = Depends(ge
             "name": assistant.name,
             "assistant_image": assistant.image_crop,
             "video_1": assistant.video_1,
-            "message_welcome": assistant.message_welcome
+            "message_welcome": assistant.message_welcome,
+            "enabled_voice": bool(assistant.enabled_voice),
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"伺服器錯誤: {str(e)}")

@@ -211,6 +211,11 @@ export default function EmbeddableChatInterface({
   const [connectionNotice, setConnectionNotice] = useState('');
   const wsUrlRef = useRef(null);
   const [assistant, setAssistant] = useState(null);
+  const enabledVoice = Boolean(assistant?.enabled_voice);
+  const enabledVoiceRef = useRef(enabledVoice);
+  useEffect(() => {
+    enabledVoiceRef.current = Boolean(assistant?.enabled_voice);
+  }, [assistant?.enabled_voice]);
   const {
     data: embedAssistant,
     isLoading,
@@ -695,6 +700,8 @@ export default function EmbeddableChatInterface({
       recognitionRef.current.stop();
       return;
     }
+
+    if (!enabledVoiceRef.current) return;
 
     // 在啟動語音識別前，先請求麥克風權限
     try {
@@ -1319,6 +1326,7 @@ export default function EmbeddableChatInterface({
                     },
                   }}
                 />
+                {enabledVoice && (
                 <IconButton
                   onClick={handleVoiceInput}
                   sx={{
@@ -1332,6 +1340,7 @@ export default function EmbeddableChatInterface({
                 >
                   <MicIcon />
                 </IconButton>
+                )}
                 <IconButton
                   onClick={handleSendMessage}
                   sx={{

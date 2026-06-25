@@ -89,6 +89,12 @@ export default function ChatInterface({
   const activeRulesRef = useRef(activeRules);
   activeRulesRef.current = activeRules;
 
+  const enabledVoice = Boolean(assistant?.enabled_voice);
+  const enabledVoiceRef = useRef(enabledVoice);
+  useEffect(() => {
+    enabledVoiceRef.current = Boolean(assistant?.enabled_voice);
+  }, [assistant?.enabled_voice]);
+
   useEffect(() => {
     if (!assistantid) return;
     ensureLoaded({ enabledOnly: true });
@@ -232,6 +238,8 @@ export default function ChatInterface({
       mediaRecorderRef.current?.stop();
       return;
     }
+
+    if (!enabledVoiceRef.current) return;
 
     if (!navigator.mediaDevices?.getUserMedia) {
       alert('您的瀏覽器不支援麥克風功能，請使用 Chrome / Edge 並確保 HTTPS。');
@@ -1087,6 +1095,7 @@ export default function ChatInterface({
             />
 
             {/* 🎤 語音輸入按鈕 */}
+            {enabledVoice && (
             <IconButton
               onClick={handleVoiceInput}
               disabled={isSttLoading}
@@ -1101,6 +1110,7 @@ export default function ChatInterface({
             >
               {isSttLoading ? <CircularProgress size={24} color="inherit" /> : <MicIcon />}
             </IconButton>
+            )}
 
             {/* 📤 送出按鈕 */}
             <IconButton

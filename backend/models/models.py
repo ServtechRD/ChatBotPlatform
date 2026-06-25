@@ -60,6 +60,7 @@ class AIAssistant(Base):
     message_welcome = Column(Text, nullable=True)
     message_noidea = Column(Text, nullable=True)
     message_other = Column(Text, nullable=True)
+    enabled_voice = Column(Boolean, default=False, nullable=False)
 
 
 class Conversation(Base):

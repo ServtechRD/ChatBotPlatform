@@ -148,7 +148,8 @@ def create_assistant(  # assistant_data: AssistantCreate,
         video_2=video_2_path,
         language=language,
         link=unique_link,
-        note=note
+        note=note,
+        enabled_voice=False,
     )
     db.add(new_assistant)
     db.commit()
@@ -293,6 +294,7 @@ def get_assistant(
         "language": assistant.language,
         "link": assistant.link,
         "note": assistant.note,
+        "enabled_voice": bool(assistant.enabled_voice),
         "created_at": assistant.created_at
     }
 

@@ -53,6 +53,7 @@ class Assistant(BaseModel):
     message_welcome: Optional[str] = None
     message_noidea: Optional[str] = None
     message_other: Optional[str] = None
+    enabled_voice: bool = False
 
     created_at: datetime
 
