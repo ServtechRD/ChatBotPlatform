@@ -54,7 +54,9 @@ async function submitText(assistantId, text, fileName = '') {
 
   formData.append('file', blob, finalFileName);
 
-  return formDataApi.post(`${PATH}/${assistantId}/upload`, formData);
+  return formDataApi.post(`${PATH}/${assistantId}/upload`, formData, {
+    timeout: 600000,
+  });
 }
 
 export const assistant = {

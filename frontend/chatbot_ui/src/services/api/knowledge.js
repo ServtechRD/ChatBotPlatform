@@ -18,7 +18,8 @@ function update(assistantId, knowledgeId, text) {
   formData.append('content', text);
   return formDataApi.put(
     `${listPath(assistantId)}/${knowledgeId}`,
-    formData
+    formData,
+    { timeout: 600000 }
   );
 }
 

@@ -11,10 +11,16 @@ import {
   Typography,
   CircularProgress,
   IconButton,
+  Alert,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { useSubmitKnowledgeTextMutation } from '../../queries/assistant';
 import { useUpdateKnowledgeMutation } from '../../queries/knowledge';
+import {
+  getUploadErrorMessage,
+  UPLOAD_SUCCESS_MESSAGE,
+  KNOWLEDGE_UPDATE_SUCCESS_MESSAGE,
+} from '../../utils/uploadErrorMessage';
 
 export default function TextInputDialog({
   isOpen,
@@ -46,6 +52,7 @@ export default function TextInputDialog({
   const updateKnowledgeMutation = useUpdateKnowledgeMutation();
   const submitTextMutation = useSubmitKnowledgeTextMutation();
   const [submitStatus, setSubmitStatus] = useState(null); // 'success' | 'error' | null
+  const [submitErrorMessage, setSubmitErrorMessage] = useState('');
 
   const isSubmitting =
     updateKnowledgeMutation.isPending || submitTextMutation.isPending;
@@ -62,6 +69,7 @@ export default function TextInputDialog({
     setTextContent('');
     setFileName('');
     setSubmitStatus(null);
+    setSubmitErrorMessage('');
   }
 
   function handleClose() {
@@ -82,6 +90,7 @@ export default function TextInputDialog({
     }
 
     setSubmitStatus(null);
+    setSubmitErrorMessage('');
 
     try {
       let response;
@@ -109,9 +118,10 @@ export default function TextInputDialog({
     } catch (error) {
       console.error('Submit failed:', error);
       setSubmitStatus('error');
-      // 錯誤訊息會顯示 3 秒後自動消失
+      setSubmitErrorMessage(getUploadErrorMessage(error));
       setTimeout(() => {
         setSubmitStatus(null);
+        setSubmitErrorMessage('');
       }, 3000);
     }
   }
@@ -229,10 +239,18 @@ export default function TextInputDialog({
           </>
         )}
 
+        {submitStatus === 'success' && (
+          <Alert severity="success" sx={{ mt: 2 }}>
+            {isEditMode
+              ? KNOWLEDGE_UPDATE_SUCCESS_MESSAGE
+              : UPLOAD_SUCCESS_MESSAGE}
+          </Alert>
+        )}
+
         {submitStatus === 'error' && (
-          <Typography color="error" sx={{ mt: 2 }}>
-            送出失敗，請稍後再試
-          </Typography>
+          <Alert severity="error" sx={{ mt: 2 }}>
+            {submitErrorMessage}
+          </Alert>
         )}
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
