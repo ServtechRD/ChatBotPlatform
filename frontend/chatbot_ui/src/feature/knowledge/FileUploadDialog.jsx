@@ -19,6 +19,7 @@ import {
   useUploadKnowledgeFileMutation,
   useUploadKnowledgeUrlMutation,
 } from '../../queries/assistant';
+import { getUploadErrorMessage, UPLOAD_SUCCESS_MESSAGE } from '../../utils/uploadErrorMessage';
 
 export default function FileUploadDialog({
   isOpen,
@@ -36,6 +37,7 @@ export default function FileUploadDialog({
   const uploadFileMutation = useUploadKnowledgeFileMutation();
   const uploadUrlMutation = useUploadKnowledgeUrlMutation();
   const [uploadStatus, setUploadStatus] = useState(null); // 'success' | 'error' | null
+  const [uploadErrorMessage, setUploadErrorMessage] = useState('');
 
   const isUploading =
     uploadFileMutation.isPending || uploadUrlMutation.isPending;
@@ -78,6 +80,7 @@ export default function FileUploadDialog({
     setImportText(true);
     setHideWebpage(false);
     setUploadStatus(null);
+    setUploadErrorMessage('');
   }
 
   function handleClose() {
@@ -92,6 +95,7 @@ export default function FileUploadDialog({
     }
 
     setUploadStatus(null);
+    setUploadErrorMessage('');
 
     try {
       let response;
@@ -118,11 +122,11 @@ export default function FileUploadDialog({
       }, 1500);
     } catch (error) {
       console.error('Upload failed:', error);
-      //alert('上傳失敗，請稍後再試');
       setUploadStatus('error');
-      // 錯誤訊息會顯示 3 秒後自動消失
+      setUploadErrorMessage(getUploadErrorMessage(error));
       setTimeout(() => {
         setUploadStatus(null);
+        setUploadErrorMessage('');
       }, 3000);
     }
   }
@@ -138,12 +142,12 @@ export default function FileUploadDialog({
       <DialogContent>
         {uploadStatus === 'error' && (
           <Alert severity="error" sx={{ mb: 2 }}>
-            上傳失敗（可能逾時或網路錯誤），請稍後再試。若後端已處理完成，重整頁面後知識庫會顯示新資料。
+            {uploadErrorMessage}
           </Alert>
         )}
         {uploadStatus === 'success' && (
           <Alert severity="success" sx={{ mb: 2 }}>
-            上傳成功，正在關閉...
+            {UPLOAD_SUCCESS_MESSAGE}
           </Alert>
         )}
         <DialogContentText sx={{ mb: 2 }}>
