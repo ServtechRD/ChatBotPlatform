@@ -43,7 +43,7 @@ def _install_import_stubs() -> None:
     vector_stub.list_knowledge = lambda assistant_id, db: []
     vector_stub.get_knowledge_content = lambda assistant_id, knowledge_id, db: ""
     vector_stub.update_knowledge_base_item = AsyncMock(return_value={})
-    vector_stub.delete_knowledge_base_item = AsyncMock(return_value={})
+    vector_stub.delete_knowledge_base_item = lambda assistant_id, knowledge_id, db: {}
     vector_stub.get_vector_store_status = lambda assistant_id: {
         "document_count": 0,
         "vector_count": 0,

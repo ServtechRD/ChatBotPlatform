@@ -1,9 +1,6 @@
 ﻿from datetime import datetime
-from contextlib import asynccontextmanager, contextmanager
-import asyncio
+from contextlib import contextmanager
 import threading
-
-from filelock import FileLock
 
 # from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_community.embeddings import HuggingFaceEmbeddings # pyright: ignore[reportMissingImports]
@@ -45,10 +42,8 @@ VLLM_SUMMARY_MODEL = os.getenv("VLLM_SUMMARY_MODEL", "").strip()
 
 # 用於取得向量儲存（key 一律為 int 型別的 assistant_id）
 vector_store = {}
-_assistant_vector_write_locks: dict[int, asyncio.Lock] = {}
-_faiss_thread_locks: dict[int, threading.RLock] = {}
-_faiss_thread_locks_guard = threading.Lock()
-FAISS_FILE_LOCK_TIMEOUT = float(os.getenv("FAISS_FILE_LOCK_TIMEOUT", "300"))
+_assistant_vector_write_locks = {}
+_assistant_vector_write_locks_guard = threading.Lock()
 
 
 def normalize_assistant_id(assistant_id) -> int:
@@ -64,57 +59,27 @@ def normalize_assistant_id(assistant_id) -> int:
     raise TypeError(f"Invalid assistant_id: {assistant_id!r}")
 
 
-def _get_assistant_vector_write_lock(assistant_id: int) -> asyncio.Lock:
-    """per-assistant asyncio 寫入鎖；可在 async with 內 await，不會阻塞 event loop。"""
+def _get_assistant_vector_write_lock(assistant_id: int) -> threading.RLock:
     aid = normalize_assistant_id(assistant_id)
-    lock = _assistant_vector_write_locks.get(aid)
-    if lock is None:
-        lock = asyncio.Lock()
-        _assistant_vector_write_locks[aid] = lock
-    return lock
+    with _assistant_vector_write_locks_guard:
+        lock = _assistant_vector_write_locks.get(aid)
+        if lock is None:
+            lock = threading.RLock()
+            _assistant_vector_write_locks[aid] = lock
+        return lock
 
 
-@asynccontextmanager
-async def assistant_vector_write_lock(assistant_id: int):
+@contextmanager
+def assistant_vector_write_lock(assistant_id: int):
     aid = normalize_assistant_id(assistant_id)
     lock = _get_assistant_vector_write_lock(aid)
     logger.info("[向量庫寫入鎖] 等待鎖 assistant_id=%s", aid)
-    async with lock:
+    with lock:
         logger.info("[向量庫寫入鎖] 取得鎖 assistant_id=%s", aid)
         try:
             yield
         finally:
             logger.info("[向量庫寫入鎖] 釋放鎖 assistant_id=%s", aid)
-
-
-def _get_faiss_thread_lock(assistant_id: int) -> threading.RLock:
-    aid = normalize_assistant_id(assistant_id)
-    with _faiss_thread_locks_guard:
-        lock = _faiss_thread_locks.get(aid)
-        if lock is None:
-            lock = threading.RLock()
-            _faiss_thread_locks[aid] = lock
-        return lock
-
-
-def _vector_store_file_lock_path(assistant_id: int) -> str:
-    aid = normalize_assistant_id(assistant_id)
-    return f"./vector_stores/assistant_{aid}.lock"
-
-
-@contextmanager
-def faiss_disk_lock(assistant_id: int):
-    """
-    per-assistant 執行緒鎖 + 跨 process 檔案鎖，保護 FAISS index 讀寫。
-    FAISS index.add / write_index 非 thread-safe，多 worker 時需檔案鎖協調。
-    """
-    aid = normalize_assistant_id(assistant_id)
-    os.makedirs("./vector_stores", exist_ok=True)
-    thread_lock = _get_faiss_thread_lock(aid)
-    file_lock = FileLock(_vector_store_file_lock_path(aid), timeout=FAISS_FILE_LOCK_TIMEOUT)
-    with thread_lock:
-        with file_lock:
-            yield
 
 
 def _vector_store_paths(assistant_id: int) -> tuple[str, str]:
@@ -145,17 +110,15 @@ def set_vector_store_cache(assistant_id, store) -> None:
 
 def clear_vector_store_files(assistant_id) -> None:
     """刪除磁碟上的 FAISS 索引（例如助理刪除後 ID 重用、或 DB 與磁碟不一致）。"""
-    aid = normalize_assistant_id(assistant_id)
-    index_path, metadata_path = _vector_store_paths(aid)
-    invalidate_vector_store_cache(aid)
-    with faiss_disk_lock(aid):
-        for path in (index_path, metadata_path):
-            if os.path.isfile(path):
-                try:
-                    os.remove(path)
-                    logger.info("[向量庫] 已刪除殘留檔案 path=%s", path)
-                except OSError as e:
-                    logger.warning("[向量庫] 刪除檔案失敗 path=%s error=%s", path, e)
+    index_path, metadata_path = _vector_store_paths(assistant_id)
+    invalidate_vector_store_cache(assistant_id)
+    for path in (index_path, metadata_path):
+        if os.path.isfile(path):
+            try:
+                os.remove(path)
+                logger.info("[向量庫] 已刪除殘留檔案 path=%s", path)
+            except OSError as e:
+                logger.warning("[向量庫] 刪除檔案失敗 path=%s error=%s", path, e)
 
 # 預熱 SentenceTransformer / BGE Embeddings（避免第一次 RAG 卡住造成連帶的 TTS 504）
 BGE_EMBEDDINGS_MODEL_NAME = "BAAI/bge-base-zh-v1.5"
@@ -316,43 +279,20 @@ def calculate_token_count(documents):
 
 
 # 用於儲存向量資料庫
-def _write_vector_store_to_disk(assistant_id: int, faiss_store) -> None:
+def save_vector_store(assistant_id: int, faiss_store):
     aid = normalize_assistant_id(assistant_id)
     save_path, metadata_path = _vector_store_paths(aid)
     if not os.path.exists("./vector_stores"):
         os.makedirs("./vector_stores")
     faiss.write_index(faiss_store.index, save_path)
+
+    # 儲存 docstore 與 index_to_docstore_id
     with open(metadata_path, "wb") as f:
         metadata = {
             "docstore": faiss_store.docstore,
-            "index_to_docstore_id": faiss_store.index_to_docstore_id,
+            "index_to_docstore_id": faiss_store.index_to_docstore_id
         }
         pickle.dump(metadata, f)
-
-
-def save_vector_store(assistant_id: int, faiss_store):
-    aid = normalize_assistant_id(assistant_id)
-    with faiss_disk_lock(aid):
-        _write_vector_store_to_disk(aid, faiss_store)
-
-
-def _read_vector_store_from_disk(assistant_id: int):
-    aid = normalize_assistant_id(assistant_id)
-    load_path, metadata_path = _vector_store_paths(aid)
-    index = faiss.read_index(load_path)
-    embeddings = _bge_embeddings or HuggingFaceEmbeddings(
-        model_name=BGE_EMBEDDINGS_MODEL_NAME
-    )
-    with open(metadata_path, "rb") as f:
-        metadata = pickle.load(f)
-        docstore = metadata["docstore"]
-        index_to_docstore_id = metadata["index_to_docstore_id"]
-    return FAISS(
-        index=index,
-        docstore=docstore,
-        index_to_docstore_id=index_to_docstore_id,
-        embedding_function=embeddings,
-    )
 
 
 def load_vector_store(assistant_id: int):
@@ -360,10 +300,28 @@ def load_vector_store(assistant_id: int):
     load_path, metadata_path = _vector_store_paths(aid)
 
     if os.path.exists(load_path) and os.path.exists(metadata_path):
-        with faiss_disk_lock(aid):
-            loaded = _read_vector_store_from_disk(aid)
-            vector_store[aid] = loaded
-            return loaded
+        # 從磁碟載入 FAISS 索引
+        index = faiss.read_index(load_path)
+        # embeddings = OpenAIEmbeddings()  # 重新初始化 OpenAIEmbeddings
+        embeddings = _bge_embeddings or HuggingFaceEmbeddings(
+            model_name=BGE_EMBEDDINGS_MODEL_NAME
+        )
+
+        # 載入 docstore 與 index_to_docstore_id
+        with open(metadata_path, "rb") as f:
+            metadata = pickle.load(f)
+            docstore = metadata["docstore"]
+            index_to_docstore_id = metadata["index_to_docstore_id"]
+
+        # 使用 from_index 方法載入既有的 FAISS 索引
+        loaded = FAISS(
+            index=index,
+            docstore=docstore,
+            index_to_docstore_id=index_to_docstore_id,
+            embedding_function=embeddings,
+        )
+        vector_store[aid] = loaded
+        return loaded
     else:
         # 傳回空的 FAISS 物件
         return None
@@ -416,24 +374,23 @@ def _process_and_store_file_heavy_sync(
         embeddings = _bge_embeddings or HuggingFaceEmbeddings(
             model_name=BGE_EMBEDDINGS_MODEL_NAME
         )
-        with faiss_disk_lock(assistant_id):
-            if vs:
-                test_emb = embeddings.embed_query("test")
-                if len(test_emb) != vs.index.d:
-                    raise ValueError(
-                        f"Vector store dimension mismatch (Index: {vs.index.d}, Model: {len(test_emb)}). "
-                        "Please reset knowledge base for this assistant."
-                    )
-                doc_ids = [doc.metadata["doc_id"] for doc in documents]
-                vs.add_documents(documents, ids=doc_ids)
-                vector_store[normalize_assistant_id(assistant_id)] = vs
-            else:
-                doc_ids = [doc.metadata["doc_id"] for doc in documents]
-                aid = normalize_assistant_id(assistant_id)
-                vector_store[aid] = FAISS.from_documents(documents, embeddings, ids=doc_ids)
-                vs = vector_store[aid]
+        if vs:
+            test_emb = embeddings.embed_query("test")
+            if len(test_emb) != vs.index.d:
+                raise ValueError(
+                    f"Vector store dimension mismatch (Index: {vs.index.d}, Model: {len(test_emb)}). "
+                    "Please reset knowledge base for this assistant."
+                )
+            doc_ids = [doc.metadata["doc_id"] for doc in documents]
+            vs.add_documents(documents, ids=doc_ids)
+            vector_store[normalize_assistant_id(assistant_id)] = vs
+        else:
+            doc_ids = [doc.metadata["doc_id"] for doc in documents]
+            aid = normalize_assistant_id(assistant_id)
+            vector_store[aid] = FAISS.from_documents(documents, embeddings, ids=doc_ids)
+            vs = vector_store[aid]
 
-            _write_vector_store_to_disk(assistant_id, vs)
+        save_vector_store(assistant_id, vs)
         token_count = calculate_token_count(documents)
         full_text = " ".join([doc.page_content for doc in documents])
         summary, keyword_lines = generate_summary_and_keywords(full_text)
@@ -457,67 +414,6 @@ def _process_and_store_file_heavy_sync(
         raise
 
 
-def _update_knowledge_base_heavy_sync(
-    assistant_id: int,
-    new_file_path: str,
-    new_filename: str,
-    new_content: str,
-    old_doc_ids: list[str],
-    vs,
-):
-    """執行緒池執行：更新知識庫的 embedding / FAISS / 摘要（與上傳 heavy 路徑一致）。"""
-    loader = TextLoader(new_file_path, encoding="utf-8")
-    documents = loader.load()
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=500,
-        chunk_overlap=50,
-        separators=["\n\n", "\n", "。", "！", "？", ".", "!", "?", " ", ""],
-    )
-    documents = text_splitter.split_documents(documents)
-    documents = process_documents_with_id(documents)
-
-    embeddings = _bge_embeddings or HuggingFaceEmbeddings(
-        model_name=BGE_EMBEDDINGS_MODEL_NAME
-    )
-    aid = normalize_assistant_id(assistant_id)
-
-    with faiss_disk_lock(aid):
-        if vs and old_doc_ids:
-            try:
-                logger.info("Attempting to delete old vectors: %s", old_doc_ids)
-                vs.delete(old_doc_ids)
-            except Exception as e:
-                logger.warning("Could not delete old vectors (continuing anyway): %s", e)
-
-        if vs:
-            test_emb = embeddings.embed_query("test")
-            if len(test_emb) != vs.index.d:
-                raise ValueError(
-                    f"Vector store dimension mismatch (Index: {vs.index.d}, Model: {len(test_emb)}). "
-                    "Please reset knowledge base for this assistant."
-                )
-            doc_ids = [doc.metadata["doc_id"] for doc in documents]
-            vs.add_documents(documents, ids=doc_ids)
-        else:
-            doc_ids = [doc.metadata["doc_id"] for doc in documents]
-            vector_store[aid] = FAISS.from_documents(documents, embeddings, ids=doc_ids)
-            vs = vector_store[aid]
-
-        _write_vector_store_to_disk(assistant_id, vs)
-
-    token_count = calculate_token_count(documents)
-    summary, keyword_lines = generate_summary_and_keywords(new_content)
-    new_doc_ids = [doc.metadata["doc_id"] for doc in documents]
-
-    return {
-        "vs": vs,
-        "doc_ids_string": ", ".join(new_doc_ids),
-        "summary": summary,
-        "keyword_lines": keyword_lines,
-        "token_count": token_count,
-    }
-
-
 # 處理並儲存檔案嵌入至向量資料庫
 async def process_and_store_file(assistant_id: int, file: UploadFile, db: Session):
     t_start = time.perf_counter()
@@ -529,146 +425,166 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
 
     try:
         aid = normalize_assistant_id(assistant_id)
-        async with assistant_vector_write_lock(aid):
-            # 輕量步驟留在主執行緒：查詢 DB 與向量庫
-            t_q = time.perf_counter()
-            existing_entry = db.query(KnowledgeBase).filter(
-                KnowledgeBase.assistant_id == aid,
-                KnowledgeBase.file_name == filename
-            ).first()
-            kb_count = db.query(KnowledgeBase).filter(
-                KnowledgeBase.assistant_id == aid
-            ).count()
-            if kb_count == 0 and disk_vector_store_exists(aid):
-                logger.warning(
-                    "[銝瑼?] 蝤??????澈雿?DB ?∠霅澈蝝???航?箏?文? ID ?嚗?撠???assistant_id=%s",
-                    aid,
-                )
-                clear_vector_store_files(aid)
-                vs = None
-            else:
-                vs = get_vector_store(aid)
-            t_q_s = time.perf_counter() - t_q
-            logger.info(
-                "[銝瑼?] ?亥岷?Ｘ??亥?摨怨???摨?摰? existing=%s vs_exists=%s (??=%.3f s)",
-                existing_entry is not None, vs is not None, t_q_s
-            )
-
-            if existing_entry and vs:
-                old_doc_ids = [did.strip() for did in (existing_entry.doc_ids or "").split(",") if did.strip()]
-                if old_doc_ids:
-                    try:
-                        with faiss_disk_lock(aid):
-                            if hasattr(vs, 'index_to_docstore_id'):
-                                current_doc_ids = set(vs.index_to_docstore_id.values())
-                                ids_to_delete = [did for did in old_doc_ids if did in current_doc_ids]
-                            else:
-                                ids_to_delete = old_doc_ids
-
-                            if ids_to_delete:
-                                vs.delete(ids_to_delete)
-                                logger.info("[上傳檔案] 刪除舊向量 完成 filename=%s removed_count=%d (original_db_count=%d)",
-                                            filename, len(ids_to_delete), len(old_doc_ids))
-                            else:
-                                logger.info("[上傳檔案] 無舊向量需刪除 (舊 ID 不存在於向量庫，可能是庫已重置) filename=%s", filename)
-
-                    except Exception as e:
-                        logger.warning("[上傳檔案] 刪除舊向量失敗（非致命，繼續上傳） filename=%s error=%s", filename, e)
-
-            save_directory = f"./uploaded_files/assistant_{aid}"
-            os.makedirs(save_directory, exist_ok=True)
-            file_location = os.path.join(save_directory, filename)
-
-            t_read = time.perf_counter()
-            content = await file.read()
-            file_size = len(content)
-            logger.info("[上傳檔案] 讀取上傳內容 完成 size=%d bytes (耗時=%.3f s)", file_size, time.perf_counter() - t_read)
-
-            with open(file_location, "wb+") as f:
-                f.write(content)
-            logger.info("[上傳檔案] 寫入磁碟 完成 path=%s", file_location)
-
-            file_extension = filename.split(".")[-1].lower() if "." in filename else ""
-            if not file_extension:
-                raise ValueError("File must have an extension")
-
-            from services.rag_queue import enqueue_rag
-            heavy_result = await enqueue_rag(
-                _process_and_store_file_heavy_sync,
+        write_lock = _get_assistant_vector_write_lock(aid)
+        logger.info("[向量庫寫入鎖] 等待鎖 assistant_id=%s", aid)
+        write_lock.acquire()
+        logger.info("[向量庫寫入鎖] 取得鎖 assistant_id=%s", aid)
+        # 輕量步驟留在主執行緒：查詢 DB 與向量庫
+        t_q = time.perf_counter()
+        existing_entry = db.query(KnowledgeBase).filter(
+            KnowledgeBase.assistant_id == aid,
+            KnowledgeBase.file_name == filename
+        ).first()
+        kb_count = db.query(KnowledgeBase).filter(
+            KnowledgeBase.assistant_id == aid
+        ).count()
+        if kb_count == 0 and disk_vector_store_exists(aid):
+            logger.warning(
+                "[銝瑼?] 蝤??????澈雿?DB ?∠霅澈蝝???航?箏?文? ID ?嚗?撠???assistant_id=%s",
                 aid,
-                file_location,
-                filename,
-                file_extension,
-                vs,
             )
+            clear_vector_store_files(aid)
+            vs = None
+        else:
+            vs = get_vector_store(aid)
+        t_q_s = time.perf_counter() - t_q
+        logger.info(
+            "[銝瑼?] ?亥岷?Ｘ??亥?摨怨???摨?摰? existing=%s vs_exists=%s (??=%.3f s)",
+            existing_entry is not None, vs is not None, t_q_s
+        )
 
-            doc_ids_string = heavy_result["doc_ids_string"]
-            summary = heavy_result["summary"]
-            keyword_lines = heavy_result["keyword_lines"]
-            token_count = heavy_result["token_count"]
-            file_extension = heavy_result["file_extension"]
+        if existing_entry and vs:
+            old_doc_ids = [did.strip() for did in (existing_entry.doc_ids or "").split(",") if did.strip()]
+            if old_doc_ids:
+                try:
+                    # 避免 FAISS 報錯 "ValueError: Some specified ids do not exist"
+                    # 先過濾出真正存在於向量庫的 ID
+                    # vs.index_to_docstore_id 是一個 dict: int_index -> doc_id
+                    # 注意：若向量庫很大，此處可能有效能開銷，但一般知識庫應無問題
+                    if hasattr(vs, 'index_to_docstore_id'):
+                        current_doc_ids = set(vs.index_to_docstore_id.values())
+                        ids_to_delete = [did for did in old_doc_ids if did in current_doc_ids]
+                    else:
+                        # Fallback if internal structure changes (though unlikely for this version of LangChain)
+                        ids_to_delete = old_doc_ids
 
-            MAX_SUMMARY_LEN = 10000
-            MAX_KEYWORDS_LEN = 1000
+                    if ids_to_delete:
+                        vs.delete(ids_to_delete)
+                        logger.info("[上傳檔案] 刪除舊向量 完成 filename=%s removed_count=%d (original_db_count=%d)", 
+                                    filename, len(ids_to_delete), len(old_doc_ids))
+                    else:
+                        logger.info("[上傳檔案] 無舊向量需刪除 (舊 ID 不存在於向量庫，可能是庫已重置) filename=%s", filename)
 
-            if len(summary) > MAX_SUMMARY_LEN:
-                 logger.warning("[上傳檔案] Summary 過長 (%d chars)，進行截斷。", len(summary))
-                 summary = summary[:MAX_SUMMARY_LEN] + "...(truncated)"
+                except Exception as e:
+                    logger.warning("[上傳檔案] 刪除舊向量失敗（非致命，繼續上傳） filename=%s error=%s", filename, e)
 
-            if len(keyword_lines) > MAX_KEYWORDS_LEN:
-                 logger.warning("[上傳檔案] Keywords 過長 (%d chars)，進行截斷。", len(keyword_lines))
-                 keyword_lines = keyword_lines[:MAX_KEYWORDS_LEN]
+        save_directory = f"./uploaded_files/assistant_{aid}"
+        os.makedirs(save_directory, exist_ok=True)
+        file_location = os.path.join(save_directory, filename)
 
-            if existing_entry:
-                logger.info("[上傳檔案] 更新既有 DB 紀錄 filename=%s", filename)
-                existing_entry.summary = summary
-                existing_entry.keywords = keyword_lines
-                existing_entry.doc_ids = doc_ids_string
-                existing_entry.token_count = token_count
-                existing_entry.upload_date = datetime.utcnow()
-                db.commit()
-                db.refresh(existing_entry)
-                entry_to_return = existing_entry
-            else:
-                logger.info("[上傳檔案] 新增 DB 紀錄 filename=%s", filename)
-                new_entry = KnowledgeBase(
-                    assistant_id=aid,
-                    file_name=filename,
-                    file_type=f"{file_extension.upper()}",
-                    summary=summary,
-                    keywords=keyword_lines,
-                    doc_ids=doc_ids_string,
-                    description=f"Uploaded file {filename} by assistant {assistant_id}",
-                    token_count=token_count,
-                    upload_date=datetime.utcnow()
-                )
-                db.add(new_entry)
-                db.commit()
-                db.refresh(new_entry)
-                entry_to_return = new_entry
+        t_read = time.perf_counter()
+        content = await file.read()
+        file_size = len(content)
+        logger.info("[上傳檔案] 讀取上傳內容 完成 size=%d bytes (耗時=%.3f s)", file_size, time.perf_counter() - t_read)
 
-            set_vector_store_cache(aid, vector_store.get(aid))
-            vs = vector_store.get(aid)
-            t_total_s = time.perf_counter() - t_start
-            logger.info(
-                "[銝瑼? 摰?] assistant_id=%s filename=%s token_count=%d 蝮質?=%.3f s",
-                aid, filename, token_count, t_total_s
+        with open(file_location, "wb+") as f:
+            f.write(content)
+        logger.info("[上傳檔案] 寫入磁碟 完成 path=%s", file_location)
+
+        file_extension = filename.split(".")[-1].lower() if "." in filename else ""
+        if not file_extension:
+            raise ValueError("File must have an extension")
+
+        # 重邏輯透過 RAG Queue 限流，防止 GPU OOM
+        from services.rag_queue import enqueue_rag
+        heavy_result = await enqueue_rag(
+            _process_and_store_file_heavy_sync,
+            aid,
+            file_location,
+            filename,
+            file_extension,
+            vs,
+        )
+
+        doc_ids_string = heavy_result["doc_ids_string"]
+        summary = heavy_result["summary"]
+        keyword_lines = heavy_result["keyword_lines"]
+        token_count = heavy_result["token_count"]
+        file_extension = heavy_result["file_extension"]
+
+        # DB 寫入僅在主執行緒執行（Session 非執行緒安全）
+        # 安全截斷 summary 和 keywords 以防止 DB 欄位長度溢位 (Data too long)
+        # 假設 summary 欄位可能是 TEXT (65535) 或 LONGTEXT，但為了安全起見，限制在合理範圍
+        # 錯誤日誌顯示 summary 有 150k+ 字元，這明顯是模型產生了重複迴圈
+        MAX_SUMMARY_LEN = 10000  
+        MAX_KEYWORDS_LEN = 1000
+
+        if len(summary) > MAX_SUMMARY_LEN:
+             logger.warning("[上傳檔案] Summary 過長 (%d chars)，進行截斷。", len(summary))
+             summary = summary[:MAX_SUMMARY_LEN] + "...(truncated)"
+        
+        if len(keyword_lines) > MAX_KEYWORDS_LEN:
+             logger.warning("[上傳檔案] Keywords 過長 (%d chars)，進行截斷。", len(keyword_lines))
+             keyword_lines = keyword_lines[:MAX_KEYWORDS_LEN]
+
+        if existing_entry:
+            logger.info("[上傳檔案] 更新既有 DB 紀錄 filename=%s", filename)
+            existing_entry.summary = summary
+            existing_entry.keywords = keyword_lines
+            existing_entry.doc_ids = doc_ids_string
+            existing_entry.token_count = token_count
+            existing_entry.upload_date = datetime.utcnow()
+            db.commit()
+            db.refresh(existing_entry)
+            entry_to_return = existing_entry
+        else:
+            logger.info("[上傳檔案] 新增 DB 紀錄 filename=%s", filename)
+            new_entry = KnowledgeBase(
+                assistant_id=aid,
+                file_name=filename,
+                file_type=f"{file_extension.upper()}",
+                summary=summary,
+                keywords=keyword_lines,
+                doc_ids=doc_ids_string,
+                description=f"Uploaded file {filename} by assistant {assistant_id}",
+                token_count=token_count,
+                upload_date=datetime.utcnow()
             )
-            return {
-                "vector_store": vs,
-                "km": {
-                    "file_name": entry_to_return.file_name,
-                    "description": entry_to_return.description,
-                    "token_count": entry_to_return.token_count,
-                    "file_type": entry_to_return.file_type,
-                    "summary": entry_to_return.summary,
-                    "keywords": entry_to_return.keywords,
-                    "doc_ids": entry_to_return.doc_ids,
-                    "upload_date": entry_to_return.upload_date
-                }
+            db.add(new_entry)
+            db.commit()
+            db.refresh(new_entry)
+            entry_to_return = new_entry
+
+        set_vector_store_cache(aid, vector_store.get(aid))
+        vs = vector_store.get(aid)
+        t_total_s = time.perf_counter() - t_start
+        logger.info(
+            "[銝瑼? 摰?] assistant_id=%s filename=%s token_count=%d 蝮質?=%.3f s",
+            aid, filename, token_count, t_total_s
+        )
+        write_lock.release()
+        logger.info("[向量庫寫入鎖] 釋放鎖 assistant_id=%s", aid)
+        return {
+            "vector_store": vs,
+            "km": {
+                "file_name": entry_to_return.file_name,
+                "description": entry_to_return.description,
+                "token_count": entry_to_return.token_count,
+                "file_type": entry_to_return.file_type,
+                "summary": entry_to_return.summary,
+                "keywords": entry_to_return.keywords,
+                "doc_ids": entry_to_return.doc_ids,
+                "upload_date": entry_to_return.upload_date
             }
+        }
 
     except Exception as e:
+        if 'write_lock' in locals():
+            try:
+                write_lock.release()
+                logger.info("[向量庫寫入鎖] 釋放鎖 assistant_id=%s", aid)
+            except RuntimeError:
+                pass
         t_total_s = time.perf_counter() - t_start
         logger.exception(
             "[銝瑼? 憭望?] assistant_id=%s filename=%s 蝮質?=%.3f s error=%s",
@@ -774,12 +690,12 @@ def get_knowledge_content(assistant_id: int, knowledge_id: int, db: Session):
         return f.read()
 
 
-async def delete_knowledge_base_item(assistant_id: int, knowledge_id: int, db: Session):
+def delete_knowledge_base_item(assistant_id: int, knowledge_id: int, db: Session):
     """
     靘?knowledge_base.id ?芷銝蝑霅???FAISS 蝘駁撠? doc_ids??支??單?獢??DB ??
     """
     aid = normalize_assistant_id(assistant_id)
-    async with assistant_vector_write_lock(aid):
+    with assistant_vector_write_lock(aid):
         record = db.query(KnowledgeBase).filter(
             KnowledgeBase.id == knowledge_id,
             KnowledgeBase.assistant_id == assistant_id,
@@ -797,9 +713,8 @@ async def delete_knowledge_base_item(assistant_id: int, knowledge_id: int, db: S
                     knowledge_id,
                     len(old_doc_ids),
                 )
-                with faiss_disk_lock(aid):
-                    vs.delete(old_doc_ids)
-                    _write_vector_store_to_disk(assistant_id, vs)
+                vs.delete(old_doc_ids)
+                save_vector_store(assistant_id, vs)
                 set_vector_store_cache(assistant_id, vs)
             except Exception as e:
                 logger.warning("Could not delete vectors (continuing DB/file delete): %s", e)
@@ -826,7 +741,7 @@ async def delete_knowledge_base_item(assistant_id: int, knowledge_id: int, db: S
 
 async def update_knowledge_base_item(assistant_id: int, knowledge_id: int, new_content: str, db: Session):
     aid = normalize_assistant_id(assistant_id)
-    async with assistant_vector_write_lock(aid):
+    with assistant_vector_write_lock(aid):
         # 1. Find record
         record = db.query(KnowledgeBase).filter(KnowledgeBase.id == knowledge_id,
                                                 KnowledgeBase.assistant_id == assistant_id).first()
@@ -835,13 +750,24 @@ async def update_knowledge_base_item(assistant_id: int, knowledge_id: int, new_c
 
         # 2. Get Vector Store
         vs = get_vector_store(assistant_id)
+        
+        # 3. Delete old vectors (best effort - may not exist if store was rebuilt)
         old_doc_ids = [did.strip() for did in record.doc_ids.split(",") if did.strip()]
+        if vs and old_doc_ids:
+            try:
+                logger.info(f"Attempting to delete old vectors: {old_doc_ids}")
+                vs.delete(old_doc_ids)
+                logger.info(f"Successfully deleted old vectors")
+            except Exception as e:
+                logger.warning(f"Warning: Could not delete old vectors (continuing anyway): {e}")
+        else:
+            logger.info(f"No vector store or no old doc_ids to delete")
 
-        # 3. Overwrite existing file
+        # 4. Overwrite existing file
         save_directory = f"./uploaded_files/assistant_{assistant_id}"
         if not os.path.exists(save_directory):
             os.makedirs(save_directory)
-
+        
         new_filename = record.file_name
         new_file_path = os.path.join(save_directory, new_filename)
 
@@ -849,23 +775,50 @@ async def update_knowledge_base_item(assistant_id: int, knowledge_id: int, new_c
         with open(new_file_path, "w", encoding="utf-8") as f:
             f.write(new_content)
 
-        from services.rag_queue import enqueue_rag
-        heavy_result = await enqueue_rag(
-            _update_knowledge_base_heavy_sync,
-            aid,
-            new_file_path,
-            new_filename,
-            new_content,
-            old_doc_ids,
-            vs,
+        # 5. Process updated file
+        loader = TextLoader(new_file_path, encoding="utf-8")
+        documents = loader.load()
+        
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=500,
+            chunk_overlap=50,
+            separators=["\n\n", "\n", "。", "！", "？", ".", "!", "?", " ", ""]
         )
+        documents = text_splitter.split_documents(documents)
 
-        set_vector_store_cache(assistant_id, heavy_result["vs"])
+        documents = process_documents_with_id(documents)
+        
+        embeddings = _bge_embeddings or HuggingFaceEmbeddings(
+            model_name=BGE_EMBEDDINGS_MODEL_NAME
+        )
+        
+        if vs:
+            test_emb = embeddings.embed_query("test")
+            if len(test_emb) != vs.index.d:
+                error_msg = f"Vector store dimension mismatch (Index: {vs.index.d}, Model: {len(test_emb)}). Please reset knowledge base for this assistant."
+                logger.error(f"CRITICAL ERROR: {error_msg}")
+                raise ValueError(error_msg)
 
-        record.summary = heavy_result["summary"]
-        record.keywords = heavy_result["keyword_lines"]
-        record.doc_ids = heavy_result["doc_ids_string"]
-        record.token_count = heavy_result["token_count"]
+            logger.info(f"Adding new vectors for {new_filename}")
+            doc_ids = [doc.metadata["doc_id"] for doc in documents]
+            vs.add_documents(documents, ids=doc_ids)
+        else:
+            logger.info(f"Creating new vector store for assistant {aid}")
+            doc_ids = [doc.metadata["doc_id"] for doc in documents]
+            vector_store[aid] = FAISS.from_documents(documents, embeddings, ids=doc_ids)
+            vs = vector_store[aid]
+        
+        save_vector_store(assistant_id, vs)
+        set_vector_store_cache(assistant_id, vs)
+
+        token_count = calculate_token_count(documents)
+        summary, keyword_lines = generate_summary_and_keywords(new_content)
+        new_doc_ids = [doc.metadata["doc_id"] for doc in documents]
+        
+        record.summary = summary
+        record.keywords = keyword_lines
+        record.doc_ids = ", ".join(new_doc_ids)
+        record.token_count = token_count
         record.upload_date = datetime.utcnow()
         
         db.commit()
