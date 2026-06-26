@@ -257,14 +257,14 @@ async def update_knowledge_item(
 
 
 @router.delete("/assistant/{assistant_id}/knowledge/{knowledge_id}")
-def delete_knowledge_item(
+async def delete_knowledge_item(
     assistant_id: int,
     knowledge_id: int,
     assistant: AIAssistant = Depends(get_owned_assistant),
     db: Session = Depends(get_db),
 ):
     try:
-        result = delete_knowledge_base_item(assistant_id, knowledge_id, db)
+        result = await delete_knowledge_base_item(assistant_id, knowledge_id, db)
         return {"status": "success", "message": "知識庫已刪除", "data": result}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
