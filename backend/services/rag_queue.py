@@ -12,7 +12,7 @@ from utils.logger import get_logger
 logger = get_logger(__name__)
 
 RAG_GPU_CONCURRENCY = int(os.getenv("RAG_GPU_CONCURRENCY", "5"))
-RAG_QUEUE_MAX_SIZE = int(os.getenv("RAG_QUEUE_MAX_SIZE", "30"))
+RAG_QUEUE_MAX_SIZE = int(os.getenv("RAG_QUEUE_MAX_SIZE", "50"))
 RAG_QUEUE_TIMEOUT = float(os.getenv("RAG_QUEUE_TIMEOUT", "300"))
 
 

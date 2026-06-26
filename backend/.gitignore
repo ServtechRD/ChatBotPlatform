@@ -25,6 +25,8 @@ archive.zip
 public/
 vector_stores/
 uploaded_files/
+load_tests/loadtest_run.db*
+loadtest_run.db*
 
 # vim temporary files
 *~
