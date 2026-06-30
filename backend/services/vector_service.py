@@ -8,7 +8,7 @@ from filelock import FileLock
 # from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_community.embeddings import HuggingFaceEmbeddings # pyright: ignore[reportMissingImports]
 from langchain_community.vectorstores import FAISS # pyright: ignore[reportMissingImports]
-from langchain_community.document_loaders import TextLoader, PyPDFLoader, Docx2txtLoader # pyright: ignore[reportMissingImports]
+from langchain_community.document_loaders import TextLoader, PyPDFLoader, UnstructuredWordDocumentLoader # pyright: ignore[reportMissingImports]
 from langchain_text_splitters import RecursiveCharacterTextSplitter # pyright: ignore[reportMissingImports]
 from langchain_core.documents import Document  # pyright: ignore[reportMissingImports]
 from langchain_community.chat_models import ChatOpenAI  # pyright: ignore[reportMissingImports]
@@ -377,7 +377,7 @@ def get_loader(file_path: str, file_type: str):
     if file_type == "pdf":
         return PyPDFLoader(file_path)
     elif file_type == "docx":
-        return Docx2txtLoader(file_path)
+        return UnstructuredWordDocumentLoader(file_path)
     elif file_type == "txt":
         return TextLoader(file_path)
     else:
