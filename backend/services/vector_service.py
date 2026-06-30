@@ -405,6 +405,7 @@ def _process_and_store_file_heavy_sync(
         t_load_s = time.perf_counter() - t_load
         logger.info("[上傳檔案] loader.load 完成 doc_count=%d (耗時=%.3f s)", len(documents), t_load_s)
 
+        t_split = time.perf_counter()
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=300,
             chunk_overlap=50,
@@ -412,10 +413,12 @@ def _process_and_store_file_heavy_sync(
         )
         documents = text_splitter.split_documents(documents)
         documents = process_documents_with_id(documents)
+        logger.info("[上傳檔案] 切chunk完成 chunks=%d (耗時=%.3f s)", len(documents), time.perf_counter() - t_split)
 
         embeddings = _bge_embeddings or HuggingFaceEmbeddings(
             model_name=BGE_EMBEDDINGS_MODEL_NAME
         )
+        t_faiss = time.perf_counter()
         with faiss_disk_lock(assistant_id):
             if vs:
                 test_emb = embeddings.embed_query("test")
@@ -434,9 +437,13 @@ def _process_and_store_file_heavy_sync(
                 vs = vector_store[aid]
 
             _write_vector_store_to_disk(assistant_id, vs)
+        logger.info("[上傳檔案] FAISS embedding+寫入完成 chunks=%d (耗時=%.3f s)", len(documents), time.perf_counter() - t_faiss)
+
         token_count = calculate_token_count(documents)
         full_text = " ".join([doc.page_content for doc in documents])
+        t_llm = time.perf_counter()
         summary, keyword_lines = generate_summary_and_keywords(full_text)
+        logger.info("[上傳檔案] LLM摘要完成 (耗時=%.3f s)", time.perf_counter() - t_llm)
         doc_ids_string = ", ".join(doc_ids)
 
         t_total_s = time.perf_counter() - t_start
@@ -593,6 +600,7 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
                 raise ValueError("File must have an extension")
 
             from services.rag_queue import enqueue_rag
+            t_heavy = time.perf_counter()
             heavy_result = await enqueue_rag(
                 _process_and_store_file_heavy_sync,
                 aid,
@@ -601,6 +609,7 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
                 file_extension,
                 vs,
             )
+            logger.info("[上傳檔案] enqueue_rag完成 (耗時=%.3f s)", time.perf_counter() - t_heavy)
 
             doc_ids_string = heavy_result["doc_ids_string"]
             summary = heavy_result["summary"]
@@ -619,6 +628,7 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
                  logger.warning("[上傳檔案] Keywords 過長 (%d chars)，進行截斷。", len(keyword_lines))
                  keyword_lines = keyword_lines[:MAX_KEYWORDS_LEN]
 
+            t_db = time.perf_counter()
             if existing_entry:
                 logger.info("[上傳檔案] 更新既有 DB 紀錄 filename=%s", filename)
                 existing_entry.summary = summary
@@ -646,12 +656,13 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
                 db.commit()
                 db.refresh(new_entry)
                 entry_to_return = new_entry
+            logger.info("[上傳檔案] DB寫入完成 (耗時=%.3f s)", time.perf_counter() - t_db)
 
             set_vector_store_cache(aid, vector_store.get(aid))
             vs = vector_store.get(aid)
             t_total_s = time.perf_counter() - t_start
             logger.info(
-                "[銝瑼? 摰?] assistant_id=%s filename=%s token_count=%d 蝮質?=%.3f s",
+                "[上傳檔案] 全流程完成 assistant_id=%s filename=%s token_count=%d 總耗時=%.3f s",
                 aid, filename, token_count, t_total_s
             )
             return {
