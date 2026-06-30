@@ -38,6 +38,9 @@ services:
       - ${PROJECT_ROOT:-.}/.hf-cache/sentence_transformers:/root/.cache/torch/sentence_transformers
     environment:
       DATABASE_URL: ${DATABASE_URL:-mysql+pymysql://chatbot_user:pass@mariadb:3306/chatbot_db}
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-30}
+      DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW:-30}
+      DB_POOL_TIMEOUT: ${DB_POOL_TIMEOUT:-60}
       # 與同專案 vllm 服務名稱解析（預設無需在 .env 重複設定）
       VLLM_BASE_URL: ${VLLM_BASE_URL:-http://vllm:8000/v1}
       VLLM_API_KEY: ${VLLM_API_KEY:-EMPTY}
