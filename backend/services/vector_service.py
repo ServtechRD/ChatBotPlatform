@@ -164,8 +164,8 @@ _bge_embeddings = None
 
 def prewarm_bge_embeddings():
     """
-    ??server ??敺????臬銵?頛 bge-base-zh-v1.5 embeddings嚗?
-    雿輻洵銝甈∠?唳?銝??◤ SentenceTransformer 銝?/???雿?
+    在 server 啟動後（於背景執行緒）預載入 bge-base-zh-v1.5 embeddings，
+    使第一次用戶請求不會被 SentenceTransformer 下載/初始化卡住。
     """
     global _bge_embeddings
     if _bge_embeddings is not None:
@@ -187,14 +187,14 @@ summarizer = pipeline(
 
 def generate_doc_id():
     """
-    ?Ｙ??臭???隞?ID
+    產生唯一的文件 ID
     """
     return str(uuid.uuid4())
 
 
 def process_documents_with_id(documents):
     """
-    ?箸?隞賣?隞嗥?銝??doc_id
+    為每份文件產生唯一的 doc_id
     """
     for doc in documents:
         doc.metadata["doc_id"] = generate_doc_id()  # 將 doc_id 寫入 metadata
@@ -392,8 +392,8 @@ def _process_and_store_file_heavy_sync(
     vs,  # FAISS vector store or None
 ):
     """
-    ?典銵?瘙葉?瑁???甇仿??摩嚗??交?獢?憛??乓神?亙??澈??蝣??閬?
-    DB 撖怠?勗?急?其蜓?瑁?蝺銵?
+    執行緒池中執行的重活操作：載入檔案、切塊、embedding、寫入向量庫與摘要產生。
+    DB 寫入由呼叫方在主執行緒處理。
     """
     t_start = time.perf_counter()
     try:
@@ -448,7 +448,7 @@ def _process_and_store_file_heavy_sync(
 
         t_total_s = time.perf_counter() - t_start
         logger.info(
-            "[銝瑼? ??頛臬?? assistant_id=%s filename=%s chunks=%d token_count=%d ??=%.3f s",
+            "[上傳檔案] 處理邏輯完成 assistant_id=%s filename=%s chunks=%d token_count=%d 耗時=%.3f s",
             assistant_id, filename, len(documents), token_count, t_total_s
         )
         return {
@@ -530,7 +530,7 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
     t_start = time.perf_counter()
     filename = file.filename or "(unnamed)"
     logger.info(
-        "[銝瑼? ??] assistant_id=%s filename=%s content_type=%s",
+        "[上傳檔案 開始] assistant_id=%s filename=%s content_type=%s",
         assistant_id, filename, getattr(file, "content_type", None)
     )
 
@@ -548,7 +548,7 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
             ).count()
             if kb_count == 0 and disk_vector_store_exists(aid):
                 logger.warning(
-                    "[銝瑼?] 蝤??????澈雿?DB ?∠霅澈蝝???航?箏?文? ID ?嚗?撠???assistant_id=%s",
+                    "[上傳檔案] 磁碟上存在向量庫但 DB 無知識庫紀錄（可能是刪除舊 ID 重用），將清空 assistant_id=%s",
                     aid,
                 )
                 clear_vector_store_files(aid)
@@ -557,7 +557,7 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
                 vs = get_vector_store(aid)
             t_q_s = time.perf_counter() - t_q
             logger.info(
-                "[銝瑼?] ?亥岷?Ｘ??亥?摨怨???摨?摰? existing=%s vs_exists=%s (??=%.3f s)",
+                "[上傳檔案] 查詢既有紀錄與向量庫狀態完成 existing=%s vs_exists=%s (耗時=%.3f s)",
                 existing_entry is not None, vs is not None, t_q_s
             )
 
@@ -682,7 +682,7 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
     except Exception as e:
         t_total_s = time.perf_counter() - t_start
         logger.exception(
-            "[銝瑼? 憭望?] assistant_id=%s filename=%s 蝮質?=%.3f s error=%s",
+            "[上傳檔案 失敗] assistant_id=%s filename=%s 總耗時=%.3f s error=%s",
             assistant_id, filename, t_total_s, e
         )
         raise
@@ -690,7 +690,7 @@ async def process_and_store_file(assistant_id: int, file: UploadFile, db: Sessio
 
 def get_vector_store_status(assistant_id: int):
     """
-    ?????脣?????蝯梯?鞈?
+    取得向量儲存狀態與統計資訊
     """
     vs = get_vector_store(assistant_id)
     if not vs:
@@ -787,7 +787,7 @@ def get_knowledge_content(assistant_id: int, knowledge_id: int, db: Session):
 
 async def delete_knowledge_base_item(assistant_id: int, knowledge_id: int, db: Session):
     """
-    靘?knowledge_base.id ?芷銝蝑霅???FAISS 蝘駁撠? doc_ids??支??單?獢??DB ??
+    依 knowledge_base.id 刪除一筆知識庫：FAISS 移除對應 doc_ids、刪除實體檔案、刪除 DB 紀錄。
     """
     aid = normalize_assistant_id(assistant_id)
     async with assistant_vector_write_lock(aid):
@@ -891,5 +891,6 @@ async def update_knowledge_base_item(assistant_id: int, knowledge_id: int, new_c
             "token_count": record.token_count,
             "upload_date": record.upload_date
         }
+
 
 
