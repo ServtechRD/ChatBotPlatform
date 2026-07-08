@@ -828,27 +828,29 @@ export default function EmbeddableChatInterface({
 
   // 捲動控制
   function scrollToBottom() {
-    if (messagesContainerRef.current) {
-      requestAnimationFrame(() => {
-        messagesContainerRef.current.scrollTop =
-          messagesContainerRef.current.scrollHeight;
-      });
+      if (!messagesContainerRef.current) return;
+
+  const container = messagesContainerRef.current;
+
+  requestAnimationFrame(() => {
+    const messageElements = container.querySelectorAll('[data-message-id]');
+    const lastMessage = messageElements[messageElements.length - 1];
+
+    if (lastMessage) {
+      // 讓最新訊息的頂端可見，而不是拉到最底
+      container.scrollTop = Math.max(0, lastMessage.offsetTop - 12);
+    } else {
+      container.scrollTop = container.scrollHeight;
     }
-    /*
-    if (messagesContainerRef.current) {
-      const container = messagesContainerRef.current;
-      const scrollHeight = container.scrollHeight;
-      const height = container.clientHeight;
-      const maxScroll = scrollHeight - height;
+  });
+    // TODO: 07/08 PM 測試要調整 scroll 行為
+    // if (messagesContainerRef.current) {
+    //   requestAnimationFrame(() => {
+    //     messagesContainerRef.current.scrollTop =
+    //       messagesContainerRef.current.scrollHeight;
+    //   });
+    // }
 
-      // 確保滾動位置使得消息只顯示在下半部分
-      const minScroll = Math.max(0, scrollHeight - height / 2);
-
-      requestAnimationFrame(() => {
-        // 設置滾動位置，確保最少滾動到minScroll
-        container.scrollTop = Math.max(maxScroll, minScroll);
-      });
-    }*/
   }
 
   // 訊息更新時捲動
@@ -1210,6 +1212,7 @@ export default function EmbeddableChatInterface({
                 {messages.map(message => (
                   <Box
                     key={message.id}
+                    data-message-id={message.id}
                     sx={{
                       display: 'flex',
                       justifyContent: message.isBot ? 'flex-start' : 'flex-end',

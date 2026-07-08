@@ -188,18 +188,34 @@ export default function ChatInterface({
 
   // 控制消息滾動
   function scrollToBottom() {
-    if (messagesContainerRef.current) {
-      const container = messagesContainerRef.current;
-      const scrollHeight = container.scrollHeight;
-      const height = container.clientHeight;
-      const maxScroll = scrollHeight - height;
-      const minScroll = Math.max(0, scrollHeight - MESSAGE_TOP_LIMIT);
+    // TODO: PM 要改成只顯示上面的訊息
+    // if (messagesContainerRef.current) {
+    //   const container = messagesContainerRef.current;
+    //   const scrollHeight = container.scrollHeight;
+    //   const height = container.clientHeight;
+    //   const maxScroll = scrollHeight - height;
+    //   const minScroll = Math.max(0, scrollHeight - MESSAGE_TOP_LIMIT);
 
-      // 使用 requestAnimationFrame 確保在 DOM 更新後執行滾動
-      requestAnimationFrame(() => {
-        container.scrollTop = Math.max(maxScroll, minScroll);
-      });
+    //   // 使用 requestAnimationFrame 確保在 DOM 更新後執行滾動
+    //   requestAnimationFrame(() => {
+    //     container.scrollTop = Math.max(maxScroll, minScroll);
+    //   });
+    // }
+    if (!messagesContainerRef.current) return;
+
+  const container = messagesContainerRef.current;
+
+  requestAnimationFrame(() => {
+    const messageElements = container.querySelectorAll('[data-message-id]');
+    const lastMessage = messageElements[messageElements.length - 1];
+
+    if (lastMessage) {
+      // 讓最新訊息的頂端可見，而不是拉到最底
+      container.scrollTop = Math.max(0, lastMessage.offsetTop - 12);
+    } else {
+      container.scrollTop = container.scrollHeight;
     }
+  });
   }
 
   function queueSpeakText(text) {
@@ -977,6 +993,7 @@ export default function ChatInterface({
           {messages.map(message => (
             <Box
               key={message.id}
+              data-message-id={message.id}
               sx={{
                 display: 'flex',
                 justifyContent: message.isBot ? 'flex-start' : 'flex-end',
