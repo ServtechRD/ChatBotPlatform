@@ -13,6 +13,12 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // 嵌入頁不需要登入態，避免打 /auth/users/me 觸發 401 導頁
+    if (window.location.pathname.startsWith('/embed')) {
+      setLoading(false);
+      return;
+    }
+
     const token = localStorage.getItem('token');
     if (token) {
       auth.get()

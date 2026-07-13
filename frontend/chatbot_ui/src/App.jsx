@@ -20,8 +20,9 @@ import { queryClient } from './queries/queryClient';
 
 function AppRoutes() {
   const { isAuthenticated, loading } = useAuth();
+  const isEmbed = window.location.pathname.startsWith('/embed');
 
-  if (loading) {
+  if (loading && !isEmbed) {
     return <div>Loading...</div>;
   }
 

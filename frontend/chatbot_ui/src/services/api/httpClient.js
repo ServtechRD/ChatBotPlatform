@@ -30,6 +30,17 @@ function shouldSkipTokenRefresh(config) {
   return skipPaths.some(path => url.includes(path));
 }
 
+/** 嵌入頁不應因 401 被導向登入頁 */
+function isEmbedRoute() {
+  return window.location.pathname.startsWith('/embed');
+}
+
+function redirectToLoginIfNeeded() {
+  if (isEmbedRoute()) return;
+  if (window.location.pathname.startsWith('/login')) return;
+  window.location.href = '/login';
+}
+
 const httpClient = axios.create({
   baseURL,
   timeout: 10000,
@@ -80,10 +91,7 @@ httpClient.interceptors.response.use(
 
       if (!refreshToken) {
         storage.clearAuthData();
-        const onLoginPage = window.location.pathname.startsWith('/login');
-        if (!onLoginPage) {
-          window.location.href = '/login';
-        }
+        redirectToLoginIfNeeded();
         return Promise.reject(error);
       }
 
@@ -104,7 +112,7 @@ httpClient.interceptors.response.use(
         processQueue(refreshError, null);
         failedQueue = [];
         storage.clearAuthData();
-        window.location.href = '/login';
+        redirectToLoginIfNeeded();
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
