@@ -71,6 +71,7 @@ class Conversation(Base):
     customer_id = Column(String(255), nullable=False)  # 儲存客戶唯一 ID
     customer_name = Column(String(255), nullable=True)
     customer_email = Column(String(255), nullable=True)
+    client_ip = Column(String(45), nullable=False, default="---", server_default="---")  # 提問者 IP
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # 關聯至助理

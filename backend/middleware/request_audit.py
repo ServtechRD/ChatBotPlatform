@@ -16,6 +16,7 @@ from starlette.responses import Response
 from starlette.types import ASGIApp
 
 from services import auth_service
+from utils.client_ip import get_client_ip
 from utils.logger import get_logger
 
 logger = get_logger("http_request")
@@ -28,15 +29,6 @@ _SENSITIVE_KEY_RE = re.compile(
 
 # 不記錄 URL 路徑前綴（靜態檔流量大）
 _SKIP_PREFIXES: tuple[str, ...] = ("/public/", "/images/", "/videos/")
-
-
-def _client_ip(request: Request) -> str:
-    xff = request.headers.get("x-forwarded-for") or request.headers.get("X-Forwarded-For")
-    if xff:
-        return xff.split(",")[0].strip()
-    if request.client:
-        return request.client.host
-    return "-"
 
 
 def _redact_obj(obj: object) -> object:
@@ -114,7 +106,7 @@ class RequestAuditMiddleware(BaseHTTPMiddleware):
 
         method = request.method
         query = str(request.query_params) if request.query_params else ""
-        ip = _client_ip(request)
+        ip = get_client_ip(request)
         actor = _actor_from_request(request)
 
         body_note = ""

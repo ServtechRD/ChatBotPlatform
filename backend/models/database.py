@@ -1,5 +1,6 @@
 import os
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
+from sqlalchemy.engine import Engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
@@ -39,3 +40,31 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def ensure_conversations_client_ip_column(engine: Engine) -> None:
+    """啟動時補上舊資料庫缺少的 client_ip 欄位（忽略已存在；不回填舊列）。"""
+    url = str(engine.url)
+    with engine.connect() as conn:
+        if "sqlite" in url.lower():
+            try:
+                conn.execute(
+                    text(
+                        "ALTER TABLE conversations ADD COLUMN client_ip "
+                        "VARCHAR(45) NOT NULL DEFAULT '---'"
+                    )
+                )
+                conn.commit()
+            except Exception:
+                conn.rollback()
+        elif "mysql" in url.lower():
+            try:
+                conn.execute(
+                    text(
+                        "ALTER TABLE conversations ADD COLUMN client_ip "
+                        "VARCHAR(45) NOT NULL DEFAULT '---'"
+                    )
+                )
+                conn.commit()
+            except Exception:
+                conn.rollback()

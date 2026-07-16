@@ -20,7 +20,7 @@ from routers import (
     stt,
     speech_correction_rule,
 )
-from models.database import Base, engine
+from models.database import Base, engine, ensure_conversations_client_ip_column
 from models.models import SpeechCorrectionRule  # noqa: F401 — register table before create_all
 from services.assistant_prompt_storage import ensure_description_use_file_column
 from middleware.request_audit import RequestAuditMiddleware
@@ -33,6 +33,7 @@ logger = get_logger(__name__)
 # 初始化資料庫
 Base.metadata.create_all(bind=engine)
 ensure_description_use_file_column(engine)
+ensure_conversations_client_ip_column(engine)
 
 app = FastAPI()
 

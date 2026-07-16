@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import joinedload
 from sqlalchemy import exists
@@ -8,6 +8,7 @@ from typing import List
 from models.database import get_db
 from models.models import Conversation as ORMConversation, Message, AIAssistant
 from models.schemas import ConversationCreate, Conversation, Message as MessageSchema
+from utils.client_ip import get_client_ip
 
 router = APIRouter()
 
@@ -16,6 +17,7 @@ router = APIRouter()
 @router.post("/conversation/", response_model=Conversation)
 def create_conversation(
         conversation_data: ConversationCreate,
+        request: Request,
         db: Session = Depends(get_db)
 ):
     # 驗證助理是否存在
@@ -24,11 +26,12 @@ def create_conversation(
         raise HTTPException(status_code=404, detail="Assistant not found")
 
     # 建立新的對話
-    new_conversation = Conversation(
+    new_conversation = ORMConversation(
         assistant_id=conversation_data.assistant_id,
         customer_id=conversation_data.customer_id,
         customer_name=conversation_data.customer_name,
-        customer_email=conversation_data.customer_email
+        customer_email=conversation_data.customer_email,
+        client_ip=get_client_ip(request),
     )
     db.add(new_conversation)
     db.commit()
@@ -44,7 +47,7 @@ def get_conversation_messages(
         db: Session = Depends(get_db)
 ):
     # 檢查對話是否存在
-    conversation = db.query(Conversation).filter(Conversation.conversation_id == conversation_id).first()
+    conversation = db.query(ORMConversation).filter(ORMConversation.conversation_id == conversation_id).first()
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
@@ -77,7 +80,7 @@ def finalize_conversation(
         db: Session = Depends(get_db)
 ):
     # 查詢對話
-    conversation = db.query(Conversation).filter(Conversation.conversation_id == conversation_id).first()
+    conversation = db.query(ORMConversation).filter(ORMConversation.conversation_id == conversation_id).first()
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
 

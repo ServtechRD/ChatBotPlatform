@@ -62,7 +62,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from models.database import Base, get_db
+from models.database import Base, get_db, ensure_conversations_client_ip_column
 from services.assistant_prompt_storage import ensure_description_use_file_column
 from routers.assistant import router as assistant_router
 
@@ -92,6 +92,7 @@ def test_engine():
     )
     Base.metadata.create_all(bind=engine)
     ensure_description_use_file_column(engine)
+    ensure_conversations_client_ip_column(engine)
     yield engine
     Base.metadata.drop_all(bind=engine)
 

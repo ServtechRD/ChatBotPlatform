@@ -7,6 +7,7 @@ from services.llm_service import process_message_through_llm, _is_llm_connection
 from models.database import SessionLocal
 from models.models import Conversation, Message, AIAssistant
 from services.assistant_prompt_storage import get_effective_description
+from utils.client_ip import get_client_ip
 from utils.logger import get_logger
 
 router = APIRouter()
@@ -93,17 +94,22 @@ async def websocket_endpoint(
         t_conv_start = time.perf_counter()
         db = SessionLocal()
         try:
-            conversation = Conversation(assistant_id=assistant_uuid, customer_id=customer_id)
+            conversation = Conversation(
+                assistant_id=assistant_uuid,
+                customer_id=customer_id,
+                client_ip=get_client_ip(websocket),
+            )
             db.add(conversation)
             db.commit()
             db.refresh(conversation)
             conversation_id = conversation.conversation_id
+            client_ip = conversation.client_ip
         finally:
             db.close()
         t_conv_s = time.perf_counter() - t_conv_start
         logger.info(
-            "Conversation created: conversation_id=%s (耗時=%.3f s)",
-            conversation_id, t_conv_s
+            "Conversation created: conversation_id=%s client_ip=%s (耗時=%.3f s)",
+            conversation_id, client_ip, t_conv_s
         )
 
         while True:

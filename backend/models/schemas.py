@@ -91,6 +91,7 @@ class Conversation(BaseModel):
     customer_id: str
     customer_name: Optional[str]
     customer_email: Optional[str]
+    client_ip: Optional[str] = "---"
     created_at: datetime
     messages: List[Message] = []
 
