@@ -2,8 +2,7 @@ name: Deploy Chatbot By Self Runner
 
 on:
   push:
-    branches:
-      - main
+    branches: ['**']
 
 jobs:
   deploy:
