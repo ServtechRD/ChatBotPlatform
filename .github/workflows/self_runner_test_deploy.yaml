@@ -10,9 +10,13 @@ jobs:
 
     steps:
       - name: Update service
+        env:
+          BRANCH: ${{ github.ref_name }}
         run: |
+          echo "Deploying branch: $BRANCH"
           cd /home/stadmin/ChatBotPlatform
-          git checkout main
-          git pull
+          git fetch origin "$BRANCH"
+          git checkout "$BRANCH"
+          git pull origin "$BRANCH"
           cd ..
           ./restart_chatbot.sh main clear
