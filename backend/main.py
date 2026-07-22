@@ -19,6 +19,7 @@ from routers import (
     tts,
     stt,
     speech_correction_rule,
+    integration,
 )
 from models.database import Base, engine, ensure_conversations_client_ip_column
 from models.models import SpeechCorrectionRule  # noqa: F401 — register table before create_all
@@ -41,6 +42,13 @@ app = FastAPI()
 @app.on_event("startup")
 def startup_event():
     logger.info("Application started.")
+
+    from services.integration_api_key import is_api_key_configured
+
+    if not is_api_key_configured():
+        logger.warning(
+            "INTEGRATION_API_KEY is not set; integration API endpoints will reject all requests"
+        )
 
     # 預熱 RAG embeddings，避免第一次請求時模型下載/初始化卡住造成連帶 TTS 504
     try:
@@ -123,6 +131,7 @@ app.mount("/videos", StaticFiles(directory=str(_videos_dir)), name="videos")
 # 包含助理、對話、WebSocket 路由
 app.include_router(assistant.router)
 app.include_router(conversation.router)
+app.include_router(integration.router)
 app.include_router(websocket.router)
 app.include_router(auth.router, prefix="/auth")
 app.include_router(mfa.router, prefix="/auth/mfa")

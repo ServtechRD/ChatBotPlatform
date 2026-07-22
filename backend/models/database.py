@@ -18,14 +18,18 @@ DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "30"))
 DB_MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", "30"))
 DB_POOL_TIMEOUT = int(os.getenv("DB_POOL_TIMEOUT", "60"))
 
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    pool_size=DB_POOL_SIZE,
-    max_overflow=DB_MAX_OVERFLOW,
-    pool_timeout=DB_POOL_TIMEOUT,
-    pool_pre_ping=True,
-    pool_recycle=3600,
-)
+_engine_kwargs: dict = {
+    "pool_pre_ping": True,
+    "pool_recycle": 3600,
+}
+if not SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
+    _engine_kwargs.update(
+        pool_size=DB_POOL_SIZE,
+        max_overflow=DB_MAX_OVERFLOW,
+        pool_timeout=DB_POOL_TIMEOUT,
+    )
+
+engine = create_engine(SQLALCHEMY_DATABASE_URL, **_engine_kwargs)
 
 # 建立 SessionLocal 類別
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

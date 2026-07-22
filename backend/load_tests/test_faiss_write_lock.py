@@ -107,11 +107,35 @@ def test_lock_singleton_per_assistant() -> None:
     print("PASS: 同一 assistant_id 共用 asyncio.Lock")
 
 
+class _AsyncBarrier:
+    """Python 3.10 相容替代（asyncio.Barrier 自 3.11 才有）。"""
+
+    def __init__(self, parties: int) -> None:
+        self._parties = parties
+        self._count = 0
+        self._lock = asyncio.Lock()
+        self._event = asyncio.Event()
+
+    async def wait(self) -> None:
+        async with self._lock:
+            self._count += 1
+            if self._count >= self._parties:
+                self._event.set()
+                return
+        await self._event.wait()
+
+
+def _make_barrier(parties: int):
+    if hasattr(asyncio, "Barrier"):
+        return asyncio.Barrier(parties)
+    return _AsyncBarrier(parties)
+
+
 async def _test_same_assistant_id_serializes_async() -> None:
     aid = 900001
     order: list[str] = []
     order_lock = asyncio.Lock()
-    barrier = asyncio.Barrier(2)
+    barrier = _make_barrier(2)
 
     async def worker(name: str) -> None:
         await barrier.wait()
@@ -130,7 +154,7 @@ async def _test_same_assistant_id_serializes_async() -> None:
 async def _test_different_assistant_ids_can_overlap_async() -> None:
     events: list[tuple[float, str]] = []
     events_lock = asyncio.Lock()
-    barrier = asyncio.Barrier(2)
+    barrier = _make_barrier(2)
 
     async def worker(aid: int, name: str) -> None:
         await barrier.wait()
