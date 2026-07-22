@@ -17,6 +17,5 @@ jobs:
           cd /home/stadmin/ChatBotPlatform
           git fetch origin "$BRANCH"
           git checkout "$BRANCH"
-          git pull origin "$BRANCH"
           cd ..
           ./restart_chatbot.sh main clear
