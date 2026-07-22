@@ -106,8 +106,11 @@ def test_list_all_assistants_returns_all(integration_client, conversation_contex
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 1
-    assert data[0]["assistant_id"] == conversation_context["assistant_id"]
-    assert data[0]["name"] == "Integration Assistant"
+    assert data[0] == {
+        "assistant_id": conversation_context["assistant_id"],
+        "name": "Integration Assistant",
+        "link": "integration-test",
+    }
 
 
 def test_conversation_messages_requires_api_key(integration_client, conversation_context):

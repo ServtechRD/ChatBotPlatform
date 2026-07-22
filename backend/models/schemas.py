@@ -61,6 +61,16 @@ class Assistant(BaseModel):
         orm_mode = True
 
 
+# 外部整合用：助理列表精簡欄位
+class IntegrationAssistantSummary(BaseModel):
+    assistant_id: int
+    name: str
+    link: Optional[str] = None
+
+    class Config:
+        orm_mode = True
+
+
 # 訊息模型
 class MessageCreate(BaseModel):
     sender: str
