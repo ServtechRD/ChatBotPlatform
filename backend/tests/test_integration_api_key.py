@@ -1,5 +1,7 @@
 """Integration API key authentication tests."""
 
+from datetime import datetime
+
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -8,6 +10,7 @@ from models.database import get_db
 from models.models import AIAssistant, Conversation, Message, User
 from routers.conversation import router as conversation_router
 from routers.integration import router as integration_router
+from utils.timezone import TAIPEI
 
 TEST_API_KEY = "test-integration-secret"
 OWNER_EMAIL = "owner@example.com"
@@ -195,3 +198,56 @@ def test_integration_api_key_not_configured(db_session, app_dirs, monkeypatch):
         )
         assert response.status_code == 401
     app.dependency_overrides.clear()
+
+
+def test_message_count_requires_api_key(integration_client, conversation_context):
+    response = integration_client.get("/integration/conversations/messages/count")
+    assert response.status_code == 401
+
+
+def test_message_count_defaults_to_taipei_today(integration_client, conversation_context):
+    today = datetime.now(TAIPEI).date().isoformat()
+    response = integration_client.get(
+        "/integration/conversations/messages/count",
+        headers=api_key_header(),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["start_date"] == today
+    assert data["end_date"] == today
+    assert data["count"] == 2
+
+
+def test_message_count_with_explicit_range(integration_client, db_session, conversation_context):
+    conversation_id = conversation_context["conversation_id"]
+    old_ts = datetime(2026, 1, 1, 4, 0, 0)  # UTC ≈ 台北 2026-01-01 12:00
+    db_session.add(
+        Message(
+            conversation_id=conversation_id,
+            sender="customer",
+            content="old",
+            timestamp=old_ts,
+        )
+    )
+    db_session.commit()
+
+    response = integration_client.get(
+        "/integration/conversations/messages/count",
+        params={"start_date": "2026-01-01", "end_date": "2026-01-01"},
+        headers=api_key_header(),
+    )
+    assert response.status_code == 200
+    assert response.json() == {
+        "start_date": "2026-01-01",
+        "end_date": "2026-01-01",
+        "count": 1,
+    }
+
+
+def test_message_count_rejects_inverted_range(integration_client):
+    response = integration_client.get(
+        "/integration/conversations/messages/count",
+        params={"start_date": "2026-07-02", "end_date": "2026-07-01"},
+        headers=api_key_header(),
+    )
+    assert response.status_code == 400
