@@ -9,7 +9,10 @@ from models.database import get_db
 from models.models import Conversation as ORMConversation, Message, AIAssistant
 from models.schemas import ConversationCreate, Conversation, Message as MessageSchema
 from utils.client_ip import get_client_ip
-from dependencies.integration_auth import require_integration_api_key
+from dependencies.integration_auth import (
+    require_integration_api_key,
+    require_integration_api_key_or_bearer,
+)
 
 router = APIRouter()
 
@@ -62,6 +65,7 @@ def get_conversation_messages(
 @router.get("/user/{assistant_id}/conversations", response_model=List[Conversation])
 def get_user_conversations(
         assistant_id: int,
+        _: None = Depends(require_integration_api_key_or_bearer),
         db: Session = Depends(get_db)
 ):
     # 查詢使用者的所有對話
