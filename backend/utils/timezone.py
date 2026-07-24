@@ -23,3 +23,11 @@ def taipei_inclusive_range_to_utc_naive(start: date, end: date) -> tuple[datetim
     start_utc = start_local.astimezone(UTC).replace(tzinfo=None)
     end_utc = end_exclusive_local.astimezone(UTC).replace(tzinfo=None)
     return start_utc, end_utc
+
+
+def format_utc_naive_as_taipei(dt: datetime | None) -> str | None:
+    """DB 的 UTC naive datetime → 台北時間字串 YYYY-MM-DD HH:MM:SS；None 則回 None。"""
+    if dt is None:
+        return None
+    aware = dt.replace(tzinfo=UTC) if dt.tzinfo is None else dt.astimezone(UTC)
+    return aware.astimezone(TAIPEI).strftime("%Y-%m-%d %H:%M:%S")

@@ -78,6 +78,15 @@ class IntegrationMessageCount(BaseModel):
     count: int
 
 
+# 外部整合用：各助理最新一輪問答
+class IntegrationLatestQaItem(BaseModel):
+    name: str
+    question: Optional[str] = None
+    answer: Optional[str] = None
+    question_at: Optional[str] = None
+    answer_at: Optional[str] = None
+
+
 # 訊息模型
 class MessageCreate(BaseModel):
     sender: str

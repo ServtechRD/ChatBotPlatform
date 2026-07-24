@@ -251,3 +251,115 @@ def test_message_count_rejects_inverted_range(integration_client):
         headers=api_key_header(),
     )
     assert response.status_code == 400
+
+
+def test_latest_qa_requires_api_key(integration_client, conversation_context):
+    response = integration_client.get("/integration/assistants/latest-qa")
+    assert response.status_code == 401
+
+
+def test_latest_qa_all_assistants_with_null_when_empty(integration_client, conversation_context):
+    response = integration_client.get(
+        "/integration/assistants/latest-qa",
+        headers=api_key_header(),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    owner_key = str(conversation_context["assistant_id"])
+    assert owner_key in data
+    assert data[owner_key]["name"] == "Integration Assistant"
+    assert data[owner_key]["question"] == "hello"
+    assert data[owner_key]["answer"] == "hi there"
+    assert data[owner_key]["question_at"]
+    assert data[owner_key]["answer_at"]
+
+    # other assistant has no conversation → null QA fields
+    other_entries = [v for k, v in data.items() if k != owner_key]
+    assert len(other_entries) == 1
+    assert other_entries[0]["name"] == "Other Owner Assistant"
+    assert other_entries[0]["question"] is None
+    assert other_entries[0]["answer"] is None
+
+
+def test_latest_qa_uses_newest_conversation_and_top_two_messages(
+    integration_client, db_session, conversation_context
+):
+    assistant_id = conversation_context["assistant_id"]
+    old_cid = conversation_context["conversation_id"]
+
+    newer = Conversation(
+        assistant_id=assistant_id,
+        customer_id="cust-2",
+        customer_name="Bob",
+    )
+    db_session.add(newer)
+    db_session.commit()
+    db_session.refresh(newer)
+    assert newer.conversation_id > old_cid
+
+    db_session.add_all(
+        [
+            Message(
+                conversation_id=newer.conversation_id,
+                sender="客户",
+                content="最新問題",
+                timestamp=datetime(2026, 7, 23, 2, 0, 0),
+            ),
+            Message(
+                conversation_id=newer.conversation_id,
+                sender="助理",
+                content="最新回答",
+                timestamp=datetime(2026, 7, 23, 2, 0, 1),
+            ),
+            Message(
+                conversation_id=newer.conversation_id,
+                sender="客户",
+                content="更早的問題應被忽略",
+                timestamp=datetime(2026, 7, 23, 1, 0, 0),
+            ),
+        ]
+    )
+    db_session.commit()
+
+    response = integration_client.get(
+        "/integration/assistants/latest-qa",
+        headers=api_key_header(),
+    )
+    assert response.status_code == 200
+    item = response.json()[str(assistant_id)]
+    assert item["question"] == "最新問題"
+    assert item["answer"] == "最新回答"
+    assert item["question_at"] == "2026-07-23 10:00:00"
+    assert item["answer_at"] == "2026-07-23 10:00:01"
+
+
+def test_latest_qa_partial_messages_return_null(
+    integration_client, db_session, conversation_context
+):
+    assistant_id = conversation_context["assistant_id"]
+    newer = Conversation(
+        assistant_id=assistant_id,
+        customer_id="cust-3",
+    )
+    db_session.add(newer)
+    db_session.commit()
+    db_session.refresh(newer)
+    db_session.add(
+        Message(
+            conversation_id=newer.conversation_id,
+            sender="客户",
+            content="只有問題",
+            timestamp=datetime(2026, 7, 22, 4, 0, 0),
+        )
+    )
+    db_session.commit()
+
+    response = integration_client.get(
+        "/integration/assistants/latest-qa",
+        headers=api_key_header(),
+    )
+    item = response.json()[str(assistant_id)]
+    assert item["question"] == "只有問題"
+    assert item["answer"] is None
+    assert item["answer_at"] is None
+    assert item["question_at"] == "2026-07-22 12:00:00"
