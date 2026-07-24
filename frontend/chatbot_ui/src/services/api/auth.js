@@ -22,12 +22,18 @@ async function login(email, password) {
   return data;
 }
 
-async function register(email, password) {
-  return api.post('/auth/register', { email, password });
+async function register(email, name, password) {
+  return api.post('/auth/register', { email, name: name ?? '', password });
 }
 
 async function get() {
   const userData = await api.get('/auth/users/me');
+  storage.setUserData(userData);
+  return userData;
+}
+
+async function updateProfile(payload) {
+  const userData = await api.patch('/auth/users/me', payload);
   storage.setUserData(userData);
   return userData;
 }
@@ -40,5 +46,6 @@ export const auth = {
   login,
   register,
   get,
+  updateProfile,
   logout,
 };

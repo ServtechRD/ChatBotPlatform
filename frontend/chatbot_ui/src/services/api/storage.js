@@ -21,6 +21,23 @@ function getUserEmail() {
   return null;
 }
 
+function getUserName() {
+  const userData = localStorage.getItem('userData');
+  if (userData) {
+    return JSON.parse(userData).name ?? '';
+  }
+  return '';
+}
+
+function formatWorkspaceTitle() {
+  const email = getUserEmail() || 'default';
+  const name = (getUserName() || '').trim();
+  if (name) {
+    return `${name}(${email})'s Workspace`;
+  }
+  return `${email}'s Workspace`;
+}
+
 function getUserAssistants() {
   const userData = localStorage.getItem('userData');
   if (userData) {
@@ -49,6 +66,8 @@ export const storage = {
   clearAuthData,
   getUserId,
   getUserEmail,
+  getUserName,
+  formatWorkspaceTitle,
   getUserAssistants,
   setUserData,
   setToken,
