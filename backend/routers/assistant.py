@@ -15,7 +15,15 @@ from services.vector_service import (
     delete_knowledge_base_item,
 )
 from services.auth_service import verify_token
-from models.schemas import AssistantCreate, Assistant, AssistantUpdate
+from services import assistant_notebook_service, jarvis_knowledge_client
+from models.schemas import (
+    AssistantCreate,
+    Assistant,
+    AssistantUpdate,
+    AvailableNotebook,
+    AssistantNotebookBinding,
+    AssistantNotebookReplace,
+)
 from utils.logger import get_logger
 from services.assistant_prompt_storage import (
     get_effective_description,
@@ -46,6 +54,48 @@ def _read_default_description_template() -> str:
     except OSError:
         logger.warning("找不到描述範本檔: %s", _DESCRIPTION_TEMPLATE_PATH)
         return "你是專業且友善的 AI 助理。請清楚、簡潔地回答使用者問題。"
+
+
+@router.get(
+    "/assistant/notebooks/available",
+    response_model=List[AvailableNotebook],
+)
+def list_available_notebooks(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
+):
+    """依目前登入使用者 email 向 Jarvis 取得可綁定的 notebook 清單。"""
+    user_id = verify_token(token)
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="無效的登入憑證")
+
+    user = db.query(User).filter(User.user_id == int(user_id)).first()
+    if not user or not user.email:
+        raise HTTPException(status_code=400, detail="找不到使用者 email")
+
+    try:
+        raw = jarvis_knowledge_client.list_notebooks(user.email)
+    except Exception as e:
+        logger.exception("list_available_notebooks failed email=%s", user.email)
+        raise HTTPException(status_code=502, detail=f"無法取得 Notebook 清單: {e}") from e
+
+    result: List[AvailableNotebook] = []
+    for item in raw:
+        try:
+            nid = int(item.get("id"))
+        except (TypeError, ValueError, AttributeError):
+            continue
+        name = (item.get("name") or f"notebook-{nid}").strip()
+        result.append(
+            AvailableNotebook(
+                id=nid,
+                name=name,
+                description=item.get("description"),
+                service_type=item.get("service_type"),
+                file_count=item.get("file_count"),
+            )
+        )
+    return result
 
 
 # 必須註冊在 /assistant/{assistant_id} 之前，避免 path 被當成 id
@@ -271,6 +321,49 @@ async def delete_knowledge_item(
     except Exception as e:
         logger.exception("delete_knowledge_item failed assistant_id=%s knowledge_id=%s", assistant_id, knowledge_id)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get(
+    "/assistant/{assistant_id}/notebooks",
+    response_model=List[AssistantNotebookBinding],
+)
+def get_assistant_notebooks(
+    assistant_id: int,
+    assistant: AIAssistant = Depends(get_owned_assistant),
+    db: Session = Depends(get_db),
+):
+    rows = assistant_notebook_service.list_bindings(db, assistant_id)
+    return [
+        AssistantNotebookBinding(
+            notebook_id=r.notebook_id,
+            notebook_name=r.notebook_name,
+            enabled=r.enabled,
+        )
+        for r in rows
+    ]
+
+
+@router.put(
+    "/assistant/{assistant_id}/notebooks",
+    response_model=List[AssistantNotebookBinding],
+)
+def put_assistant_notebooks(
+    assistant_id: int,
+    payload: AssistantNotebookReplace,
+    assistant: AIAssistant = Depends(get_owned_assistant),
+    db: Session = Depends(get_db),
+):
+    rows = assistant_notebook_service.replace_bindings(
+        db, assistant_id, payload.notebooks
+    )
+    return [
+        AssistantNotebookBinding(
+            notebook_id=r.notebook_id,
+            notebook_name=r.notebook_name,
+            enabled=r.enabled,
+        )
+        for r in rows
+    ]
 
 
 # 取得助理資訊

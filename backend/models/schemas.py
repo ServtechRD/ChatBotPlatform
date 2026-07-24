@@ -125,6 +125,35 @@ class Conversation(BaseModel):
         orm_mode = True
 
 
+# Jarvis Notebook 綁定
+class AvailableNotebook(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None
+    service_type: Optional[str] = None
+    file_count: Optional[int] = None
+
+
+class AssistantNotebookBinding(BaseModel):
+    notebook_id: int
+    notebook_name: Optional[str] = None
+    enabled: bool = True
+
+    class Config:
+        from_attributes = True
+
+
+class AssistantNotebookItem(BaseModel):
+    notebook_id: int
+    notebook_name: Optional[str] = None
+
+
+class AssistantNotebookReplace(BaseModel):
+    """整批覆蓋助理綁定的 notebooks。"""
+
+    notebooks: List[AssistantNotebookItem] = Field(default_factory=list)
+
+
 # 語音文字正規化規則
 class SpeechCorrectionRuleOut(BaseModel):
     id: int

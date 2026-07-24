@@ -46,6 +46,11 @@ class AIAssistant(Base):
     speech_correction_rules = relationship(
         "SpeechCorrectionRule", back_populates="assistant"
     )
+    notebooks = relationship(
+        "AssistantNotebook",
+        back_populates="assistant",
+        cascade="all, delete-orphan",
+    )
 
     # 新增欄位
     image_assistant = Column(String(255), nullable=True)  # 助理圖路徑
@@ -111,6 +116,30 @@ class KnowledgeBase(Base):
 
     # 關聯至助理
     assistant = relationship("AIAssistant", back_populates="knowledges")
+
+
+class AssistantNotebook(Base):
+    """助理與 Jarvis Notebook 的綁定（多對多）。"""
+
+    __tablename__ = "assistant_notebook"
+    __table_args__ = (
+        UniqueConstraint(
+            "assistant_id",
+            "notebook_id",
+            name="uq_assistant_notebook",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    assistant_id = Column(
+        Integer, ForeignKey("assistants.assistant_id"), nullable=False, index=True
+    )
+    notebook_id = Column(Integer, nullable=False, index=True)
+    notebook_name = Column(String(255), nullable=True)
+    enabled = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    assistant = relationship("AIAssistant", back_populates="notebooks")
 
 
 class SpeechCorrectionRule(Base):

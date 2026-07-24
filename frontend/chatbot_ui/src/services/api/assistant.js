@@ -59,6 +59,18 @@ async function submitText(assistantId, text, fileName = '') {
   });
 }
 
+async function listAvailableNotebooks() {
+  return api.get(`${PATH}/notebooks/available`);
+}
+
+async function getNotebooks(assistantId) {
+  return api.get(`${PATH}/${assistantId}/notebooks`);
+}
+
+async function replaceNotebooks(assistantId, notebooks) {
+  return api.put(`${PATH}/${assistantId}/notebooks`, { notebooks });
+}
+
 export const assistant = {
   get,
   create,
@@ -68,4 +80,7 @@ export const assistant = {
   uploadFile,
   uploadUrl,
   submitText,
+  listAvailableNotebooks,
+  getNotebooks,
+  replaceNotebooks,
 };
