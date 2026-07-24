@@ -42,7 +42,7 @@ ensure_description_use_file_column(engine)
 ensure_conversations_client_ip_column(engine)
 ensure_users_name_column(engine)
 
-app = FastAPI(root_path="/api")
+app = FastAPI()
 
 
 @app.on_event("startup")

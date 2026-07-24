@@ -68,10 +68,11 @@ def get_user_conversations(
         _: None = Depends(require_integration_api_key_or_bearer),
         db: Session = Depends(get_db)
 ):
-    # 查詢使用者的所有對話
+    # 查詢使用者的所有對話（新→舊）
     conversations = (db.query(ORMConversation).filter(ORMConversation.assistant_id == assistant_id)
                      .filter(exists().where(ORMConversation.conversation_id == Message.conversation_id))
                      .options(joinedload(ORMConversation.messages))  # 預先載入 messages，避免 N+1 查詢
+                     .order_by(ORMConversation.created_at.desc())
                      .all())
     if not conversations:
         return []

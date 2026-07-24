@@ -398,6 +398,28 @@ def test_latest_qa_partial_messages_return_null(
     assert item["question_at"] == "2026-07-22 12:00:00"
 
 
+def test_latest_qa_skips_conversation_without_messages(
+    integration_client, db_session, conversation_context
+):
+    assistant_id = conversation_context["assistant_id"]
+    empty_newer = Conversation(
+        assistant_id=assistant_id,
+        customer_id="cust-empty",
+    )
+    db_session.add(empty_newer)
+    db_session.commit()
+    db_session.refresh(empty_newer)
+    assert empty_newer.conversation_id > conversation_context["conversation_id"]
+
+    response = integration_client.get(
+        "/integration/assistants/latest-qa",
+        headers=api_key_header(),
+    )
+    item = response.json()[str(assistant_id)]
+    assert item["question"] == "hello"
+    assert item["answer"] == "hi there"
+
+
 GUEST_OWNER_EMAIL = "admin@servtech.com.tw"
 
 
@@ -590,6 +612,56 @@ def test_ips_latest_qa_groups_by_ip_and_picks_newest_conversation(
     assert data["203.0.113.10"]["answer_at"] == "2026-07-23 10:00:01"
     assert data["198.51.100.7"]["question"] == "IP-B 問題"
     assert data["198.51.100.7"]["answer"] == "IP-B 回答"
+
+
+def test_ips_latest_qa_skips_conversation_without_messages(
+    integration_client, db_session, guest_assistant_context
+):
+    guest_id = guest_assistant_context["guest_assistant_id"]
+    target_ip = "203.0.113.55"
+
+    with_msg = Conversation(
+        assistant_id=guest_id,
+        customer_id="with-msg",
+        client_ip=target_ip,
+    )
+    empty_newer = Conversation(
+        assistant_id=guest_id,
+        customer_id="empty-newer",
+        client_ip=target_ip,
+    )
+    db_session.add_all([with_msg, empty_newer])
+    db_session.commit()
+    db_session.refresh(with_msg)
+    db_session.refresh(empty_newer)
+    assert empty_newer.conversation_id > with_msg.conversation_id
+
+    db_session.add_all(
+        [
+            Message(
+                conversation_id=with_msg.conversation_id,
+                sender="客户",
+                content="有訊息的問題",
+                timestamp=datetime(2026, 7, 23, 8, 0, 0),
+            ),
+            Message(
+                conversation_id=with_msg.conversation_id,
+                sender="助理",
+                content="有訊息的回答",
+                timestamp=datetime(2026, 7, 23, 8, 0, 1),
+            ),
+        ]
+    )
+    db_session.commit()
+
+    response = integration_client.get(
+        "/integration/ips/latest-qa",
+        headers=api_key_header(),
+    )
+    assert response.status_code == 200
+    item = response.json()[target_ip]
+    assert item["question"] == "有訊息的問題"
+    assert item["answer"] == "有訊息的回答"
 
 
 def test_ip_conversations_requires_api_key(integration_client, guest_assistant_context):

@@ -129,7 +129,7 @@ def list_assistants_latest_qa(
     _: None = Depends(require_integration_api_key),
     db: Session = Depends(get_db),
 ):
-    """全站每個助理一筆：最新 conversation 的最新兩則 message 組成問答（台北時間；需 X-API-Key）。"""
+    """全站每個助理一筆：有訊息的最新 conversation 之最新兩則 message 組成問答（台北時間；需 X-API-Key）。"""
     assistants = db.query(AIAssistant).order_by(AIAssistant.assistant_id).all()
     result: Dict[str, IntegrationLatestQaItem] = {
         str(a.assistant_id): IntegrationLatestQaItem(name=a.name)
@@ -145,6 +145,7 @@ def list_assistants_latest_qa(
                 Conversation.assistant_id,
                 func.max(Conversation.conversation_id).label("latest_cid"),
             )
+            .filter(exists().where(Conversation.conversation_id == Message.conversation_id))
             .group_by(Conversation.assistant_id)
             .all()
         )
@@ -190,7 +191,7 @@ def list_ips_latest_qa(
     _: None = Depends(require_integration_api_key),
     db: Session = Depends(get_db),
 ):
-    """guest 助理：每個 client_ip 一筆最新 conversation 的最新問答（需 X-API-Key）。"""
+    """guest 助理：每個 client_ip 一筆「有訊息的」最新 conversation 的最新問答（需 X-API-Key）。"""
     guest = _resolve_guest_assistant(db)
 
     latest_cid_by_ip = {
@@ -203,6 +204,7 @@ def list_ips_latest_qa(
             .filter(Conversation.assistant_id == guest.assistant_id)
             .filter(Conversation.client_ip.isnot(None))
             .filter(~Conversation.client_ip.in_(list(_IGNORED_CLIENT_IPS)))
+            .filter(exists().where(Conversation.conversation_id == Message.conversation_id))
             .group_by(Conversation.client_ip)
             .all()
         )
