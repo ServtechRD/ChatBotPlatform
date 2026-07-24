@@ -49,6 +49,8 @@ def _install_import_stubs() -> None:
         "vector_count": 0,
     }
     sys.modules["services.vector_service"] = vector_stub
+    # 讓 patch("services.vector_service.xxx") 能透過 getattr(services, "vector_service") 找到 stub
+    sys.modules["services"].vector_service = vector_stub
 
 
 _install_import_stubs()
