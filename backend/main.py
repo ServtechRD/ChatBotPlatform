@@ -21,7 +21,12 @@ from routers import (
     speech_correction_rule,
     integration,
 )
-from models.database import Base, engine, ensure_conversations_client_ip_column
+from models.database import (
+    Base,
+    engine,
+    ensure_conversations_client_ip_column,
+    ensure_users_name_column,
+)
 from models.models import AssistantNotebook, SpeechCorrectionRule  # noqa: F401 — register tables before create_all
 from services.assistant_prompt_storage import ensure_description_use_file_column
 from middleware.request_audit import RequestAuditMiddleware
@@ -35,6 +40,7 @@ logger = get_logger(__name__)
 Base.metadata.create_all(bind=engine)
 ensure_description_use_file_column(engine)
 ensure_conversations_client_ip_column(engine)
+ensure_users_name_column(engine)
 
 app = FastAPI()
 

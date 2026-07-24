@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from models.database import get_db
 from models.models import User
-from models.schemas import UserCreate, Token
+from models.schemas import UserCreate, Token, UserMe, UserProfileUpdate
 from services.auth_service import get_password_hash, verify_password, create_access_token, create_refresh_token, verify_token, verify_refresh_token
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from datetime import timedelta
@@ -14,6 +14,16 @@ logger = logging.getLogger(__name__)
 
 # OAuth2 密碼流機制
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+
+
+def _get_current_user(token: str, db: Session) -> User:
+    user_id = verify_token(token)
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    user = db.query(User).filter(User.user_id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
 
 
 # 使用者註冊
@@ -26,7 +36,11 @@ def register_user(user_data: UserCreate, db: Session = Depends(get_db)):
 
     # 雜湊密碼並儲存使用者
     hashed_password = get_password_hash(user_data.password)
-    new_user = User(email=user_data.email, password=hashed_password)
+    new_user = User(
+        email=user_data.email,
+        name=(user_data.name or "").strip(),
+        password=hashed_password,
+    )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
@@ -121,15 +135,34 @@ def refresh_access_token(refresh_token: str, db: Session = Depends(get_db)):
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-# JWT 保護路由範例
-@router.get("/users/me")
+@router.get("/users/me", response_model=UserMe)
 def read_users_me(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    user_id = verify_token(token)
-    if user_id is None:
-        raise HTTPException(status_code=401, detail="Invalid token")
+    return _get_current_user(token, db)
 
-    user = db.query(User).filter(User.user_id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
 
+@router.patch("/users/me", response_model=UserMe)
+def update_users_me(
+    payload: UserProfileUpdate,
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
+):
+    user = _get_current_user(token, db)
+
+    if payload.name is not None:
+        user.name = str(payload.name).strip()
+
+    new_password = (payload.new_password or "").strip()
+    current_password = (payload.current_password or "").strip()
+    if new_password or current_password:
+        if not new_password or not current_password:
+            raise HTTPException(
+                status_code=400,
+                detail="current_password and new_password are both required to change password",
+            )
+        if not verify_password(current_password, user.password):
+            raise HTTPException(status_code=400, detail="Incorrect current password")
+        user.password = get_password_hash(new_password)
+
+    db.commit()
+    db.refresh(user)
     return user
