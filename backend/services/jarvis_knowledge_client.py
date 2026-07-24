@@ -18,6 +18,13 @@ logger = get_logger(__name__)
 
 API_KEY_HEADER = "X-API-Key"
 
+# Jarvis /api/integration/notebooks 回 500：平台內沒有對應 email
+JARVIS_EMAIL_NOT_FOUND_MSG = "無法取得 Notebook 清單，此帳號可能尚未在 Jarvis 建立"
+
+
+class JarvisEmailNotFoundError(RuntimeError):
+    """Jarvis 回 500，表示該 email 尚未在 Jarvis 建立。"""
+
 _MOCK_NOTEBOOKS: List[Dict[str, Any]] = [
     {
         "id": 1,
@@ -82,6 +89,12 @@ def list_notebooks(email: str) -> List[Dict[str, Any]]:
     url = f"{base}/api/integration/notebooks"
     with httpx.Client(timeout=_timeout(), verify=False) as client:
         resp = client.get(url, params={"email": email}, headers=_headers())
+        if resp.status_code == 500:
+            logger.warning(
+                "[Jarvis] list_notebooks 500 (email not on Jarvis) email=%s",
+                email,
+            )
+            raise JarvisEmailNotFoundError(JARVIS_EMAIL_NOT_FOUND_MSG)
         resp.raise_for_status()
         data = resp.json()
 

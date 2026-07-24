@@ -75,6 +75,12 @@ def list_available_notebooks(
 
     try:
         raw = jarvis_knowledge_client.list_notebooks(user.email)
+    except jarvis_knowledge_client.JarvisEmailNotFoundError as e:
+        logger.warning(
+            "list_available_notebooks: Jarvis email not found email=%s",
+            user.email,
+        )
+        raise HTTPException(status_code=502, detail=str(e)) from e
     except Exception as e:
         logger.exception("list_available_notebooks failed email=%s", user.email)
         raise HTTPException(status_code=502, detail=f"無法取得 Notebook 清單: {e}") from e

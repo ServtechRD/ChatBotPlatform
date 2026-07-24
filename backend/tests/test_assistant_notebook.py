@@ -114,3 +114,54 @@ def test_available_notebooks_http_passes_email(client, owner_context, monkeypatc
         assert response.status_code == 200
         assert response.json()[0]["id"] == 93
         mocked.assert_called_once_with("owner@example.com")
+
+
+def test_available_notebooks_jarvis_500_email_not_found(client, owner_context):
+    from services.jarvis_knowledge_client import (
+        JARVIS_EMAIL_NOT_FOUND_MSG,
+        JarvisEmailNotFoundError,
+    )
+
+    with patch(
+        "routers.assistant.jarvis_knowledge_client.list_notebooks",
+        side_effect=JarvisEmailNotFoundError(JARVIS_EMAIL_NOT_FOUND_MSG),
+    ):
+        response = client.get(
+            "/assistant/notebooks/available",
+            headers=auth_header(owner_context["owner_token"]),
+        )
+    assert response.status_code == 502
+    assert response.json()["detail"] == JARVIS_EMAIL_NOT_FOUND_MSG
+
+
+def test_list_notebooks_http_500_raises_email_not_found(monkeypatch):
+    import httpx
+
+    from services import jarvis_knowledge_client as client_mod
+
+    monkeypatch.setenv("NOTEBOOK_KNOWLEDGE_MODE", "http")
+    monkeypatch.setenv("JARVIS_BASE_URL", "https://jarvis.example")
+    monkeypatch.setenv("INTEGRATION_API_KEY", "test-key")
+
+    mock_resp = httpx.Response(500, request=httpx.Request("GET", "https://jarvis.example/x"))
+
+    class _FakeClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def get(self, *args, **kwargs):
+            return mock_resp
+
+    monkeypatch.setattr(client_mod.httpx, "Client", _FakeClient)
+
+    try:
+        client_mod.list_notebooks("missing@example.com")
+        assert False, "expected JarvisEmailNotFoundError"
+    except client_mod.JarvisEmailNotFoundError as exc:
+        assert str(exc) == client_mod.JARVIS_EMAIL_NOT_FOUND_MSG

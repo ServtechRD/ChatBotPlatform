@@ -865,7 +865,8 @@ export default function EditAIAssistantDialog({
                   placeholder="選擇可使用的 Notebook"
                   helperText={
                     availableNotebooksQuery.isError
-                      ? '無法載入 Notebook 清單（請確認 Jarvis 連線與 API Key）'
+                      ? availableNotebooksQuery.error?.response?.data?.detail ||
+                        '無法取得 Notebook 清單，此帳號可能尚未在 Jarvis 建立'
                       : '可多選；清空則改回本機知識庫'
                   }
                   error={availableNotebooksQuery.isError}
