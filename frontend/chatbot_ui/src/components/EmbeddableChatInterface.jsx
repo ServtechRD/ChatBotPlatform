@@ -1223,7 +1223,14 @@ export default function EmbeddableChatInterface({
                           '& strong': { fontWeight: 700 },
                         }}
                       >
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            a: ({ node, ...props }) => (
+                              <a {...props} target="_blank" rel="noopener noreferrer" />
+                            ),
+                          }}
+                        >
                           {message.text ?? ''}
                         </ReactMarkdown>
                       </Box>
