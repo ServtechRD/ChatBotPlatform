@@ -129,19 +129,6 @@ def search_knowledge(notebook_ids: List[int], ask: str) -> List[Dict[str, Any]]:
                 "score": 1.0,
             }
         ]
-        )
-        return [
-            {
-                "content": (
-                    f"[Mock] 與問題「{ask[:80]}」相關的知識片段。\n"
-                    f"此內容來自 mock notebook_id={ids[0]}，"
-                    "請改 NOTEBOOK_KNOWLEDGE_MODE=http 連正式 Jarvis。"
-                ),
-                "score": 0.91,
-                "source": "mock.txt",
-                "notebook_id": ids[0],
-            }
-        ]
 
     base = _base_url()
     if not base:
