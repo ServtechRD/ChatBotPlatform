@@ -107,17 +107,20 @@ def list_notebooks(email: str) -> List[Dict[str, Any]]:
 
 
 def search_knowledge(notebook_ids: List[int], ask: str) -> List[Dict[str, Any]]:
-    """POST /api/integration/knowledge/search — body: notebook_ids + ask。"""
+    """POST /api/integration/knowledge/search — body: notebook_ids + ask + top。"""
     ids = [int(x) for x in notebook_ids if x is not None]
     ask = (ask or "").strip()
     if not ids or not ask:
         return []
 
+    top_k = max(1, int(os.getenv("RAG_TOP_K", "3")))
+
     if _mode() != "http":
         logger.info(
-            "[Jarvis] mock search_knowledge notebook_ids=%s ask_len=%d",
+            "[Jarvis] mock search_knowledge notebook_ids=%s ask_len=%d top=%d",
             ids,
             len(ask),
+            top_k,
         )
         return [
             {
@@ -137,7 +140,7 @@ def search_knowledge(notebook_ids: List[int], ask: str) -> List[Dict[str, Any]]:
         raise RuntimeError("JARVIS_BASE_URL is not configured")
 
     url = f"{base}/api/integration/knowledge/search"
-    payload = {"notebook_ids": ids, "ask": ask}
+    payload = {"notebook_ids": ids, "ask": ask, "top": top_k}
     with httpx.Client(timeout=_timeout(), verify=False) as client:
         resp = client.post(url, json=payload, headers=_headers())
         resp.raise_for_status()
