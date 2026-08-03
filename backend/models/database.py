@@ -72,3 +72,31 @@ def ensure_conversations_client_ip_column(engine: Engine) -> None:
                 conn.commit()
             except Exception:
                 conn.rollback()
+
+
+def ensure_users_name_column(engine: Engine) -> None:
+    """啟動時補上 users.name（預設空字串）。"""
+    url = str(engine.url)
+    with engine.connect() as conn:
+        if "sqlite" in url.lower():
+            try:
+                conn.execute(
+                    text(
+                        "ALTER TABLE users ADD COLUMN name "
+                        "VARCHAR(255) NOT NULL DEFAULT ''"
+                    )
+                )
+                conn.commit()
+            except Exception:
+                conn.rollback()
+        elif "mysql" in url.lower():
+            try:
+                conn.execute(
+                    text(
+                        "ALTER TABLE users ADD COLUMN name "
+                        "VARCHAR(255) NOT NULL DEFAULT ''"
+                    )
+                )
+                conn.commit()
+            except Exception:
+                conn.rollback()

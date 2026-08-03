@@ -350,25 +350,92 @@ def _synch_process_llm(data, assistant_uuid, customer_unique_id, lang, model, as
         assistant_uuid, customer_unique_id, lang, model, len(data or "")
     )
 
-    t_vs_start = time.perf_counter()
-    vector_store = get_vector_store(assistant_uuid)
-    t_vs_s = time.perf_counter() - t_vs_start
+    retrieval_text = None
+    t_vs_s = 0.0
+    t_retrieve_s = 0.0
 
-    if not vector_store:
-        logger.warning("[LLM] 無向量庫 assistant_uuid=%s (get_vector_store 耗時=%.3f s)，回傳 noidea", assistant_uuid, t_vs_s)
-        return noidea
-    logger.info("[LLM] get_vector_store 完成 (耗時=%.3f s)", t_vs_s)
+    # Phase 1：有綁定 Jarvis Notebook 時優先走 Knowledge API，略過本地 FAISS
+    notebook_ids: List[int] = []
+    try:
+        from models.database import SessionLocal
+        from services.assistant_notebook_service import list_enabled_notebook_ids
 
-    t_retrieve_start = time.perf_counter()
-    relevant_docs = _hybrid_retrieve(vector_store, data)
-    t_retrieve_s = time.perf_counter() - t_retrieve_start
-    doc_count = len(relevant_docs) if relevant_docs else 0
-    logger.info(
-        "[LLM] 混合檢索完成 assistant_uuid=%s 相關文件數=%d (檢索耗時=%.3f s)",
-        assistant_uuid, doc_count, t_retrieve_s
-    )
-    if doc_count > 0:
-        logger.debug("[LLM] 檢索到文件預覽: %s", relevant_docs[0].page_content[:200] if relevant_docs else "")
+        db = SessionLocal()
+        try:
+            notebook_ids = list_enabled_notebook_ids(db, int(assistant_uuid))
+        finally:
+            db.close()
+    except Exception as e:
+        logger.exception(
+            "[LLM] 讀取 assistant_notebook 失敗 assistant_uuid=%s error=%s",
+            assistant_uuid,
+            e,
+        )
+
+    if notebook_ids:
+        logger.info(
+            "[LLM] 使用 Jarvis Knowledge API assistant_uuid=%s notebook_ids=%s",
+            assistant_uuid,
+            notebook_ids,
+        )
+        t_retrieve_start = time.perf_counter()
+        try:
+            from services.jarvis_knowledge_client import (
+                format_search_results_as_context,
+                search_knowledge,
+            )
+
+            results = search_knowledge(notebook_ids, data)
+            retrieval_text = format_search_results_as_context(results)
+            doc_count = len(results) if results else 0
+        except Exception as e:
+            logger.exception(
+                "[LLM] Jarvis search 失敗 assistant_uuid=%s error=%s",
+                assistant_uuid,
+                e,
+            )
+            results = []
+            retrieval_text = None
+            doc_count = 0
+        t_retrieve_s = time.perf_counter() - t_retrieve_start
+        logger.info(
+            "[LLM] Jarvis 檢索完成 assistant_uuid=%s 相關片段數=%d (檢索耗時=%.3f s)",
+            assistant_uuid,
+            doc_count,
+            t_retrieve_s,
+        )
+    else:
+        t_vs_start = time.perf_counter()
+        vector_store = get_vector_store(assistant_uuid)
+        t_vs_s = time.perf_counter() - t_vs_start
+
+        if not vector_store:
+            logger.warning(
+                "[LLM] 無向量庫 assistant_uuid=%s (get_vector_store 耗時=%.3f s)，回傳 noidea",
+                assistant_uuid,
+                t_vs_s,
+            )
+            return noidea
+        logger.info("[LLM] get_vector_store 完成 (耗時=%.3f s)", t_vs_s)
+
+        t_retrieve_start = time.perf_counter()
+        relevant_docs = _hybrid_retrieve(vector_store, data)
+        t_retrieve_s = time.perf_counter() - t_retrieve_start
+        doc_count = len(relevant_docs) if relevant_docs else 0
+        logger.info(
+            "[LLM] 混合檢索完成 assistant_uuid=%s 相關文件數=%d (檢索耗時=%.3f s)",
+            assistant_uuid, doc_count, t_retrieve_s
+        )
+        if doc_count > 0:
+            logger.debug(
+                "[LLM] 檢索到文件預覽: %s",
+                relevant_docs[0].page_content[:200] if relevant_docs else "",
+            )
+            retrieval_text = "\n\n----------------------------------\n\n".join(
+                (d.page_content or "").strip()
+                for d in relevant_docs
+                if (d.page_content or "").strip()
+            )
 
     t_llm_init_start = time.perf_counter()
     runtime_model = VLLM_MODEL or model
@@ -380,12 +447,12 @@ def _synch_process_llm(data, assistant_uuid, customer_unique_id, lang, model, as
         model_kwargs={"top_p": 0.9},
     )
     logger.info("[LLM] provider=vllm base_url=%s model=%s", VLLM_BASE_URL, runtime_model)
-    
+
     user_query = data
     t_llm_init_s = time.perf_counter() - t_llm_init_start
     logger.debug("[LLM] 建構 user_query 與 LLM 實例 (耗時=%.3f s)", t_llm_init_s)
 
-    if not relevant_docs:
+    if not retrieval_text:
         logger.info("[LLM] 無相關文件，使用助理 description + 使用者問題呼叫 LLM")
         full_prompt = _build_user_prompt(assistant_description, lang, user_query, retrieval_context=None)
         t_direct_start = time.perf_counter()
@@ -404,9 +471,6 @@ def _synch_process_llm(data, assistant_uuid, customer_unique_id, lang, model, as
         )
         return response
 
-    retrieval_text = "\n\n----------------------------------\n\n".join(
-        (d.page_content or "").strip() for d in relevant_docs if (d.page_content or "").strip()
-    )
     logger.info("[LLM] 有相關文件，使用助理 description + 使用者問題 + 檢索結果呼叫 LLM")
     full_prompt = _build_user_prompt(assistant_description, lang, user_query, retrieval_context=retrieval_text)
 

@@ -42,7 +42,9 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [openRegister, setOpenRegister] = useState(false);
   const [registerEmail, setRegisterEmail] = useState('');
+  const [registerName, setRegisterName] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
+  const [registerError, setRegisterError] = useState('');
 
   // MFA State
   const [mfaStage, setMfaStage] = useState('login'); // 'login', 'setup', 'verify'
@@ -138,12 +140,28 @@ export default function LoginPage() {
   }
 
   async function handleRegister() {
+    setRegisterError('');
+    const email = registerEmail.trim();
+    if (!email.includes('@')) {
+      setRegisterError('Email 須包含 @');
+      return;
+    }
+    if (!registerPassword) {
+      setRegisterError('請輸入密碼');
+      return;
+    }
     try {
-      await auth.register(registerEmail, registerPassword);
+      await auth.register(email, registerName.trim(), registerPassword);
       alert('註冊成功！請使用新帳號登入。');
       setOpenRegister(false);
+      setRegisterEmail('');
+      setRegisterName('');
+      setRegisterPassword('');
     } catch (error) {
-      alert('註冊失敗，請稍後再試。');
+      const detail = error.response?.data?.detail;
+      setRegisterError(
+        typeof detail === 'string' ? detail : '註冊失敗，請稍後再試。'
+      );
     }
   }
 
@@ -321,12 +339,21 @@ export default function LoginPage() {
         )}
       </Box>
 
-      <Dialog open={openRegister} onClose={() => setOpenRegister(false)}>
+      <Dialog
+        open={openRegister}
+        onClose={() => {
+          setOpenRegister(false);
+          setRegisterError('');
+        }}
+      >
         <DialogTitle>
           註冊
           <IconButton
             aria-label="close"
-            onClick={() => setOpenRegister(false)}
+            onClick={() => {
+              setOpenRegister(false);
+              setRegisterError('');
+            }}
             sx={{
               position: 'absolute',
               right: 8,
@@ -337,6 +364,11 @@ export default function LoginPage() {
           </IconButton>
         </DialogTitle>
         <DialogContent>
+          {registerError && (
+            <Alert severity="error" sx={{ mb: 1 }}>
+              {registerError}
+            </Alert>
+          )}
           <TextField
             autoFocus
             margin="dense"
@@ -345,8 +377,19 @@ export default function LoginPage() {
             type="email"
             fullWidth
             variant="outlined"
+            required
             value={registerEmail}
             onChange={e => setRegisterEmail(e.target.value)}
+          />
+          <TextField
+            margin="dense"
+            id="register-name"
+            label="顯示名稱"
+            fullWidth
+            variant="outlined"
+            value={registerName}
+            onChange={e => setRegisterName(e.target.value)}
+            helperText="可留空"
           />
           <TextField
             margin="dense"
@@ -355,12 +398,20 @@ export default function LoginPage() {
             type="password"
             fullWidth
             variant="outlined"
+            required
             value={registerPassword}
             onChange={e => setRegisterPassword(e.target.value)}
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenRegister(false)}>取消</Button>
+          <Button
+            onClick={() => {
+              setOpenRegister(false);
+              setRegisterError('');
+            }}
+          >
+            取消
+          </Button>
           <Button
             onClick={handleRegister}
             variant="contained"

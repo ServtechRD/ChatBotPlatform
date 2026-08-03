@@ -10,6 +10,9 @@ export const assistantKeys = {
     [...assistantKeys.all, 'detail', assistantId] as const,
   descriptionTemplate: () =>
     [...assistantKeys.all, 'description-template'] as const,
+  notebooksAvailable: () => [...assistantKeys.all, 'notebooks-available'] as const,
+  notebooks: (assistantId: number | string | null | undefined) =>
+    [...assistantKeys.all, 'notebooks', assistantId] as const,
 };
 
 export function useAssistantDetailQuery(
@@ -30,6 +33,50 @@ export function useDescriptionTemplateQuery(options?: { enabled?: boolean }) {
     queryFn: () => assistantApi.getDescriptionTemplate(),
     enabled: options?.enabled ?? true,
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useAvailableNotebooksQuery(options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: assistantKeys.notebooksAvailable(),
+    queryFn: async () => {
+      const data = await assistantApi.listAvailableNotebooks();
+      return Array.isArray(data) ? data : [];
+    },
+    enabled: options?.enabled ?? true,
+  });
+}
+
+export function useAssistantNotebooksQuery(
+  assistantId?: number | string | null,
+  options?: { enabled?: boolean }
+) {
+  const id = assistantId != null ? Number(assistantId) : null;
+  return useQuery({
+    queryKey: assistantKeys.notebooks(id),
+    queryFn: async () => {
+      const data = await assistantApi.getNotebooks(id);
+      return Array.isArray(data) ? data : [];
+    },
+    enabled: (options?.enabled ?? true) && id != null && !Number.isNaN(id),
+  });
+}
+
+export function useReplaceAssistantNotebooksMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      assistantId,
+      notebooks,
+    }: {
+      assistantId: number;
+      notebooks: { notebook_id: number; notebook_name?: string | null }[];
+    }) => assistantApi.replaceNotebooks(assistantId, notebooks),
+    onSuccess: (_data, { assistantId }) => {
+      queryClient.invalidateQueries({
+        queryKey: assistantKeys.notebooks(assistantId),
+      });
+    },
   });
 }
 

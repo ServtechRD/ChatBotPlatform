@@ -44,6 +44,16 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  useEffect(() => {
+    function onUserDataUpdated(e) {
+      if (e.detail) {
+        setUser(e.detail);
+      }
+    }
+    window.addEventListener('userDataUpdated', onUserDataUpdated);
+    return () => window.removeEventListener('userDataUpdated', onUserDataUpdated);
+  }, []);
+
   async function login(token) {
     localStorage.setItem('token', token);
     setIsAuthenticated(true);

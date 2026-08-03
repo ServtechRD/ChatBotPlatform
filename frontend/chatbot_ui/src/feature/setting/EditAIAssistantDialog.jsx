@@ -17,6 +17,8 @@ import {
   Box,
   Paper,
   CircularProgress,
+  Autocomplete,
+  Chip,
 } from '@mui/material';
 import {
   Link as LinkIcon,
@@ -32,8 +34,11 @@ import { formatImageUrl } from '../../utils/urlUtils';
 
 import {
   useAssistantDetailQuery,
+  useAssistantNotebooksQuery,
+  useAvailableNotebooksQuery,
   useCreateAssistantMutation,
   useDescriptionTemplateQuery,
+  useReplaceAssistantNotebooksMutation,
   useUpdateAssistantMutation,
 } from '../../queries/assistant';
 import { DEFAULT_ASSISTANT_DESCRIPTION_TEMPLATE } from './defaultAssistantDescriptionTemplate';
@@ -66,6 +71,7 @@ export default function EditAIAssistantDialog({
 
   const [welcomeText, setWelcomeText] = useState('');
   const [unableToRespondText, setUnableToRespondText] = useState('');
+  const [selectedNotebooks, setSelectedNotebooks] = useState([]);
 
   // 圖片相關狀態
   const [image, setImage] = useState(null);
@@ -172,11 +178,48 @@ export default function EditAIAssistantDialog({
     isEditMode ? assistantDetailQuery.isLoading : descriptionTemplateQuery.isLoading;
   const createAssistantMutation = useCreateAssistantMutation();
   const updateAssistantMutation = useUpdateAssistantMutation();
+  const replaceNotebooksMutation = useReplaceAssistantNotebooksMutation();
+  const availableNotebooksQuery = useAvailableNotebooksQuery({
+    enabled: open && isEditMode,
+  });
+  const boundNotebooksQuery = useAssistantNotebooksQuery(aiAssistant?.assistant_id, {
+    enabled: open && isEditMode,
+  });
 
   useEffect(() => {
     if (!open || !isEditMode || !assistantDetailQuery.data) return;
     applyAssistantDetail(assistantDetailQuery.data);
   }, [open, isEditMode, assistantDetailQuery.data, applyAssistantDetail]);
+
+  useEffect(() => {
+    if (!open || !isEditMode) {
+      setSelectedNotebooks([]);
+      return;
+    }
+    if (!boundNotebooksQuery.data) return;
+
+    const availableById = new Map(
+      (availableNotebooksQuery.data || []).map(n => [Number(n.id), n])
+    );
+    const selected = boundNotebooksQuery.data.map(b => {
+      const id = Number(b.notebook_id);
+      const fromAvailable = availableById.get(id);
+      return (
+        fromAvailable || {
+          id,
+          name: b.notebook_name || `notebook-${id}`,
+          description: null,
+          file_count: null,
+        }
+      );
+    });
+    setSelectedNotebooks(selected);
+  }, [
+    open,
+    isEditMode,
+    boundNotebooksQuery.data,
+    availableNotebooksQuery.data,
+  ]);
 
   useEffect(() => {
     if (!open || isEditMode) return;
@@ -451,6 +494,13 @@ export default function EditAIAssistantDialog({
         await updateAssistantMutation.mutateAsync({
           assistantId: aiAssistant.assistant_id,
           formData,
+        });
+        await replaceNotebooksMutation.mutateAsync({
+          assistantId: aiAssistant.assistant_id,
+          notebooks: selectedNotebooks.map(n => ({
+            notebook_id: Number(n.id),
+            notebook_name: n.name || null,
+          })),
         });
         alert('更新成功！');
       } else {
@@ -776,6 +826,55 @@ export default function EditAIAssistantDialog({
             </Select>
           </FormControl>
         </Box>
+
+        {isEditMode ? (
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="caption" color="textSecondary" display="block" sx={{ mb: 1 }}>
+              綁定 Jarvis Notebook 後，對話將改從此知識庫檢索（不再使用本機上傳知識庫）。
+            </Typography>
+            <Autocomplete
+              multiple
+              options={availableNotebooksQuery.data || []}
+              value={selectedNotebooks}
+              loading={
+                availableNotebooksQuery.isLoading || boundNotebooksQuery.isLoading
+              }
+              getOptionLabel={option =>
+                option?.name
+                  ? `${option.name}${
+                      option.file_count != null ? ` (${option.file_count} 檔)` : ''
+                    }`
+                  : String(option?.id ?? '')
+              }
+              isOptionEqualToValue={(a, b) => Number(a?.id) === Number(b?.id)}
+              onChange={(_e, value) => setSelectedNotebooks(value)}
+              renderTags={(value, getTagProps) =>
+                value.map((option, index) => (
+                  <Chip
+                    {...getTagProps({ index })}
+                    key={option.id}
+                    label={option.name || `notebook-${option.id}`}
+                    size="small"
+                  />
+                ))
+              }
+              renderInput={params => (
+                <TextField
+                  {...params}
+                  label="綁定 Notebook"
+                  placeholder="選擇可使用的 Notebook"
+                  helperText={
+                    availableNotebooksQuery.isError
+                      ? availableNotebooksQuery.error?.response?.data?.detail ||
+                        '無法取得 Notebook 清單，此帳號可能尚未在 Jarvis 建立'
+                      : '可多選；清空則改回本機知識庫'
+                  }
+                  error={availableNotebooksQuery.isError}
+                />
+              )}
+            />
+          </Box>
+        ) : null}
 
         {/* 歡迎文字 */}
         <Box sx={{ mb: 3 }}>

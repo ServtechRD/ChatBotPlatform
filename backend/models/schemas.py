@@ -6,7 +6,41 @@ from datetime import date, datetime
 # 使用者建立模型
 class UserCreate(BaseModel):
     email: str
+    name: str = ""
     password: str
+
+    @field_validator("email")
+    @classmethod
+    def email_must_contain_at(cls, v: str) -> str:
+        value = (v or "").strip()
+        if "@" not in value:
+            raise ValueError("email must contain @")
+        return value
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def name_default_empty(cls, v) -> str:
+        if v is None:
+            return ""
+        return str(v)
+
+
+class UserMe(BaseModel):
+    user_id: int
+    email: str
+    name: str = ""
+    permission_level: int
+    is_admin: bool = False
+    is_totp_enabled: bool = False
+
+    class Config:
+        orm_mode = True
+
+
+class UserProfileUpdate(BaseModel):
+    name: Optional[str] = None
+    current_password: Optional[str] = None
+    new_password: Optional[str] = None
 
 
 # 登入與註冊成功後的 JWT 回傳模型
@@ -123,6 +157,35 @@ class Conversation(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+# Jarvis Notebook 綁定
+class AvailableNotebook(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None
+    service_type: Optional[str] = None
+    file_count: Optional[int] = None
+
+
+class AssistantNotebookBinding(BaseModel):
+    notebook_id: int
+    notebook_name: Optional[str] = None
+    enabled: bool = True
+
+    class Config:
+        from_attributes = True
+
+
+class AssistantNotebookItem(BaseModel):
+    notebook_id: int
+    notebook_name: Optional[str] = None
+
+
+class AssistantNotebookReplace(BaseModel):
+    """整批覆蓋助理綁定的 notebooks。"""
+
+    notebooks: List[AssistantNotebookItem] = Field(default_factory=list)
 
 
 # 語音文字正規化規則

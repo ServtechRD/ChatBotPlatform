@@ -12,6 +12,7 @@ import {
   Box,
   Dialog,
   IconButton,
+  Menu,
   MenuItem as MuiMenuItem,
   Select,
   CircularProgress,
@@ -25,14 +26,15 @@ import {
 } from 'react-router-dom';
 import {
   Menu as MenuIcon,
+  MenuOpen as MenuOpenIcon,
   Chat as ChatIcon,
   Dataset as DatasetIcon,
-  ExitToApp as ExitToAppIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
 
 import ChatInterface from '../feature/chat/ChatInterface';
 import AIAssistantManagement from '../feature/setting/AIAssistantManagement';
+import AccountSettingsDialog from './AccountSettingsDialog.jsx';
 import { storage } from '../services/api/storage.js';
 import useAuth from '../hook/useAuth';
 import { AssistantProvider, useAssistant } from '../context/AssistantContext.jsx';
@@ -72,15 +74,21 @@ function AppLayoutShell() {
   const [isChatDialogOpen, setIsChatDialogOpen] = useState(false);
   const [isAIManagementDialogOpen, setIsAIManagementDialogOpen] =
     useState(false);
-  const [workspace, setWorkspace] = useState('Kao');
+  const [workspaceTitle, setWorkspaceTitle] = useState(
+    storage.formatWorkspaceTitle()
+  );
+  const [accountMenuAnchor, setAccountMenuAnchor] = useState(null);
+  const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
 
   useEffect(() => {
-    setWorkspace(storage.getUserEmail() || 'default');
+    function refreshWorkspaceTitle() {
+      setWorkspaceTitle(storage.formatWorkspaceTitle());
+    }
+    refreshWorkspaceTitle();
 
     function handleStorageChange(e) {
       if (e.key === 'userData' || e.type === 'userDataUpdated') {
-        const newEmail = storage.getUserEmail();
-        if (newEmail) setWorkspace(newEmail);
+        refreshWorkspaceTitle();
       }
     }
 
@@ -93,6 +101,7 @@ function AppLayoutShell() {
   }, []);
 
   function handleLogout() {
+    setAccountMenuAnchor(null);
     logout();
     navigate('/login');
   }
@@ -127,8 +136,9 @@ function AppLayoutShell() {
             onClick={() => setIsMenuOpen(!isMenuOpen)}
             edge="start"
             sx={{ mr: 2 }}
+            aria-label="toggle sidebar"
           >
-            <MenuIcon />
+            <MenuOpenIcon />
           </IconButton>
           <RouterLink
             to={homeTo}
@@ -139,7 +149,7 @@ function AppLayoutShell() {
             }}
           >
             <Typography variant="h6" color="inherit">
-              {workspace}'s Workspace
+              {workspaceTitle}
             </Typography>
           </RouterLink>
           {user?.permission_level >= 3 && (
@@ -173,13 +183,33 @@ function AppLayoutShell() {
             sx={{
               bgcolor: 'secondary.main',
               '&:hover': { bgcolor: 'secondary.dark' },
+              mr: 1,
             }}
           >
             測試AI助理
           </Button>
-          <IconButton color="inherit" onClick={handleLogout}>
-            <ExitToAppIcon />
+          <IconButton
+            color="inherit"
+            onClick={e => setAccountMenuAnchor(e.currentTarget)}
+            aria-label="account menu"
+          >
+            <MenuIcon />
           </IconButton>
+          <Menu
+            anchorEl={accountMenuAnchor}
+            open={Boolean(accountMenuAnchor)}
+            onClose={() => setAccountMenuAnchor(null)}
+          >
+            <MuiMenuItem
+              onClick={() => {
+                setAccountMenuAnchor(null);
+                setIsAccountSettingsOpen(true);
+              }}
+            >
+              帳戶設定
+            </MuiMenuItem>
+            <MuiMenuItem onClick={handleLogout}>登出</MuiMenuItem>
+          </Menu>
         </Toolbar>
       </AppBar>
       <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
@@ -269,6 +299,11 @@ function AppLayoutShell() {
         </AppBar>
         <AIAssistantManagement open={isAIManagementDialogOpen} />
       </Dialog>
+      <AccountSettingsDialog
+        open={isAccountSettingsOpen}
+        user={user}
+        onClose={() => setIsAccountSettingsOpen(false)}
+      />
     </Box>
   );
 }
