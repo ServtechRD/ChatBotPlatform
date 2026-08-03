@@ -9,6 +9,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import PasswordTextField from './PasswordTextField.jsx';
 import { auth } from '../services/api/auth.js';
 
 export default function AccountSettingsDialog({ open, onClose, user }) {
@@ -106,19 +107,17 @@ export default function AccountSettingsDialog({ open, onClose, user }) {
           onChange={e => setCurrentPassword(e.target.value)}
           autoComplete="current-password"
         />
-        <TextField
+        <PasswordTextField
           margin="dense"
           label="新密碼"
-          type="password"
           fullWidth
           value={newPassword}
           onChange={e => setNewPassword(e.target.value)}
           autoComplete="new-password"
         />
-        <TextField
+        <PasswordTextField
           margin="dense"
           label="確認新密碼"
-          type="password"
           fullWidth
           value={confirmPassword}
           onChange={e => setConfirmPassword(e.target.value)}
