@@ -107,28 +107,26 @@ def list_notebooks(email: str) -> List[Dict[str, Any]]:
 
 
 def search_knowledge(notebook_ids: List[int], ask: str) -> List[Dict[str, Any]]:
-    """POST /api/integration/knowledge/search — body: notebook_ids + ask。"""
+    """POST /api/integration/knowledge/search — body: notebook_ids + ask + top。"""
     ids = [int(x) for x in notebook_ids if x is not None]
     ask = (ask or "").strip()
     if not ids or not ask:
         return []
 
+    top_k = max(1, int(os.getenv("RAG_TOP_K", "3")))
+
     if _mode() != "http":
         logger.info(
-            "[Jarvis] mock search_knowledge notebook_ids=%s ask_len=%d",
+            "[Jarvis] mock search_knowledge notebook_ids=%s ask_len=%d top=%d",
             ids,
             len(ask),
+            top_k,
         )
         return [
             {
-                "content": (
-                    f"[Mock] 與問題「{ask[:80]}」相關的知識片段。\n"
-                    f"此內容來自 mock notebook_id={ids[0]}，"
-                    "請改 NOTEBOOK_KNOWLEDGE_MODE=http 連正式 Jarvis。"
-                ),
-                "score": 0.91,
-                "source": "mock.txt",
-                "notebook_id": ids[0],
+                "id": 1,
+                "text": "這是模擬的知識片段回傳，實作應呼叫 Jarvis API。",
+                "score": 1.0,
             }
         ]
 
@@ -137,7 +135,7 @@ def search_knowledge(notebook_ids: List[int], ask: str) -> List[Dict[str, Any]]:
         raise RuntimeError("JARVIS_BASE_URL is not configured")
 
     url = f"{base}/api/integration/knowledge/search"
-    payload = {"notebook_ids": ids, "ask": ask}
+    payload = {"notebook_ids": ids, "ask": ask, "top": top_k}
     with httpx.Client(timeout=_timeout(), verify=False) as client:
         resp = client.post(url, json=payload, headers=_headers())
         resp.raise_for_status()
