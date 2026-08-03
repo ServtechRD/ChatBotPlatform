@@ -1,0 +1,34 @@
+---
+description: 前端 TS 與目錄分層規範
+globs: frontend/src/**/*.{ts,tsx}
+alwaysApply: true
+---
+
+# 前端結構規範
+
+- `src/services`：API / Firebase 封裝（TypeScript）。
+- `src/types`：共用型別定義（TypeScript）。
+- `src/pages`：頁面元件（TypeScript / `.tsx`）。
+- `src/components`：可複用元件與功能模組元件（TypeScript / `.tsx`）。
+- `src/queries`：TanStack Query 封裝（TypeScript）；包含 `useQuery` / `useMutation` 與 `queryKey`（`*Keys.ts`），可依功能分子目錄。
+- `src/hooks`：自訂 Hooks（TypeScript）；包含 reducer/流程/UI 狀態輔助。不得新增 `useQuery` / `useMutation` 封裝；僅可使用 `useQueryClient` 進行 `invalidateQueries` / `setQueryData`（若不新增 `useQuery` / `useMutation` 與 `queryKey` 定義）。
+- `src/context`：React Context（僅在有明確需要時）。
+- `src/utils`：共用工具與邏輯（含 toast 薄封裝若需要）；依 domain 分子目錄（如 `auth`、`users`、`projects`、`questions`），跨域共用放 `common`。
+- `src/config` / `src/routes` / `src/assets`：依現有用途使用（TypeScript）。
+
+程式風格：
+
+- 元件與函數使用 `function` 宣告。
+- 變數使用 `const` / `let`，命名採 `camelCase`。
+- `<Dialog>` 等複雜 UI 優先拆成獨立 component 並以 props 傳值。
+- Hooks 必須遵守 Rules of Hooks（僅在頂層或自訂 Hook 內呼叫）。
+
+TanStack Query 分層：
+
+- `src/services`：純 HTTP / Firebase 封裝，不含 React Query。
+- `src/queries`：`useQuery` / `useMutation` 與 `queryKey`；mutation 成功後 invalidate 或更新相關 cache。
+- `src/pages`、`src/components`：消費 hook 回傳的 `data`、`isPending`、`mutate` 等，不直接呼叫 API。
+
+資源識別：
+
+- 專案／助理相關欄位與 API path 使用 `assistant_id`（對齊 `docs/architeture.md`）。

@@ -1,0 +1,44 @@
+---
+description: 前端硬性規範（強制）
+alwaysApply: true
+---
+
+# 前端硬性規範
+
+適用：任何涉及 `frontend/**` 的任務。
+
+## 設計依據
+- 元件結構、頁面流程、API 契約與狀態設計以 `docs/architeture.md` 為主。
+- 與其他文件衝突時，先回報差異；未取得使用者確認前，以 `docs/architeture.md` 實作。
+- 專案／助理資源鍵一律使用 `assistant_id`（路徑、型別、queryKey、表單欄位皆同）；不得改用 `project_id` 取代，除非使用者明確授權。
+
+## 後端假設（目前）
+- 後端為 Firebase **Cloud Functions（Node.js）**，位於 `backend/`；Hosting rewrite `/api/**` → function `api`。
+- 前端依 architecture／已約定 API shape 經 `src/services` 呼叫；不得臆造未約定的 endpoint；users 等已接線功能不得以 mock fallback 掩蓋 API 錯誤。
+- Firebase client（Auth / Storage 等）仍須經 `src/services` 封裝，頁面/元件不得直接打 SDK 做業務 CRUD。
+
+## 必須遵守
+- API 呼叫僅能透過 `src/services` 封裝，頁面/元件不得直接寫請求邏輯。
+- 前端原始碼一律使用 TypeScript：`.ts` / `.tsx`（含 `src/pages`、`src/components`）。
+- 函數與元件一律使用 `function` 宣告。
+- 禁止在 render 內定義 inline component。
+- 不得新增未經批准之 top-level 資料夾。
+- 共享邏輯必須放在 `src/utils`，避免重複實作。
+- 禁止使用瀏覽器原生 `alert` / `confirm` / `prompt` 作為一般提示流程；通知、警告、錯誤與成功訊息一律使用已安裝的 **`react-toastify`**（可薄封裝於 `src/components/common/toast` 或 `src/utils/toast`，對外統一 `toast.success` / `toast.error` / `toast.warn` / `toast.info`）。
+- 新增提示訊息時，優先復用既有 toast 封裝與 severity，不得在頁面或元件內自行實作另一套 snackbar/toast。
+- 不得匯入或安裝 `package.json` 未列出的套件。
+- UI 狀態以 React 內建 Hooks 管理；**伺服器狀態**（可 cache 的 CRUD 讀寫）以 **TanStack Query**（`@tanstack/react-query`）管理，封裝於 `src/queries`。
+- 可重複讀取、需 cache / refetch / 列表同步的 **Read**，須在 `src/queries` 以 `useQuery` 封裝；**Create / Update / Delete** 須以 `useMutation` 封裝，成功後以 `invalidateQueries` 或 `setQueryData` 更新相關 cache。
+- 頁面與元件不得直接 import `services` 執行 CRUD；僅能透過 `src/queries` 或 props（必要時搭配非 React Query 的 `src/hooks` helper）取得資料與 mutation。
+- React Query 封裝（任何 `useQuery` / `useMutation` 與 `queryKey` 定義）僅能存在於 `src/queries`；若僅使用 `useQueryClient` 進行 `invalidateQueries` / `setQueryData`，且不新增 `useQuery` / `useMutation`，可保留在 `src/hooks`。
+- `queryKey` 與對應 hook 放在同一模組或鄰近 `*Keys.ts`。
+- 單一元件內、與業務無關且生命週期極短之 UI（例如 hover、單次動畫旗標）可保留 `useState`；其餘 **新增** 客戶端狀態優先 Zustand，避免以 props 深層傳遞取代 store。
+
+### TanStack Query 例外（可不經 React Query）
+- 登入、refresh、一次性 auth 流程（含 Firebase Auth）。
+- 單次、不進 cache 的動作（例如檔案下載、匯出）。
+- WebSocket 或即時推送驅動的狀態。
+- 需 PR 或任務說明明確標註原因的一次性 imperative 呼叫。
+
+### 既有程式
+- 本專案為新建前端；**新增** 或**大改** 某功能時，須遵守 React Query + Zustand 分工，不得引入無必要的 legacy Context 模式。

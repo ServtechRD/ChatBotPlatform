@@ -1,0 +1,24 @@
+---
+description: 前端任務交付前必檢清單
+alwaysApply: true
+---
+
+# 前端交付必檢
+
+完成前端任務前，必須逐項確認：
+
+- [ ] 是否未在頁面/元件直接呼叫 API（皆經 `src/services`）？
+- [ ] 新增或改動的 CRUD 是否已在 `src/queries` 以 TanStack Query（`useQuery` / `useMutation`）封裝，且 mutation 後有 invalidate 或更新 cache？
+- [ ] 頁面/元件是否未直接 import `services` 做 CRUD（僅透過 hook 或 props）？
+- [ ] 原始碼是否皆為 `.ts` / `.tsx`（含 `src/pages`、`src/components`）？
+- [ ] 元件/函數是否使用 `function` 宣告？
+- [ ] 是否避免 render 內 inline component？
+- [ ] 是否未新增未核准 top-level 資料夾？
+- [ ] 共用邏輯是否抽到 `src/utils`？
+- [ ] 是否未引入未核准套件？
+- [ ] 是否未使用原生 `alert` / `confirm` / `prompt`，並統一改用 `react-toastify`？
+- [ ] API／元件設計是否對齊 `docs/architeture.md`，且資源鍵使用 `assistant_id`？
+
+衝突時：
+- [ ] 是否先停止產生程式碼並回報衝突點？
+- [ ] 是否取得使用者明確例外授權與描述後才繼續？

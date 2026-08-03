@@ -1,0 +1,32 @@
+---
+description: 後端資料夾與模組分層
+globs: backend/**
+alwaysApply: false
+---
+
+# 後端結構
+
+```
+backend/
+  index.js                 # 初始化 Admin、export `api`
+  package.json
+  src/
+    app.js                 # Express（或同等 router）組裝
+    config/                # firebase admin、常數
+    middleware/            # auth、error、apiLog
+    routes/
+    controllers/
+    services/
+    repositories/
+    models/
+    utils/
+```
+
+## 命名
+- 檔名：`users.routes.js`、`users.controller.js`、`users.service.js`、`users.repository.js`、`user.model.js`
+- 匯出：具名函式（`function`）或 `module.exports` 物件方法
+- Firestore collection：`users`、`api_log`（snake_case）
+- API JSON 欄位：snake_case，對齊 `docs/architeture.md`
+
+## 呼叫鏈
+Request → routes → controller → service → repository → model / database
