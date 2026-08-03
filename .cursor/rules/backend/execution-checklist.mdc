@@ -1,0 +1,24 @@
+---
+description: 後端任務交付前必檢清單
+globs: backend/**
+alwaysApply: false
+---
+
+# 後端交付必檢
+
+完成後端任務前，必須逐項確認：
+
+- [ ] 是否遵守 routes → controller → service → repository → model？
+- [ ] controller / routes 是否未直接使用 Firestore / Auth SDK？
+- [ ] 是否對齊 `docs/architeture.md` 的 path 與欄位？
+- [ ] 私有路由是否驗證 ID Token 並檢查 role？
+- [ ] users 的 `user_id` 是否等於 Auth UID？
+- [ ] `email` 是否僅在建立時寫入、更新時拒絕修改？
+- [ ] `password` 是否未寫入 Firestore？
+- [ ] 是否未硬刪除 user（僅 `enabled`）？
+- [ ] 錯誤格式是否為 `{ message }`？
+- [ ] 新增依賴是否已寫入 `package.json`？
+
+衝突時：
+- [ ] 是否先停止產生程式碼並回報衝突點？
+- [ ] 是否取得使用者明確例外授權與描述後才繼續？

@@ -124,6 +124,14 @@ def search_knowledge(notebook_ids: List[int], ask: str) -> List[Dict[str, Any]]:
         )
         return [
             {
+                "id": 1,
+                "text": "這是模擬的知識片段回傳，實作應呼叫 Jarvis API。",
+                "score": 1.0,
+            }
+        ]
+        )
+        return [
+            {
                 "content": (
                     f"[Mock] 與問題「{ask[:80]}」相關的知識片段。\n"
                     f"此內容來自 mock notebook_id={ids[0]}，"

@@ -1,0 +1,43 @@
+---
+description: 後端硬性規範（Cloud Functions / Node.js）
+globs: backend/**
+alwaysApply: false
+---
+
+# 後端硬性規範
+
+適用：任何涉及 `backend/**` 的任務。
+
+## 技術棧
+- Firebase Cloud Functions（Node.js，`engines.node` 與 `backend/package.json` 一致）
+- 使用 **JavaScript（CommonJS）**，不引入 TypeScript，除非使用者明確授權
+- Firebase Admin：Auth / Firestore / Storage
+- API 以單一 HTTPS function `api` 對外；Hosting rewrite `/api/**` → `api`
+
+## 設計依據
+- API 契約、資源欄位以 `docs/architeture.md` 為主；與 `docs/spec.md` 衝突時先回報
+- 資源鍵使用 `assistant_id`、`user_id`（Auth UID），不得擅自改名
+
+## 分層（強制）
+Request → routes → controller → service → repository → model / database
+- routes：只掛 path / method / middleware
+- controller：解析 req、呼叫 service、組 res；不含 Firestore/Auth SDK
+- service：業務規則、權限、跨 repository 協調；可呼叫 Admin Auth
+- repository：僅 Firestore（或 Storage）讀寫
+- model：欄位常數、validate、toDTO / fromFirestore
+
+## 必須遵守
+- 不得在 routes/controller 直接打 Firestore / Auth
+- 私有 API 須驗證 Firebase ID Token（Bearer）
+- 角色權限：`developer` / `admin` / `user`；訪客無後台 API
+- 錯誤回傳統一 `{ message: string }`，HTTP status 語意正確
+- 寫入 `api_log` 的邏輯放 middleware 或獨立 service，不散落於各 controller
+- 不得安裝未寫入 `backend/package.json` 的套件
+- 不得臆造 architecture 未定義的 endpoint；擴充前先回報
+
+## users 集合
+- Document ID = Firebase Auth UID = `user_id`
+- 必填：`user_id`, `user_name`, `email`, `role`, `created_at`, `created_by`, `modified_at`, `assistant_id`, `enabled`
+- `email` 為登入帳號：僅建立時寫入，之後不可修改（PUT 不得接受 `email`）
+- 建立使用者時 `password` 由 admin 表單帶入，僅寫入 Auth，不寫入 Firestore
+- 不做硬刪除；停用改 `enabled: false`
