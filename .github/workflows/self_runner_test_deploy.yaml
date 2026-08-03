@@ -2,8 +2,7 @@ name: Deploy Chatbot By Self Runner
 
 on:
   push:
-    branches:
-      - main
+    branches: ['**']
 
 jobs:
   deploy:
@@ -11,9 +10,15 @@ jobs:
 
     steps:
       - name: Update service
+        env:
+          BRANCH: ${{ github.ref_name }}
         run: |
+          echo "Deploying branch: $BRANCH"
           cd /home/stadmin/ChatBotPlatform
-          git checkout main
-          git pull
+          # 只負責切到正確 branch 並對齊遠端；實際 git pull 由 restart_chatbot.sh 處理。
+          # 若這裡不做 reset，本機髒檔（如 package.json）會讓後續 pull 失敗。
+          git fetch origin "$BRANCH"
+          git checkout "$BRANCH"
+          git reset --hard "origin/$BRANCH"
           cd ..
           ./restart_chatbot.sh main clear

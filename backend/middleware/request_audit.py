@@ -16,6 +16,7 @@ from starlette.responses import Response
 from starlette.types import ASGIApp
 
 from services import auth_service
+from services.integration_api_key import verify_integration_api_key
 from utils.client_ip import get_client_ip
 from utils.logger import get_logger
 
@@ -23,7 +24,7 @@ logger = get_logger("http_request")
 
 # 含密碼或 token 的 key（不分大小寫比對）
 _SENSITIVE_KEY_RE = re.compile(
-    r"(password|secret|token|authorization|refresh_token|access_token|client_secret)",
+    r"(password|secret|token|authorization|refresh_token|access_token|client_secret|api[_-]?key)",
     re.I,
 )
 
@@ -75,6 +76,12 @@ def _preview_body(content_type: str, raw: bytes, max_len: int = 8192) -> str:
 
 
 def _actor_from_request(request: Request) -> str:
+    api_key = request.headers.get("x-api-key")
+    if api_key:
+        if verify_integration_api_key(api_key):
+            return "api_key"
+        return "api_key(invalid)"
+
     auth = request.headers.get("authorization") or ""
     if not auth.startswith("Bearer "):
         return "-"

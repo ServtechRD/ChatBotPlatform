@@ -9,6 +9,7 @@ from models.database import get_db
 from models.models import Conversation as ORMConversation, Message, AIAssistant
 from models.schemas import ConversationCreate, Conversation, Message as MessageSchema
 from utils.client_ip import get_client_ip
+from dependencies.integration_auth import require_integration_api_key
 
 router = APIRouter()
 
@@ -44,6 +45,7 @@ def create_conversation(
 @router.get("/conversation/{conversation_id}/messages", response_model=List[MessageSchema])
 def get_conversation_messages(
         conversation_id: int,
+        _: None = Depends(require_integration_api_key),
         db: Session = Depends(get_db)
 ):
     # 檢查對話是否存在

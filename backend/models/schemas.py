@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional
-from datetime import datetime
+from datetime import date, datetime
 
 
 # 使用者建立模型
@@ -59,6 +59,32 @@ class Assistant(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+# 外部整合用：助理列表精簡欄位
+class IntegrationAssistantSummary(BaseModel):
+    assistant_id: int
+    name: str
+    link: Optional[str] = None
+
+    class Config:
+        orm_mode = True
+
+
+# 外部整合用：訊息筆數（台北日曆日）
+class IntegrationMessageCount(BaseModel):
+    start_date: date
+    end_date: date
+    count: int
+
+
+# 外部整合用：各助理最新一輪問答
+class IntegrationLatestQaItem(BaseModel):
+    name: str
+    question: Optional[str] = None
+    answer: Optional[str] = None
+    question_at: Optional[str] = None
+    answer_at: Optional[str] = None
 
 
 # 訊息模型
