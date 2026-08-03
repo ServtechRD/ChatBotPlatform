@@ -135,7 +135,7 @@ def search_knowledge(notebook_ids: List[int], ask: str) -> List[Dict[str, Any]]:
         raise RuntimeError("JARVIS_BASE_URL is not configured")
 
     url = f"{base}/api/integration/knowledge/search"
-    payload = {"notebook_ids": ids, "ask": ask, "top": top_k}
+    payload = {"notebook_ids": ids, "ask": ask, "top_k": top_k}
     with httpx.Client(timeout=_timeout(), verify=False) as client:
         resp = client.post(url, json=payload, headers=_headers())
         resp.raise_for_status()
