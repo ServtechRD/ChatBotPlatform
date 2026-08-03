@@ -11,15 +11,11 @@ import {
   IconButton,
   DialogContent,
   DialogActions,
-  InputAdornment,
   Alert,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import {
-  Visibility,
-  VisibilityOff,
-  Close as CloseIcon,
-} from '@mui/icons-material';
+import { Close as CloseIcon } from '@mui/icons-material';
+import PasswordTextField from '../components/PasswordTextField.jsx';
 
 import useAuth from '../hook/useAuth';
 import { auth } from '../services/api/auth.js';
@@ -39,7 +35,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
   const [openRegister, setOpenRegister] = useState(false);
   const [registerEmail, setRegisterEmail] = useState('');
   const [registerName, setRegisterName] = useState('');
@@ -208,32 +203,20 @@ export default function LoginPage() {
               autoComplete="email"
               autoFocus
               value={email}
+              inputProps={{ maxLength: 255 }}
               onChange={e => setEmail(e.target.value)}
             />
-            <TextField
+            <PasswordTextField
               margin="normal"
               required
               fullWidth
               name="password"
               label="密碼"
-              type={showPassword ? 'text' : 'password'}
               id="password"
               autoComplete="current-password"
+              inputProps={{ maxLength: 100 }}
               value={password}
               onChange={e => setPassword(e.target.value)}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      aria-label="toggle password visibility"
-                      onClick={() => setShowPassword(!showPassword)}
-                      edge="end"
-                    >
-                      {showPassword ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
             />
             <Button
               type="submit"
@@ -379,6 +362,7 @@ export default function LoginPage() {
             variant="outlined"
             required
             value={registerEmail}
+            inputProps={{ maxLength: 255 }}
             onChange={e => setRegisterEmail(e.target.value)}
           />
           <TextField
@@ -388,17 +372,18 @@ export default function LoginPage() {
             fullWidth
             variant="outlined"
             value={registerName}
+            inputProps={{ maxLength: 255 }}
             onChange={e => setRegisterName(e.target.value)}
             helperText="可留空"
           />
-          <TextField
+          <PasswordTextField
             margin="dense"
             id="register-password"
             label="密碼"
-            type="password"
             fullWidth
             variant="outlined"
             required
+            inputProps={{ maxLength: 100 }}
             value={registerPassword}
             onChange={e => setRegisterPassword(e.target.value)}
           />
