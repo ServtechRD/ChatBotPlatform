@@ -28,6 +28,8 @@ import {
   canSubmitChatMessage,
   SEND_FAILED_MESSAGE,
 } from '../utils/wsChatUi';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 const CHAT_WIDTH = 398;
 const CHAT_HEIGHT = 598;
@@ -826,31 +828,15 @@ export default function EmbeddableChatInterface({
     if (typeof onError === 'function') onError(embedError);
   }, [isEmbedError, embedError, onError]);
 
-  // 捲動控制
+  // 捲動控制：對齊容器底部，避免舊訊息氣泡被切在可視區上緣
   function scrollToBottom() {
-      if (!messagesContainerRef.current) return;
+    if (!messagesContainerRef.current) return;
 
-  const container = messagesContainerRef.current;
+    const container = messagesContainerRef.current;
 
-  requestAnimationFrame(() => {
-    const messageElements = container.querySelectorAll('[data-message-id]');
-    const lastMessage = messageElements[messageElements.length - 1];
-
-    if (lastMessage) {
-      // 讓最新訊息的頂端可見，而不是拉到最底
-      container.scrollTop = Math.max(0, lastMessage.offsetTop - 12);
-    } else {
+    requestAnimationFrame(() => {
       container.scrollTop = container.scrollHeight;
-    }
-  });
-    // TODO: 07/08 PM 測試要調整 scroll 行為
-    // if (messagesContainerRef.current) {
-    //   requestAnimationFrame(() => {
-    //     messagesContainerRef.current.scrollTop =
-    //       messagesContainerRef.current.scrollHeight;
-    //   });
-    // }
-
+    });
   }
 
   // 訊息更新時捲動
@@ -1152,62 +1138,43 @@ export default function EmbeddableChatInterface({
           >
             <Box
               sx={{
-                position: 'relative', // 設為相對定位，作為絕對定位的參考點
+                position: 'relative',
                 flexGrow: 1,
-                overflow: 'hidden', // 改為 hidden 防止內容超出
+                minHeight: 0,
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column',
               }}
             >
-              {/* 消息區域 */}
+              {/* 消息區域：全高可捲，上半以 ::before 留白露出背景人像 */}
               <Box
                 ref={messagesContainerRef}
-                sx={
-                  /*{
-            flexGrow: 1,
-            overflowY: 'auto',
-            p: 2,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 2,
-            position: 'relative',
-            '&::before': {
-              content: '""',
-              display: 'block',
-              minHeight: '50%',
-              pointerEvents: 'none',
-            },
-            '&::-webkit-scrollbar': {
-              width: '4px',
-            },
-            '&::-webkit-scrollbar-track': {
-              backgroundColor: 'rgba(0,0,0,0.1)',
-            },
-            '&::-webkit-scrollbar-thumb': {
-              backgroundColor: 'rgba(255,255,255,0.3)',
-              borderRadius: '2px',
-            },
-          }*/ {
-                    position: 'absolute',
-                    top: '50%',
-                    left: 0,
-                    right: 0,
-                    height: '50%', // 固定高度為容器的一半
-                    overflowY: 'auto',
-                    p: 2,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 2,
-                    '&::-webkit-scrollbar': {
-                      width: '4px',
-                    },
-                    '&::-webkit-scrollbar-track': {
-                      backgroundColor: 'rgba(0,0,0,0.1)',
-                    },
-                    '&::-webkit-scrollbar-thumb': {
-                      backgroundColor: 'rgba(255,255,255,0.3)',
-                      borderRadius: '2px',
-                    },
-                  }
-                }
+                sx={{
+                  flexGrow: 1,
+                  minHeight: 0,
+                  overflowY: 'auto',
+                  p: 2,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 2,
+                  position: 'relative',
+                  '&::before': {
+                    content: '""',
+                    display: 'block',
+                    minHeight: '50%',
+                    pointerEvents: 'none',
+                  },
+                  '&::-webkit-scrollbar': {
+                    width: '4px',
+                  },
+                  '&::-webkit-scrollbar-track': {
+                    backgroundColor: 'rgba(0,0,0,0.1)',
+                  },
+                  '&::-webkit-scrollbar-thumb': {
+                    backgroundColor: 'rgba(255,255,255,0.3)',
+                    borderRadius: '2px',
+                  },
+                }}
               >
                 {messages.map(message => (
                   <Box
@@ -1234,17 +1201,32 @@ export default function EmbeddableChatInterface({
                         flexWrap: 'wrap',
                       }}
                     >
-                      <Typography
+                      <Box
+                        component="div"
                         sx={{
                           color: message.isBot ? 'black' : 'white',
                           wordBreak: 'break-word',
                           lineHeight: 1.4,
                           flex: 1,
                           fontSize: messageFontSize,
+                          '& p': {
+                            m: 0,
+                            mb: 0.5,
+                            '&:last-child': { mb: 0 },
+                          },
+                          '& ul, & ol': {
+                            m: 0,
+                            mb: 0.5,
+                            pl: 2.5,
+                            '&:last-child': { mb: 0 },
+                          },
+                          '& strong': { fontWeight: 700 },
                         }}
                       >
-                        {message.text}
-                      </Typography>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {message.text ?? ''}
+                        </ReactMarkdown>
+                      </Box>
 
                       {/* 🔊 AI 語音播放按鈕 */}
                       {message.isBot && (
