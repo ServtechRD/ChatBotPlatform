@@ -93,6 +93,7 @@ export default function AccountSettingsDialog({ open, onClose, user }) {
           label="顯示名稱"
           fullWidth
           value={name}
+          inputProps={{ maxLength: 255 }}
           onChange={e => setName(e.target.value)}
         />
         <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
@@ -104,6 +105,7 @@ export default function AccountSettingsDialog({ open, onClose, user }) {
           type="password"
           fullWidth
           value={currentPassword}
+          inputProps={{ maxLength: 100 }}
           onChange={e => setCurrentPassword(e.target.value)}
           autoComplete="current-password"
         />
@@ -111,6 +113,7 @@ export default function AccountSettingsDialog({ open, onClose, user }) {
           margin="dense"
           label="新密碼"
           fullWidth
+          inputProps={{ maxLength: 100 }}
           value={newPassword}
           onChange={e => setNewPassword(e.target.value)}
           autoComplete="new-password"
@@ -119,6 +122,7 @@ export default function AccountSettingsDialog({ open, onClose, user }) {
           margin="dense"
           label="確認新密碼"
           fullWidth
+          inputProps={{ maxLength: 100 }}
           value={confirmPassword}
           onChange={e => setConfirmPassword(e.target.value)}
           autoComplete="new-password"

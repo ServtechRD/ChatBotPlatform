@@ -203,6 +203,7 @@ export default function LoginPage() {
               autoComplete="email"
               autoFocus
               value={email}
+              inputProps={{ maxLength: 255 }}
               onChange={e => setEmail(e.target.value)}
             />
             <PasswordTextField
@@ -213,6 +214,7 @@ export default function LoginPage() {
               label="密碼"
               id="password"
               autoComplete="current-password"
+              inputProps={{ maxLength: 100 }}
               value={password}
               onChange={e => setPassword(e.target.value)}
             />
@@ -360,6 +362,7 @@ export default function LoginPage() {
             variant="outlined"
             required
             value={registerEmail}
+            inputProps={{ maxLength: 255 }}
             onChange={e => setRegisterEmail(e.target.value)}
           />
           <TextField
@@ -369,6 +372,7 @@ export default function LoginPage() {
             fullWidth
             variant="outlined"
             value={registerName}
+            inputProps={{ maxLength: 255 }}
             onChange={e => setRegisterName(e.target.value)}
             helperText="可留空"
           />
@@ -379,6 +383,7 @@ export default function LoginPage() {
             fullWidth
             variant="outlined"
             required
+            inputProps={{ maxLength: 100 }}
             value={registerPassword}
             onChange={e => setRegisterPassword(e.target.value)}
           />
