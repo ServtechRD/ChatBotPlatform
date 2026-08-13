@@ -11,18 +11,18 @@ import os
 download_dir = "/home/chatbot_platform/nltk_data"
 os.makedirs(download_dir, exist_ok=True)
 
-# 需要的套件
-pkgs = [
-    "punkt",
-    "punkt_tab",
-    "averaged_perceptron_tagger",
-    "averaged_perceptron_tagger_eng",
-]
+# 需要的套件 (name -> nltk.data 資源類別)
+pkgs = {
+    "punkt": "tokenizers",
+    "punkt_tab": "tokenizers",
+    "averaged_perceptron_tagger": "taggers",
+    "averaged_perceptron_tagger_eng": "taggers",
+}
 
-for p in pkgs:
+for p, category in pkgs.items():
     try:
         # 檢查是否已存在
-        nltk.data.find(f"tokenizers/{p}")
+        nltk.data.find(f"{category}/{p}")
         print(f"[OK] {p} already installed.")
     except LookupError:
         try:
