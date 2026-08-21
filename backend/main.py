@@ -71,6 +71,27 @@ def startup_event():
     except Exception as e:
         logger.warning("Prewarm STT model failed (continuing): %s", e)
 
+    logger.info("[TTS] provider=%s", tts.TTS_PROVIDER)
+    if tts.TTS_PROVIDER == "kokoro":
+        try:
+            import threading
+
+            def _prewarm_kokoro():
+                try:
+                    tts.prewarm_kokoro_pipeline()
+                    logger.info(
+                        "[TTS] Kokoro warmed repo=%s voice=%s speed=%s",
+                        tts.KOKORO_REPO_ID,
+                        tts.KOKORO_DEFAULT_VOICE,
+                        tts.KOKORO_SPEED,
+                    )
+                except Exception as e:
+                    logger.warning("Prewarm Kokoro pipeline failed (continuing): %s", e)
+
+            threading.Thread(target=_prewarm_kokoro, daemon=True).start()
+        except Exception as e:
+            logger.warning("Start Kokoro prewarm thread failed (continuing): %s", e)
+
 
 @app.on_event("startup")
 async def startup_stt_queue_event():
@@ -117,7 +138,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["Content-Disposition"],
+    expose_headers=["Content-Disposition", "X-TTS-Provider"],
 )
 app.add_middleware(RequestAuditMiddleware)
 

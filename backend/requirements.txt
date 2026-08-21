@@ -138,6 +138,11 @@ nltk>=3.8.1,<4.0.0
 pyotp==2.9.0
 qrcode==7.4.2
 edge-tts==7.2.8
-gTTS==2.5.1
+kokoro
+ordered-set
+pypinyin
+cn2an
+jieba
+pypinyin_dict
 opencc-python-reimplemented==0.1.7
 pytest==8.3.4

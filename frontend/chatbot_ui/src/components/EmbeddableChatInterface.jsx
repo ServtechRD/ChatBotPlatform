@@ -478,7 +478,7 @@ export default function EmbeddableChatInterface({
   }
 
   function ttsCacheKey(segmentText) {
-    return `edge:${EDGE_VOICE}:${EDGE_RATE}:${segmentText}`;
+    return `tts:${EDGE_VOICE}:${EDGE_RATE}:${segmentText}`;
   }
 
   async function fetchTtsAudio(segmentText) {
@@ -490,7 +490,7 @@ export default function EmbeddableChatInterface({
       return hit;
     }
 
-    const response = await fetch(buildApiUrl('/api/tts/edge'), {
+    const response = await fetch(buildApiUrl('/api/tts'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -501,7 +501,7 @@ export default function EmbeddableChatInterface({
     });
 
     if (!response.ok) {
-      throw new Error(`TTS failed (edge): ${response.status}`);
+      throw new Error(`TTS failed: ${response.status}`);
     }
     const blob = await response.blob();
     ttsBlobCacheRef.current.set(key, blob);
@@ -617,7 +617,7 @@ export default function EmbeddableChatInterface({
       segmentPromise
         .then(blob => {
           if (speechId !== currentSpeechIdRef.current) return;
-          console.info('[TTS] provider=edge status=ok');
+          console.info('[TTS] status=ok');
           prefetchSegment(currentIndex + 1);
 
           stopCurrentAudio();
@@ -647,8 +647,8 @@ export default function EmbeddableChatInterface({
         })
         .catch(err => {
           console.error('TTS 語音合成錯誤:', err);
-          console.warn('[TTS] provider=web-speech-fallback reason=edge-failed');
-          // Kokoro 失敗時維持可用性，退回瀏覽器語音
+          console.warn('[TTS] provider=web-speech-fallback reason=tts-failed');
+          // 後端 TTS 失敗時維持可用性，退回瀏覽器語音
           try {
             const utterance = new SpeechSynthesisUtterance(segmentText);
             if (voiceRef.current) {
