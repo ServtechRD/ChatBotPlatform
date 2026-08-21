@@ -639,7 +639,7 @@ export default function ChatInterface({
   }
 
   function ttsCacheKey(segmentText) {
-    return `edge:${EDGE_VOICE}:${EDGE_RATE}:${segmentText}`;
+    return `tts:${EDGE_VOICE}:${EDGE_RATE}:${segmentText}`;
   }
 
   async function fetchTtsAudio(segmentText) {
@@ -649,13 +649,13 @@ export default function ChatInterface({
       ttsBlobCacheRef.current.delete(key);
       ttsBlobCacheRef.current.set(key, cachedBlob);
       console.info(
-        `[TTS][frontend] fetch_cache_hit provider=edge text_len=${segmentText.length} blob_bytes=${cachedBlob.size}`
+        `[TTS][frontend] fetch_cache_hit text_len=${segmentText.length} blob_bytes=${cachedBlob.size}`
       );
       return cachedBlob;
     }
 
     const fetchStart = performance.now();
-    const response = await fetch(buildApiUrl('/api/tts/edge'), {
+    const response = await fetch(buildApiUrl('/api/tts'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -666,7 +666,7 @@ export default function ChatInterface({
     });
 
     if (!response.ok) {
-      throw new Error(`TTS failed (edge): ${response.status}`);
+      throw new Error(`TTS failed: ${response.status}`);
     }
     const blob = await response.blob();
     ttsBlobCacheRef.current.set(key, blob);
@@ -675,8 +675,9 @@ export default function ChatInterface({
       if (!oldestKey) break;
       ttsBlobCacheRef.current.delete(oldestKey);
     }
+    const provider = response.headers.get('X-TTS-Provider') || 'unknown';
     console.info(
-      `[TTS][frontend] fetch_done provider=edge text_len=${segmentText.length} blob_bytes=${blob.size} elapsed_ms=${(performance.now() - fetchStart).toFixed(1)}`
+      `[TTS][frontend] fetch_done provider=${provider} text_len=${segmentText.length} blob_bytes=${blob.size} elapsed_ms=${(performance.now() - fetchStart).toFixed(1)}`
     );
     return blob;
   }
@@ -809,7 +810,7 @@ export default function ChatInterface({
       segmentPromise
         .then(blob => {
           if (speechId !== currentSpeechIdRef.current) return;
-          console.info('[TTS] provider=edge status=ok');
+          console.info('[TTS] status=ok');
           console.info(
             `[TTS][frontend] segment_blob_ready index=${currentIndex + 1}/${segments.length} elapsed_ms=${(performance.now() - speakStart).toFixed(1)}`
           );
@@ -847,7 +848,7 @@ export default function ChatInterface({
         })
         .catch(err => {
           console.error('TTS 語音合成錯誤:', err);
-          console.warn('[TTS] provider=web-speech-fallback reason=edge-failed');
+          console.warn('[TTS] provider=web-speech-fallback reason=tts-failed');
           try {
             const utterance = new SpeechSynthesisUtterance(segmentText);
             if (voiceRef.current) {
